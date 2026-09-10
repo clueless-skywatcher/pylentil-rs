@@ -1,0 +1,10 @@
+[package]
+name = "pylentil_ast"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+pylentil_common = { workspace = true }
+
+[lib]
+path = "src/lib.rs"

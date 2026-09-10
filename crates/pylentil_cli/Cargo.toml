@@ -1,0 +1,13 @@
+[package]
+name = "pylentil_cli"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "pylentil"
+path = "src/main.rs"
+
+[dependencies]
+pylentil_ast = { workspace = true }
+pylentil_rules = { workspace = true }
+pylentil_common = { workspace = true }

@@ -1,0 +1,17 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/pylentil_common",
+    "crates/pylentil_ast",
+    "crates/pylentil_rules",
+    "crates/pylentil_cli",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+
+[workspace.dependencies]
+pylentil_common = { path = "crates/pylentil_common" }
+pylentil_ast = { path = "crates/pylentil_ast" }
+pylentil_rules = { path = "crates/pylentil_rules" }
