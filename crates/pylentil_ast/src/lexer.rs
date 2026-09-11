@@ -2,9 +2,16 @@ use pylentil_common::errors::PylentilError;
 
 use crate::token::{PyToken, PyTokenType};
 
+static KEYWORDS: &[&str] = &[
+    "False", "None", "True", "and", "as", "assert", "async", "await", "break", "class", "continue",
+    "def", "del", "elif", "else", "except", "finally", "for", "from", "global", "if", "import",
+    "in", "is", "lambda", "nonlocal", "not", "or", "pass", "raise", "return", "try", "while",
+    "with", "yield",
+];
+
 pub struct PyLexer<'a> {
     pub code: &'a str,
-    pub tokens: Vec<PyToken>,
+    pub tokens: Vec<PyToken<'a>>,
 }
 
 impl<'a> PyLexer<'a> {
@@ -22,7 +29,7 @@ impl<'a> PyLexer<'a> {
         Ok(byte)
     }
 
-    fn consume_while(code: &str, pos: &mut usize, pred: impl Fn(u8) -> bool) -> String {
+    fn consume_while(code: &'a str, pos: &mut usize, pred: impl Fn(u8) -> bool) -> &'a str {
         let start = *pos;
         while let Ok(b) = Self::peek(code, *pos) {
             if !pred(b) {
@@ -30,7 +37,7 @@ impl<'a> PyLexer<'a> {
             }
             *pos += 1;
         }
-        code[start..*pos].to_string()
+        &code[start..*pos]
     }
 
     pub fn from_code(code: &'a str) -> Result<Self, PylentilError> {
@@ -209,6 +216,27 @@ impl<'a> PyLexer<'a> {
                         value: None,
                     }
                 }
+                b'&' => {
+                    Self::consume(code, &mut i)?;
+                    PyToken {
+                        kind: PyTokenType::Ampersand,
+                        value: None,
+                    }
+                }
+                b'|' => {
+                    Self::consume(code, &mut i)?;
+                    PyToken {
+                        kind: PyTokenType::VerticalBar,
+                        value: None,
+                    }
+                }
+                b'^' => {
+                    Self::consume(code, &mut i)?;
+                    PyToken {
+                        kind: PyTokenType::Caret,
+                        value: None,
+                    }
+                }
                 b'<' => {
                     Self::consume(code, &mut i)?;
 
@@ -271,7 +299,7 @@ impl<'a> PyLexer<'a> {
                             Err(e) => return Err(e),
                         }
                     }
-                    let value = code[start..i].to_string();
+                    let value = &code[start..i];
                     Self::consume(code, &mut i)?;
                     PyToken {
                         kind: PyTokenType::String,
@@ -279,18 +307,19 @@ impl<'a> PyLexer<'a> {
                     }
                 }
                 b if b.is_ascii_digit() => {
-                    let int_part = Self::consume_while(code, &mut i, |b| b.is_ascii_digit());
+                    let start = i;
+                    Self::consume_while(code, &mut i, |b| b.is_ascii_digit());
                     if Self::peek(code, i) == Ok(b'.') {
                         Self::consume(code, &mut i)?;
-                        let frac = Self::consume_while(code, &mut i, |b| b.is_ascii_digit());
+                        Self::consume_while(code, &mut i, |b| b.is_ascii_digit());
                         PyToken {
                             kind: PyTokenType::Float,
-                            value: Some(format!("{int_part}.{frac}")),
+                            value: Some(&code[start..i]),
                         }
                     } else {
                         PyToken {
                             kind: PyTokenType::Int,
-                            value: Some(int_part),
+                            value: Some(&code[start..i]),
                         }
                     }
                 }
@@ -298,9 +327,31 @@ impl<'a> PyLexer<'a> {
                     let value = Self::consume_while(code, &mut i, |b| {
                         b.is_ascii_alphanumeric() || b == b'_'
                     });
-                    PyToken {
-                        kind: PyTokenType::KeywordOrIdent,
-                        value: Some(value),
+
+                    if KEYWORDS.contains(&value) {
+                        match value {
+                            "True" => PyToken {
+                                kind: PyTokenType::Boolean,
+                                value: Some("True"),
+                            },
+                            "False" => PyToken {
+                                kind: PyTokenType::Boolean,
+                                value: Some("False"),
+                            },
+                            "None" => PyToken {
+                                kind: PyTokenType::NoneValue,
+                                value: None,
+                            },
+                            _ => PyToken {
+                                kind: PyTokenType::Keyword,
+                                value: Some(value),
+                            },
+                        }
+                    } else {
+                        PyToken {
+                            kind: PyTokenType::Ident,
+                            value: Some(value),
+                        }
                     }
                 }
                 _ => return Err(PylentilError::InvalidCharacter),
@@ -326,7 +377,7 @@ impl<'a> PyLexer<'a> {
                     && x.kind != PyTokenType::Indent
                     && x.kind != PyTokenType::Newline
             })
-            .map(|x| x.clone())
+            .copied()
             .collect();
 
         PyLexer {

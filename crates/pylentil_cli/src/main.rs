@@ -11,7 +11,7 @@ fn main() -> Result<(), PylentilError> {
     let Ok(lexer) = PyLexer::from_code(&contents) else {
         return Err(PylentilError::FileNotFound);
     };
-    for token in &lexer.spaces_scrapped().tokens {
+    for token in &lexer.tokens {
         println!("{token}");
     }
     Ok(())

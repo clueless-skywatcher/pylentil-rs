@@ -1,4 +1,4 @@
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PyTokenType {
     Indent,
     Dedent,
@@ -6,10 +6,13 @@ pub enum PyTokenType {
     Newline,
     EOF,
 
-    KeywordOrIdent,
+    Keyword,
+    Ident,
     Int,
     Float,
     String,
+    Boolean,
+    NoneValue,
 
     LParen,
     RParen,
@@ -40,14 +43,18 @@ pub enum PyTokenType {
     Greater,
     LessEqual,
     GreaterEqual,
+
+    Ampersand,
+    VerticalBar,
+    Caret
 }
 
-#[derive(Debug, Clone)]
-pub struct PyToken {
+#[derive(Debug, Clone, Copy)]
+pub struct PyToken<'a> {
     pub kind: PyTokenType,
-    pub value: Option<String>
+    pub value: Option<&'a str>
 }
-impl std::fmt::Display for PyToken {
+impl <'a> std::fmt::Display for PyToken<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}({:?})", self.kind, self.value)
     }

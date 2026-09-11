@@ -4,5 +4,6 @@ pub enum PylentilError {
     InvalidCharacter,
     FileNotFound,
     InvalidSyntax,
-    IOFailed
+    IOFailed,
+    NotATerminal
 }
