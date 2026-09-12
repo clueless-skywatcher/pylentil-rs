@@ -35,7 +35,7 @@ impl <'a> PyParser<'a> {
         if self.pos >= self.tokens.len() {
             return Err(PylentilError::EndOfFileReached);
         }
-        Ok(self.tokens[self.pos])
+        Ok(self.tokens[self.pos].clone())
     }
 
     pub fn consume(&mut self) -> Result<PyToken<'a>, PylentilError> {

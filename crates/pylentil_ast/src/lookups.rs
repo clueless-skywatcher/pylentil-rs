@@ -194,7 +194,7 @@ fn parse_boolean(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
         PyToken {
             kind: PyTokenType::Boolean,
             value: Some(value),
-        } => match value {
+        } => match value.as_ref() {
             "True" => true,
             _ => false,
         },

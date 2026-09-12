@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PyTokenType {
     Indent,
@@ -46,15 +48,16 @@ pub enum PyTokenType {
 
     Ampersand,
     VerticalBar,
-    Caret
+    Caret,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct PyToken<'a> {
     pub kind: PyTokenType,
-    pub value: Option<&'a str>
+    pub value: Option<Cow<'a, str>>,
 }
-impl <'a> std::fmt::Display for PyToken<'a> {
+
+impl<'a> std::fmt::Display for PyToken<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}({:?})", self.kind, self.value)
     }

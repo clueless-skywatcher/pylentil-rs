@@ -1,3 +1,6 @@
+use std::borrow::Cow;
+use std::collections::HashSet;
+
 use pylentil_common::errors::PylentilError;
 
 use crate::token::{PyToken, PyTokenType};
@@ -43,27 +46,37 @@ impl<'a> PyLexer<'a> {
     pub fn from_code(code: &'a str) -> Result<Self, PylentilError> {
         let mut tokens = Vec::<PyToken>::new();
         let mut i = 0;
+        let mut at_line_start = true;
 
         while i < code.len() {
             let byte = Self::peek(code, i)?;
 
+            if at_line_start && (byte == b' ' || byte == b'\t') {
+                let value = Self::consume_while(code, &mut i, |b| b == b' ' || b == b'\t');
+                
+                if !has_all_same_chars(value) {
+                    return Err(PylentilError::MixedSpacesAndTabs);
+                }
+                
+                tokens.push(PyToken {
+                    kind: PyTokenType::Indent,
+                    value: Some(Cow::Borrowed(value)),
+                });
+                at_line_start = false;
+                continue;
+            }
+
             let token = match byte {
-                b' ' => {
+                b' ' | b'\t' => {
                     Self::consume(code, &mut i)?;
                     PyToken {
                         kind: PyTokenType::Whitespace,
                         value: None,
                     }
                 }
-                b'\t' => {
-                    Self::consume(code, &mut i)?;
-                    PyToken {
-                        kind: PyTokenType::Indent,
-                        value: None,
-                    }
-                }
                 b'\n' => {
                     Self::consume(code, &mut i)?;
+                    at_line_start = true;
                     PyToken {
                         kind: PyTokenType::Newline,
                         value: None,
@@ -303,7 +316,7 @@ impl<'a> PyLexer<'a> {
                     Self::consume(code, &mut i)?;
                     PyToken {
                         kind: PyTokenType::String,
-                        value: Some(value),
+                        value: Some(Cow::Borrowed(value)),
                     }
                 }
                 b if b.is_ascii_digit() => {
@@ -314,12 +327,12 @@ impl<'a> PyLexer<'a> {
                         Self::consume_while(code, &mut i, |b| b.is_ascii_digit());
                         PyToken {
                             kind: PyTokenType::Float,
-                            value: Some(&code[start..i]),
+                            value: Some(Cow::Borrowed(&code[start..i])),
                         }
                     } else {
                         PyToken {
                             kind: PyTokenType::Int,
-                            value: Some(&code[start..i]),
+                            value: Some(Cow::Borrowed(&code[start..i])),
                         }
                     }
                 }
@@ -332,11 +345,11 @@ impl<'a> PyLexer<'a> {
                         match value {
                             "True" => PyToken {
                                 kind: PyTokenType::Boolean,
-                                value: Some("True"),
+                                value: Some(Cow::Borrowed("True")),
                             },
                             "False" => PyToken {
                                 kind: PyTokenType::Boolean,
-                                value: Some("False"),
+                                value: Some(Cow::Borrowed("False")),
                             },
                             "None" => PyToken {
                                 kind: PyTokenType::NoneValue,
@@ -344,19 +357,22 @@ impl<'a> PyLexer<'a> {
                             },
                             _ => PyToken {
                                 kind: PyTokenType::Keyword,
-                                value: Some(value),
+                                value: Some(Cow::Borrowed(value)),
                             },
                         }
                     } else {
                         PyToken {
                             kind: PyTokenType::Ident,
-                            value: Some(value),
+                            value: Some(Cow::Borrowed(value)),
                         }
                     }
                 }
                 _ => return Err(PylentilError::InvalidCharacter),
             };
 
+            if token.kind != PyTokenType::Newline {
+                at_line_start = false;
+            }
             tokens.push(token);
         }
 
@@ -365,7 +381,77 @@ impl<'a> PyLexer<'a> {
             value: None,
         });
 
-        Ok(PyLexer { code, tokens })
+        PyLexer { code, tokens }.indent_pass()
+    }
+
+    fn indent_pass(&self) -> Result<Self, PylentilError> {
+        let mut new_tokens: Vec<PyToken> = Vec::new();
+        let mut tokens = self.tokens.clone();
+        let mut indents: Vec<usize> = vec![0];
+
+        while tokens.len() > 0 {
+            let token = tokens[0].clone();
+            tokens = tokens[1..].to_vec();
+
+            match token {
+                PyToken {kind: PyTokenType::Newline, ..} => {
+                    match tokens[0].kind { 
+                        PyTokenType::EOF => {
+                            new_tokens.push(token);
+                            Self::dedent(0, &mut indents, &mut new_tokens);
+                            break;
+                        }, 
+                        PyTokenType::Indent => {
+                            let indent = get_indent_size(tokens[0].value.as_deref().unwrap())?;
+                            if indent > *indents.last().unwrap() {
+                                indents.push(indent);
+                                new_tokens.push(token);
+                                new_tokens.push(PyToken {
+                                    kind: PyTokenType::Indent,
+                                    value: Some(Cow::Owned(indent.to_string())),
+                                });
+                            } else if indent == *indents.last().unwrap() {
+                                new_tokens.push(token);
+                            } else {
+                                new_tokens.push(token);
+                                Self::dedent(indent, &mut indents, &mut new_tokens);
+                            }
+
+                            tokens = tokens[1..].to_vec();
+                        },
+                        _ => {
+                            new_tokens.push(token);
+                            Self::dedent(0, &mut indents, &mut new_tokens);
+                        }
+                    }
+                },
+                PyToken { kind: PyTokenType::EOF, .. } => {
+                    Self::dedent(0, &mut indents, &mut new_tokens);
+                    new_tokens.push(token);
+                },
+                _ => {
+                    new_tokens.push(token);
+                },
+                
+            }
+        }
+
+        // assert!(indents.len() == 1);
+
+        Ok(PyLexer { code: self.code, tokens: new_tokens.clone() })
+    }
+
+    fn dedent(indent: usize, indents: &mut Vec<usize>, new_tokens: &mut Vec<PyToken>) {
+        while indent < *indents.last().unwrap() {
+            indents.pop();
+            let val = indents.last().unwrap().to_string();
+            new_tokens.push(PyToken {
+                kind: PyTokenType::Dedent,
+                value: Some(Cow::Owned(val)),
+            });
+        }
+
+        assert!(indent == *indents.last().unwrap())
     }
 
     pub fn spaces_scrapped(&self) -> Self {
@@ -377,7 +463,7 @@ impl<'a> PyLexer<'a> {
                     && x.kind != PyTokenType::Indent
                     && x.kind != PyTokenType::Newline
             })
-            .copied()
+            .cloned()
             .collect();
 
         PyLexer {
@@ -385,4 +471,20 @@ impl<'a> PyLexer<'a> {
             tokens,
         }
     }
+}
+
+fn has_all_same_chars(s: &str) -> bool {
+    HashSet::<char>::from_iter(s.chars()).len() == 1
+}
+
+fn get_indent_size(s: &str) -> Result<usize, PylentilError> {
+    let mut size = 0usize;
+    for char in s.chars() {
+        size += match char {
+            '\t' => 4,
+            ' ' => 1,
+            _ => return Err(PylentilError::InvalidCharacter)
+        }
+    }
+    Ok(size)
 }

@@ -1,2 +1,3 @@
-def abc(x):
-	return x
+def dex(x):
+	if x == 5:
+		return x

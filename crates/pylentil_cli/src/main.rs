@@ -8,11 +8,14 @@ fn main() -> Result<(), PylentilError> {
         return Err(PylentilError::IOFailed);
     };
 
-    let Ok(lexer) = PyLexer::from_code(&contents) else {
-        return Err(PylentilError::FileNotFound);
-    };
-    for token in &lexer.tokens {
-        println!("{token}");
+    match PyLexer::from_code(&contents) {
+        Ok(lexer) => {
+            for token in &lexer.tokens {
+                println!("{token}");
+            }
+            Ok(())
+        },
+        Err(e) => Err(e)
     }
-    Ok(())
+
 }
