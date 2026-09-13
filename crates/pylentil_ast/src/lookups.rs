@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{borrow::Borrow, collections::HashMap};
 
 use lazy_static::lazy_static;
 use pylentil_common::errors::PylentilError;
@@ -134,7 +134,7 @@ lazy_static! {
         led(&mut m, PyTokenType::Ampersand, parse_binary);
         led(&mut m, PyTokenType::Caret, parse_binary);
         led(&mut m, PyTokenType::VerticalBar, parse_binary);
-        
+
         // Relational
         led(&mut m, PyTokenType::DoubleEqual, parse_comparison);
         led(&mut m, PyTokenType::NotEqual, parse_comparison);
@@ -351,7 +351,6 @@ fn parse_stmt_if(parser: &mut PyParser) -> Result<PyStatement, PylentilError> {
     parser.expect_type(vec![PyTokenType::If])?;
     let test = parse_expr(parser, PyBindingPower::Default)?;
     parser.expect_type(vec![PyTokenType::Colon])?;
-    parser.expect_type(vec![PyTokenType::Newline])?;
     parser.expect_type(vec![PyTokenType::Indent])?;
 
     let mut body: Vec<PyStatement> = Vec::new();
@@ -364,7 +363,6 @@ fn parse_stmt_if(parser: &mut PyParser) -> Result<PyStatement, PylentilError> {
     if parser.peek()?.kind == PyTokenType::Else {
         parser.consume()?;
         parser.expect_type(vec![PyTokenType::Colon])?;
-        parser.expect_type(vec![PyTokenType::Newline])?;
         parser.expect_type(vec![PyTokenType::Indent])?;
         while parser.has_tokens() && parser.peek()?.kind != PyTokenType::Dedent {
             orelse.push(parse_statement(parser)?);
@@ -396,8 +394,6 @@ fn parse_comparison(
     let mut ops: Vec<PyComparisonOp> = Vec::new();
     let mut comparators: Vec<PyExpr> = Vec::new();
 
-    // Parse each comparator at this operator's binding power so chained
-    // comparisons stay flat: a == b == c → Compare(a, [Eq, Eq], [b, c]).
     loop {
         ops.push(comparison_op(parser.consume()?.kind)?);
         comparators.push(parse_expr(parser, bp)?);

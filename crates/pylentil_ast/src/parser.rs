@@ -23,7 +23,7 @@ impl<'a> PyParser<'a> {
     fn remove_whitespaces(tokens: Vec<PyToken<'a>>) -> Vec<PyToken<'a>> {
         tokens
             .iter()
-            .filter(|&token| token.kind != PyTokenType::Whitespace)
+            .filter(|&token| token.kind != PyTokenType::Whitespace && token.kind != PyTokenType::Newline)
             .cloned()
             .collect()
     }
@@ -72,7 +72,7 @@ impl<'a> PyParser<'a> {
         }
     }
 
-    pub fn expect_type(&mut self, token_type: Vec<PyTokenType>) -> Result<PyToken, PylentilError> {
+    pub fn expect_type(&mut self, token_type: Vec<PyTokenType>) -> Result<PyToken<'_>, PylentilError> {
         match token_type.contains(&self.peek()?.kind) {
             true => Ok(self.consume()?),
             false => Err(PylentilError::InvalidSyntax),

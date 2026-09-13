@@ -7,4 +7,5 @@ pub enum PylentilError {
     IOFailed,
     NotATerminal,
     MixedSpacesAndTabs,
+    ExpectedValue
 }
