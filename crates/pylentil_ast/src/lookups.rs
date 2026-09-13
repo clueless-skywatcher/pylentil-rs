@@ -143,6 +143,9 @@ lazy_static! {
         led(&mut m, PyTokenType::LessEqual, parse_comparison);
         led(&mut m, PyTokenType::GreaterEqual, parse_comparison);
 
+        // Comma
+        led(&mut m, PyTokenType::Comma, parse_comma_separated);
+
         m
     };
     static ref STMT_LU: PyStatementLookup = {
@@ -412,5 +415,27 @@ fn parse_comparison(
         left: Box::new(left),
         ops,
         comparators,
+    })
+}
+
+fn parse_comma_separated(parser: &mut PyParser, left: PyExpr, bp: PyBindingPower) -> Result<PyExpr, PylentilError> {
+    let mut exprs: Vec<PyExpr> = Vec::new();
+    exprs.push(left);
+
+    if parser.peek()?.kind == PyTokenType::Comma {
+        parser.consume()?;
+        let rest_exprs = parse_expr(parser, bp)?;
+        match rest_exprs {
+            PyExpr::Tuple { mut elts, parenthesized: false, .. } => {
+                exprs.append(&mut elts);
+            },
+            _ => exprs.push(rest_exprs),
+        }
+    }
+
+    Ok(PyExpr::Tuple {
+        elts: exprs,
+        ctx: PyRefContext::Load,
+        parenthesized: false
     })
 }

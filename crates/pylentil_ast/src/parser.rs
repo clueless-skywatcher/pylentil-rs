@@ -94,4 +94,12 @@ impl<'a> PyParser<'a> {
     pub fn skip_newlines(&mut self) -> Result<(), PylentilError> {
         self.skip_any_number_of(PyTokenType::Newline)
     }
+
+    pub fn optional_skip_one(&mut self, token_type: PyTokenType) -> Result<(), PylentilError> {
+        if self.peek()?.kind == token_type {
+            self.consume()?;
+        }
+
+        Ok(())
+    }
 }
