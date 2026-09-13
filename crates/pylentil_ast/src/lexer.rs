@@ -417,8 +417,13 @@ impl<'a> PyLexer<'a> {
                         PyTokenType::EOF => {
                             new_tokens.push(token);
                             Self::dedent(0, &mut indents, &mut new_tokens);
+                            new_tokens.push(tokens[0].clone());
                             break;
                         }, 
+                        PyTokenType::Indent if Self::is_blank_line(&tokens, 1) => {
+                            new_tokens.push(token);
+                            tokens = tokens[1..].to_vec();
+                        },
                         PyTokenType::Indent => {
                             let indent = get_indent_size(tokens[0].value.as_deref().unwrap())?;
                             if indent > *indents.last().unwrap() {
@@ -436,6 +441,9 @@ impl<'a> PyLexer<'a> {
                             }
 
                             tokens = tokens[1..].to_vec();
+                        },
+                        PyTokenType::Newline => {
+                            new_tokens.push(token);
                         },
                         _ => {
                             new_tokens.push(token);
@@ -457,6 +465,13 @@ impl<'a> PyLexer<'a> {
         // assert!(indents.len() == 1);
 
         Ok(PyLexer { code: self.code, tokens: new_tokens.clone() })
+    }
+
+    fn is_blank_line(tokens: &[PyToken], at: usize) -> bool {
+        match tokens.get(at) {
+            Some(token) => matches!(token.kind, PyTokenType::Newline | PyTokenType::EOF),
+            None => true,
+        }
     }
 
     fn dedent(indent: usize, indents: &mut Vec<usize>, new_tokens: &mut Vec<PyToken>) {
