@@ -3,6 +3,7 @@ use super::expr::PyExpr;
 
 pub type PyPatternBox = Box<PyPattern>;
 
+#[derive(Debug)]
 pub enum PyPattern {
     MatchValue {
         value: PyExpr,

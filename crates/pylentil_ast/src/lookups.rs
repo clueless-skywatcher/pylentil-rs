@@ -9,9 +9,9 @@ use crate::{
     parser::PyParser,
 };
 
-#[derive(Clone, Copy, Ord, PartialEq, PartialOrd, Eq)]
+#[derive(Debug, Clone, Copy, Ord, PartialEq, PartialOrd, Eq)]
 pub enum PyBindingPower {
-    Default,
+    Default = 1,
     Comma,
     Assignment,
     Logical,
@@ -46,6 +46,10 @@ fn nud(lu: &mut PyNUDLookup, kind: PyTokenType, nud_handler: PyNUDHandler) {
     lu.insert(kind, nud_handler);
 }
 
+fn stmt(lu: &mut PyStatementLookup, kind: PyTokenType, stmt_handler: PyStatementHandler) {
+    lu.insert(kind, stmt_handler);
+}
+
 lazy_static! {
     static ref BP_LU: PyBindingPowerLookup = {
         let mut m = HashMap::new();
@@ -55,6 +59,9 @@ lazy_static! {
         bp(&mut m, PyTokenType::Float, PyBindingPower::Terminal);
         bp(&mut m, PyTokenType::String, PyBindingPower::Terminal);
         bp(&mut m, PyTokenType::Ident, PyBindingPower::Terminal);
+        bp(&mut m, PyTokenType::True, PyBindingPower::Terminal);
+        bp(&mut m, PyTokenType::False, PyBindingPower::Terminal);
+        bp(&mut m, PyTokenType::None, PyBindingPower::Terminal);
 
         // Postfix: attr > call/subscript
         bp(&mut m, PyTokenType::Dot, PyBindingPower::Attribute);
@@ -100,10 +107,11 @@ lazy_static! {
 
         nud(&mut m, PyTokenType::Int, parse_terminal);
         nud(&mut m, PyTokenType::Float, parse_terminal);
-        nud(&mut m, PyTokenType::Boolean, parse_terminal);
+        nud(&mut m, PyTokenType::True, parse_terminal);
+        nud(&mut m, PyTokenType::False, parse_terminal);
         nud(&mut m, PyTokenType::String, parse_terminal);
         nud(&mut m, PyTokenType::Ident, parse_terminal);
-        nud(&mut m, PyTokenType::NoneValue, parse_terminal);
+        nud(&mut m, PyTokenType::None, parse_terminal);
 
         m
     };
@@ -126,11 +134,21 @@ lazy_static! {
         led(&mut m, PyTokenType::Ampersand, parse_binary);
         led(&mut m, PyTokenType::Caret, parse_binary);
         led(&mut m, PyTokenType::VerticalBar, parse_binary);
+        
+        // Relational
+        led(&mut m, PyTokenType::DoubleEqual, parse_comparison);
+        led(&mut m, PyTokenType::NotEqual, parse_comparison);
+        led(&mut m, PyTokenType::Less, parse_comparison);
+        led(&mut m, PyTokenType::Greater, parse_comparison);
+        led(&mut m, PyTokenType::LessEqual, parse_comparison);
+        led(&mut m, PyTokenType::GreaterEqual, parse_comparison);
 
         m
     };
     static ref STMT_LU: PyStatementLookup = {
         let mut m = HashMap::new();
+
+        stmt(&mut m, PyTokenType::If, parse_stmt_if);
 
         m
     };
@@ -190,14 +208,9 @@ fn parse_ident(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
 }
 
 fn parse_boolean(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
-    let bool_val = match parser.consume()? {
-        PyToken {
-            kind: PyTokenType::Boolean,
-            value: Some(value),
-        } => match value.as_ref() {
-            "True" => true,
-            _ => false,
-        },
+    let bool_val = match parser.consume()?.kind {
+        PyTokenType::True => true,
+        PyTokenType::False => false,
         _ => return Err(PylentilError::InvalidSyntax),
     };
 
@@ -208,11 +221,8 @@ fn parse_boolean(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
 }
 
 fn parse_none(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
-    match parser.consume()? {
-        PyToken {
-            kind: PyTokenType::NoneValue,
-            value: None,
-        } => Ok(PyExpr::Constant {
+    match parser.consume()?.kind {
+        PyTokenType::None => Ok(PyExpr::Constant {
             value: PyConstant::None,
             kind: None,
         }),
@@ -240,10 +250,10 @@ fn parse_terminal(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
     match token.kind {
         PyTokenType::Int => parse_int(parser),
         PyTokenType::Float => parse_float(parser),
-        PyTokenType::Boolean => parse_boolean(parser),
+        PyTokenType::True | PyTokenType::False => parse_boolean(parser),
         PyTokenType::String => parse_string(parser),
         PyTokenType::Ident => parse_ident(parser),
-        PyTokenType::NoneValue => parse_none(parser),
+        PyTokenType::None => parse_none(parser),
         _ => Err(PylentilError::NotATerminal),
     }
 }
@@ -300,13 +310,26 @@ fn parse_expr(parser: &mut PyParser, bp: PyBindingPower) -> Result<PyExpr, Pylen
 
     let mut left = nud_fn(parser)?;
 
-    while *BP_LU.get(&parser.peek()?.kind).unwrap() > bp {
+    // Tokens with no binding power (EOF, Newline, Colon, …) act as expression
+    // terminators: treat them as Default so the loop condition fails.
+    while BP_LU
+        .get(&parser.peek()?.kind)
+        .copied()
+        .unwrap_or(PyBindingPower::Default)
+        > bp
+    {
         let token_kind = parser.peek()?.kind;
         let Some(led_fn) = LED_LU.get(&token_kind) else {
             return Err(PylentilError::InvalidSyntax);
         };
 
-        left = led_fn(parser, left, bp)?;
+        // Pass the *operator's* binding power so the right-hand side stops at
+        // equal/lower precedence (e.g. `x + 2 == 5` → `(x + 2) == 5`).
+        let op_bp = BP_LU
+            .get(&token_kind)
+            .copied()
+            .unwrap_or(PyBindingPower::Default);
+        left = led_fn(parser, left, op_bp)?;
     }
 
     Ok(left)
@@ -319,9 +342,74 @@ pub fn parse_statement(parser: &mut PyParser) -> Result<PyStatement, PylentilErr
         Some(stmt_fn) => Ok(stmt_fn(parser)?),
         None => {
             let expr = parse_expr(parser, PyBindingPower::Default)?;
-            parser.expect(PyTokenType::Newline)?;
-
             Ok(PyStatement::Expr { value: expr })
         }
     }
+}
+
+fn parse_stmt_if(parser: &mut PyParser) -> Result<PyStatement, PylentilError> {
+    parser.expect_type(vec![PyTokenType::If])?;
+    let test = parse_expr(parser, PyBindingPower::Default)?;
+    parser.expect_type(vec![PyTokenType::Colon])?;
+    parser.expect_type(vec![PyTokenType::Newline])?;
+    parser.expect_type(vec![PyTokenType::Indent])?;
+
+    let mut body: Vec<PyStatement> = Vec::new();
+    while parser.has_tokens() && parser.peek()?.kind != PyTokenType::Dedent {
+        body.push(parse_statement(parser)?);
+    }
+    parser.expect_type(vec![PyTokenType::Dedent])?;
+
+    let mut orelse: Vec<PyStatement> = Vec::new();
+    if parser.peek()?.kind == PyTokenType::Else {
+        parser.consume()?;
+        parser.expect_type(vec![PyTokenType::Colon])?;
+        parser.expect_type(vec![PyTokenType::Newline])?;
+        parser.expect_type(vec![PyTokenType::Indent])?;
+        while parser.has_tokens() && parser.peek()?.kind != PyTokenType::Dedent {
+            orelse.push(parse_statement(parser)?);
+        }
+
+        parser.expect_type(vec![PyTokenType::Dedent])?;
+    }
+
+    Ok(PyStatement::If { test, body, orelse })
+}
+
+fn is_comparison_op(kind: PyTokenType) -> bool {
+    matches!(
+        kind,
+        PyTokenType::DoubleEqual
+            | PyTokenType::NotEqual
+            | PyTokenType::Less
+            | PyTokenType::Greater
+            | PyTokenType::LessEqual
+            | PyTokenType::GreaterEqual
+    )
+}
+
+fn parse_comparison(
+    parser: &mut PyParser,
+    left: PyExpr,
+    bp: PyBindingPower,
+) -> Result<PyExpr, PylentilError> {
+    let mut ops: Vec<PyComparisonOp> = Vec::new();
+    let mut comparators: Vec<PyExpr> = Vec::new();
+
+    // Parse each comparator at this operator's binding power so chained
+    // comparisons stay flat: a == b == c → Compare(a, [Eq, Eq], [b, c]).
+    loop {
+        ops.push(comparison_op(parser.consume()?.kind)?);
+        comparators.push(parse_expr(parser, bp)?);
+
+        if !is_comparison_op(parser.peek()?.kind) {
+            break;
+        }
+    }
+
+    Ok(PyExpr::Compare {
+        left: Box::new(left),
+        ops,
+        comparators,
+    })
 }

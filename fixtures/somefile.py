@@ -1,3 +1,2 @@
-def dex(x):
-	if x == 5:
-		return x
+if x + 2 == 5 == 7 + 3:
+    x

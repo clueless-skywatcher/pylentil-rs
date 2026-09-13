@@ -1,29 +1,44 @@
 use pylentil_common::errors::PylentilError;
 
 use crate::{
-    PyToken, PyTokenType, ast::{PyModule, PyStatement}, lookups::parse_statement,
+    PyToken, PyTokenType,
+    ast::{PyModule, PyStatement},
+    lookups::parse_statement,
 };
 
+#[derive(Debug)]
 pub struct PyParser<'a> {
     pub tokens: Vec<PyToken<'a>>,
-    pos: usize
+    pos: usize,
 }
 
-impl <'a> PyParser<'a> {
+impl<'a> PyParser<'a> {
     pub fn new(tokens: Vec<PyToken<'a>>) -> Self {
-        PyParser { tokens, pos: 0 }
+        PyParser {
+            tokens: Self::remove_whitespaces(tokens),
+            pos: 0,
+        }
+    }
+
+    fn remove_whitespaces(tokens: Vec<PyToken<'a>>) -> Vec<PyToken<'a>> {
+        tokens
+            .iter()
+            .filter(|&token| token.kind != PyTokenType::Whitespace)
+            .cloned()
+            .collect()
     }
 
     pub fn parse(&mut self) -> Result<PyModule, PylentilError> {
         let mut body: Vec<PyStatement> = Vec::new();
 
         while self.has_tokens() {
-            let Ok(stmt) = parse_statement(self) else {
-                return Err(PylentilError::InvalidSyntax);
+            match parse_statement(self) {
+                Ok(stmt) => body.push(stmt),
+                Err(e) => return Err(e)
             };
+        }
 
-            body.push(stmt);
-        }        
+        self.expect_type(vec![PyTokenType::EOF])?;
 
         Ok(PyModule {
             body,
@@ -44,20 +59,23 @@ impl <'a> PyParser<'a> {
         Ok(token)
     }
 
-    fn has_tokens(&self) -> bool {
+    pub fn has_tokens(&self) -> bool {
         match self.pos < self.tokens.len() {
             false => false,
             true => match self.peek() {
-                Ok(PyToken { kind: PyTokenType::EOF, .. }) => false,
-                _ => true
-            }
+                Ok(PyToken {
+                    kind: PyTokenType::EOF,
+                    ..
+                }) => false,
+                _ => true,
+            },
         }
     }
 
-    pub fn expect(&mut self, token_type: PyTokenType) -> Result<(), PylentilError> {
-        match self.peek()?.kind == token_type {
-            true => Ok(()),
-            false => Err(PylentilError::InvalidSyntax)
-        }            
+    pub fn expect_type(&mut self, token_type: Vec<PyTokenType>) -> Result<PyToken, PylentilError> {
+        match token_type.contains(&self.peek()?.kind) {
+            true => Ok(self.consume()?),
+            false => Err(PylentilError::InvalidSyntax),
+        }
     }
 }

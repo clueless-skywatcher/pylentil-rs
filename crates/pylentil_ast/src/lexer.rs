@@ -5,13 +5,48 @@ use pylentil_common::errors::PylentilError;
 
 use crate::token::{PyToken, PyTokenType};
 
-static KEYWORDS: &[&str] = &[
-    "False", "None", "True", "and", "as", "assert", "async", "await", "break", "class", "continue",
-    "def", "del", "elif", "else", "except", "finally", "for", "from", "global", "if", "import",
-    "in", "is", "lambda", "nonlocal", "not", "or", "pass", "raise", "return", "try", "while",
-    "with", "yield",
-];
+fn keyword_type(value: &str) -> Option<PyTokenType> {
+    Some(match value {
+        "False" => PyTokenType::False,
+        "None" => PyTokenType::None,
+        "True" => PyTokenType::True,
+        "and" => PyTokenType::And,
+        "as" => PyTokenType::As,
+        "assert" => PyTokenType::Assert,
+        "async" => PyTokenType::Async,
+        "await" => PyTokenType::Await,
+        "break" => PyTokenType::Break,
+        "class" => PyTokenType::Class,
+        "continue" => PyTokenType::Continue,
+        "def" => PyTokenType::Def,
+        "del" => PyTokenType::Del,
+        "elif" => PyTokenType::Elif,
+        "else" => PyTokenType::Else,
+        "except" => PyTokenType::Except,
+        "finally" => PyTokenType::Finally,
+        "for" => PyTokenType::For,
+        "from" => PyTokenType::From,
+        "global" => PyTokenType::Global,
+        "if" => PyTokenType::If,
+        "import" => PyTokenType::Import,
+        "in" => PyTokenType::In,
+        "is" => PyTokenType::Is,
+        "lambda" => PyTokenType::Lambda,
+        "nonlocal" => PyTokenType::Nonlocal,
+        "not" => PyTokenType::Not,
+        "or" => PyTokenType::Or,
+        "pass" => PyTokenType::Pass,
+        "raise" => PyTokenType::Raise,
+        "return" => PyTokenType::Return,
+        "try" => PyTokenType::Try,
+        "while" => PyTokenType::While,
+        "with" => PyTokenType::With,
+        "yield" => PyTokenType::Yield,
+        _ => return None,
+    })
+}
 
+#[derive(Debug)]
 pub struct PyLexer<'a> {
     pub code: &'a str,
     pub tokens: Vec<PyToken<'a>>,
@@ -341,25 +376,8 @@ impl<'a> PyLexer<'a> {
                         b.is_ascii_alphanumeric() || b == b'_'
                     });
 
-                    if KEYWORDS.contains(&value) {
-                        match value {
-                            "True" => PyToken {
-                                kind: PyTokenType::Boolean,
-                                value: Some(Cow::Borrowed("True")),
-                            },
-                            "False" => PyToken {
-                                kind: PyTokenType::Boolean,
-                                value: Some(Cow::Borrowed("False")),
-                            },
-                            "None" => PyToken {
-                                kind: PyTokenType::NoneValue,
-                                value: None,
-                            },
-                            _ => PyToken {
-                                kind: PyTokenType::Keyword,
-                                value: Some(Cow::Borrowed(value)),
-                            },
-                        }
+                    if let Some(kind) = keyword_type(value) {
+                        PyToken { kind, value: None }
                     } else {
                         PyToken {
                             kind: PyTokenType::Ident,

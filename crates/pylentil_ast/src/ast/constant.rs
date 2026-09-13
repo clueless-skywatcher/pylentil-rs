@@ -1,5 +1,6 @@
 pub type PyConstantBox = Box<PyConstant>;
 
+#[derive(Debug)]
 pub enum PyConstant {
     Integer(i64),
     Float(f64),

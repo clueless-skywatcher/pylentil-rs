@@ -1,6 +1,6 @@
 use std::fs;
 
-use pylentil_ast::PyLexer;
+use pylentil_ast::{PyLexer, parser::PyParser};
 use pylentil_common::errors::PylentilError;
 
 fn main() -> Result<(), PylentilError> {
@@ -10,9 +10,8 @@ fn main() -> Result<(), PylentilError> {
 
     match PyLexer::from_code(&contents) {
         Ok(lexer) => {
-            for token in &lexer.tokens {
-                println!("{token}");
-            }
+            let mut parser = PyParser::new(lexer.tokens);
+            println!("{:#?}", parser.parse());
             Ok(())
         },
         Err(e) => Err(e)
