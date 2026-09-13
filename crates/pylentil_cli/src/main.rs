@@ -10,9 +10,6 @@ fn main() -> Result<(), PylentilError> {
 
     match PyLexer::from_code(&contents) {
         Ok(lexer) => {
-            // for token in lexer.tokens.iter() {
-            //     println!("{}", token);
-            // }
             let mut parser = PyParser::new(lexer.tokens);
             println!("{:#?}", parser.parse());
             Ok(())
