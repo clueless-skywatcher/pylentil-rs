@@ -4,7 +4,7 @@ use super::shared::{
     PyAlias, PyArguments, PyExceptHandler, PyKeyword, PyMatchCase, PyTypeParam, PyWithItem,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum PyStatement {
     FunctionDef {
         name: String,

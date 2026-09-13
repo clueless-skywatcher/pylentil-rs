@@ -144,7 +144,7 @@ lazy_static! {
         led(&mut m, PyTokenType::GreaterEqual, parse_comparison);
 
         // Comma
-        led(&mut m, PyTokenType::Comma, parse_comma_separated);
+        led(&mut m, PyTokenType::Comma, parse_potentially_comma_separated);
 
         m
     };
@@ -313,8 +313,6 @@ fn parse_expr(parser: &mut PyParser, bp: PyBindingPower) -> Result<PyExpr, Pylen
 
     let mut left = nud_fn(parser)?;
 
-    // Tokens with no binding power (EOF, Newline, Colon, …) act as expression
-    // terminators: treat them as Default so the loop condition fails.
     while BP_LU
         .get(&parser.peek()?.kind)
         .copied()
@@ -326,8 +324,6 @@ fn parse_expr(parser: &mut PyParser, bp: PyBindingPower) -> Result<PyExpr, Pylen
             return Err(PylentilError::InvalidSyntax);
         };
 
-        // Pass the *operator's* binding power so the right-hand side stops at
-        // equal/lower precedence (e.g. `x + 2 == 5` → `(x + 2) == 5`).
         let op_bp = BP_LU
             .get(&token_kind)
             .copied()
@@ -418,24 +414,34 @@ fn parse_comparison(
     })
 }
 
-fn parse_comma_separated(parser: &mut PyParser, left: PyExpr, bp: PyBindingPower) -> Result<PyExpr, PylentilError> {
-    let mut exprs: Vec<PyExpr> = Vec::new();
-    exprs.push(left);
-
+fn parse_potentially_comma_separated(
+    parser: &mut PyParser,
+    left: PyExpr,
+    bp: PyBindingPower,
+) -> Result<PyExpr, PylentilError> {
     if parser.peek()?.kind == PyTokenType::Comma {
+        let mut exprs = vec![left];
         parser.consume()?;
         let rest_exprs = parse_expr(parser, bp)?;
         match rest_exprs {
-            PyExpr::Tuple { mut elts, parenthesized: false, .. } => {
+            PyExpr::Tuple {
+                mut elts,
+                parenthesized: false,
+                ..
+            } => {
                 exprs.append(&mut elts);
-            },
+            }
             _ => exprs.push(rest_exprs),
         }
-    }
 
-    Ok(PyExpr::Tuple {
-        elts: exprs,
-        ctx: PyRefContext::Load,
-        parenthesized: false
-    })
+        parser.optional_skip_one(PyTokenType::Comma)?;
+
+        Ok(PyExpr::Tuple {
+            elts: exprs,
+            ctx: PyRefContext::Load,
+            parenthesized: false,
+        })
+    } else {
+        Ok(left)
+    }
 }
