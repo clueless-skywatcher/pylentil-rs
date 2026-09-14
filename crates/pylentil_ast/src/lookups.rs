@@ -13,7 +13,6 @@ use crate::{
 pub enum PyBindingPower {
     Default = 1,
     Comma,
-    Assignment,
     Logical,
     Relational,
     Additive,
@@ -97,7 +96,6 @@ lazy_static! {
         bp(&mut m, PyTokenType::GreaterEqual, PyBindingPower::Relational);
 
         // Assignment / separators
-        bp(&mut m, PyTokenType::Assign, PyBindingPower::Assignment);
         bp(&mut m, PyTokenType::Comma, PyBindingPower::Comma);
 
         m
@@ -343,7 +341,22 @@ pub fn parse_statement(parser: &mut PyParser) -> Result<PyStatement, PylentilErr
         None => {
             let expr = parse_expr(parser, PyBindingPower::Default)?;
             parser.skip_newlines()?;
-            Ok(PyStatement::Expr { value: expr })
+
+            Ok(match parser.peek()?.kind {
+                PyTokenType::Assign => {
+                    parser.consume()?;
+                    let right = parse_expr(parser, PyBindingPower::Default)?;
+                    let targets = match expr {
+                        PyExpr::Tuple { elts, .. } => {
+                            elts
+                        },
+                        _ => vec![expr]
+                    };
+
+                    PyStatement::Assign { targets, value: right, type_comment: None }
+                },
+                _ => PyStatement::Expr { value: expr }
+            })
         }
     }
 }
@@ -434,8 +447,6 @@ fn parse_potentially_comma_separated(
             }
             _ => exprs.push(rest_exprs),
         }
-
-        parser.optional_skip_one(PyTokenType::Comma)?;
 
         Ok(PyExpr::Tuple {
             elts: exprs,
