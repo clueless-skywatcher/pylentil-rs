@@ -112,6 +112,7 @@ lazy_static! {
         nud(&mut m, PyTokenType::String, parse_terminal);
         nud(&mut m, PyTokenType::Ident, parse_terminal);
         nud(&mut m, PyTokenType::None, parse_terminal);
+        nud(&mut m, PyTokenType::LParen, parse_tuple_or_expr);
 
         m
     };
@@ -444,4 +445,22 @@ fn parse_potentially_comma_separated(
     } else {
         Ok(left)
     }
+}
+
+fn parse_tuple_or_expr(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
+    assert_eq!(parser.consume()?.kind, PyTokenType::LParen);
+    let exprs = parse_expr(parser, PyBindingPower::Default)?;
+
+    parser.expect_type(vec![PyTokenType::RParen])?;
+
+    Ok(match exprs {
+        PyExpr::Tuple { elts, ctx, parenthesized } => {
+            match parenthesized {
+                true => PyExpr::Tuple { elts, ctx, parenthesized },
+                false => PyExpr::Tuple { elts, ctx, parenthesized: true }
+            }
+        },
+        expr => expr
+    })
+
 }

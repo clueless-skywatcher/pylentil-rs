@@ -58,6 +58,15 @@ impl<'a> PyParser<'a> {
         Ok(self.tokens[self.pos].clone())
     }
 
+    pub fn peek_ahead(&self) -> Result<PyToken<'a>, PylentilError> {
+        if self.pos >= self.tokens.len() || self.pos + 1 >= self.tokens.len() {
+            return Err(PylentilError::PeekAheadFailed);
+        }
+
+        Ok(self.tokens[self.pos + 1].clone())
+
+    }
+
     pub fn consume(&mut self) -> Result<PyToken<'a>, PylentilError> {
         let token = self.peek()?;
         self.pos += 1;
