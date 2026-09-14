@@ -459,7 +459,7 @@ fn parse_potentially_comma_separated(
 }
 
 fn parse_tuple_or_expr(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
-    assert_eq!(parser.consume()?.kind, PyTokenType::LParen);
+assert_eq!(parser.consume()?.kind, PyTokenType::LParen);
     let exprs = parse_expr(parser, PyBindingPower::Default)?;
 
     parser.expect_type(vec![PyTokenType::RParen])?;
