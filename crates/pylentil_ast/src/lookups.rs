@@ -17,10 +17,29 @@ pub enum PyBindingPower {
     Relational,
     Additive,
     Multiplicative,
+    Exponentiative,
     UnaryOp,
     FunctionCall,
     Attribute,
     Terminal,
+}
+
+impl PyBindingPower {
+    fn one_below(self) -> Self {
+        match self {
+            PyBindingPower::Default => PyBindingPower::Default,
+            PyBindingPower::Comma => PyBindingPower::Default,
+            PyBindingPower::Logical => PyBindingPower::Comma,
+            PyBindingPower::Relational => PyBindingPower::Logical,
+            PyBindingPower::Additive => PyBindingPower::Relational,
+            PyBindingPower::Multiplicative => PyBindingPower::Additive,
+            PyBindingPower::Exponentiative => PyBindingPower::Multiplicative,
+            PyBindingPower::UnaryOp => PyBindingPower::Exponentiative,
+            PyBindingPower::FunctionCall => PyBindingPower::UnaryOp,
+            PyBindingPower::Attribute => PyBindingPower::FunctionCall,
+            PyBindingPower::Terminal => PyBindingPower::Attribute,
+        }
+    }
 }
 
 pub type PyStatementHandler = for<'a> fn(&mut PyParser<'a>) -> Result<PyStatement, PylentilError>;
@@ -50,6 +69,10 @@ fn stmt(lu: &mut PyStatementLookup, kind: PyTokenType, stmt_handler: PyStatement
 }
 
 lazy_static! {
+    static ref RIGHT_ASSOC: Vec<PyTokenType> = vec![
+        PyTokenType::DoubleStar
+    ];
+
     static ref BP_LU: PyBindingPowerLookup = {
         let mut m = HashMap::new();
 
@@ -70,11 +93,13 @@ lazy_static! {
         // Unary
         bp(&mut m, PyTokenType::Tilde, PyBindingPower::UnaryOp);
 
-        // Multiplicative / power
+        // Multiplicative
         bp(&mut m, PyTokenType::Star, PyBindingPower::Multiplicative);
         bp(&mut m, PyTokenType::Slash, PyBindingPower::Multiplicative);
         bp(&mut m, PyTokenType::Percent, PyBindingPower::Multiplicative);
-        bp(&mut m, PyTokenType::DoubleStar, PyBindingPower::Multiplicative);
+
+        // Exponents
+        bp(&mut m, PyTokenType::DoubleStar, PyBindingPower::Exponentiative);
 
         // Additive / shifts
         bp(&mut m, PyTokenType::Plus, PyBindingPower::Additive);
@@ -327,6 +352,12 @@ fn parse_expr(parser: &mut PyParser, bp: PyBindingPower) -> Result<PyExpr, Pylen
             .get(&token_kind)
             .copied()
             .unwrap_or(PyBindingPower::Default);
+
+        let op_bp = match RIGHT_ASSOC.contains(&token_kind) {
+            true => op_bp.one_below(),
+            false => op_bp,
+        };
+
         left = led_fn(parser, left, op_bp)?;
     }
 
