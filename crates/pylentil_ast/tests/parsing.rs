@@ -1,10 +1,3 @@
-//! Parser and AST tests.
-//!
-//! Expectations are written against *Python*, not against what the parser
-//! currently does: a failure here is a statement about the language, not about
-//! the code. Trees are compared as s-expressions — `1 + 2 * 3` is
-//! `(+ 1 (* 2 3))` — so an expectation says what nests inside what and nothing
-//! else. Cases come from `fixtures/parser/*.py`, one file per syntactic area.
 
 mod common;
 
@@ -20,7 +13,6 @@ fn e(fixture: &str, name: &str) -> String {
     }
 }
 
-/// Assert that a case is rejected — and rejected cleanly, not by panicking.
 fn assert_rejected(fixture: &str, name: &str) {
     let code = case(fixture, name);
     match parse_outcome(&code) {
@@ -30,8 +22,6 @@ fn assert_rejected(fixture: &str, name: &str) {
     }
 }
 
-// ============================================================== basics ======
-// The happy path: what already works, and what must keep working.
 
 mod basics {
     use super::*;
@@ -116,7 +106,6 @@ mod basics {
     }
 }
 
-// ============================================================ literals ======
 
 mod literals {
     use super::*;
@@ -166,8 +155,6 @@ mod literals {
         assert_eq!(e(F, "ellipsis"), "...");
     }
 }
-
-// ========================================================== arithmetic ======
 
 mod arithmetic {
     use super::*;
@@ -258,8 +245,6 @@ mod arithmetic {
     }
 }
 
-// ============================================================= bitwise ======
-
 mod bitwise {
     use super::*;
     const F: &str = "parser/bitwise.py";
@@ -296,8 +281,6 @@ mod bitwise {
         assert_eq!(e(F, "invert_binds_tighter_than_bitand"), "(& (~ a) b)");
     }
 }
-
-// ========================================================= comparisons ======
 
 mod comparisons {
     use super::*;
@@ -352,8 +335,6 @@ mod comparisons {
     }
 }
 
-// ============================================================= boolean ======
-
 mod boolean {
     use super::*;
     const F: &str = "parser/boolean.py";
@@ -403,7 +384,6 @@ mod boolean {
     }
 }
 
-// ============================================================== tuples ======
 
 mod tuples {
     use super::*;
@@ -469,7 +449,6 @@ mod tuples {
     }
 }
 
-// ========================================================== assignment ======
 
 mod assignment {
     use super::*;
@@ -576,7 +555,6 @@ mod assignment {
     }
 }
 
-// =============================================== calls, attributes, slices ==
 
 mod calls {
     use super::*;
@@ -650,7 +628,6 @@ mod calls {
     }
 }
 
-// ========================================================= collections ======
 
 mod collections {
     use super::*;
@@ -697,7 +674,6 @@ mod collections {
     }
 }
 
-// ======================================================= if statements ======
 
 mod if_statements {
     use super::*;
@@ -795,7 +771,6 @@ mod if_statements {
     }
 }
 
-// ========================================================== statements ======
 
 mod statements {
     use super::*;
@@ -846,7 +821,6 @@ mod statements {
     }
 }
 
-// ============================================================= modules ======
 
 mod modules {
     use super::*;
@@ -894,7 +868,6 @@ mod modules {
     }
 }
 
-// ========================================================== robustness ======
 
 mod robustness {
     use super::*;

@@ -86,6 +86,16 @@ impl<'a> PyLexer<'a> {
         while i < code.len() {
             let byte = Self::peek(code, i)?;
 
+            if byte == b'#' {
+                while byte != b'\n' {
+                    if i >= code.len() {
+                        return Ok(PyLexer { tokens, code });
+                    }
+                    Self::consume(code, &mut i)?;
+                    continue;
+                }
+            }
+
             if at_line_start && (byte == b' ' || byte == b'\t') {
                 let value = Self::consume_while(code, &mut i, |b| b == b' ' || b == b'\t');
                 

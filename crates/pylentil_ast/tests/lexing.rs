@@ -1,17 +1,8 @@
-//! Lexer tests.
-//!
-//! Expectations are written against *Python*, not against what the lexer
-//! currently does: a failure here is a statement about the language, not about
-//! the code. Cases come from `fixtures/lexer/*.py`, one file per lexical area.
-
 mod common;
 
 use common::{case, cases, content, count_kind, kinds, lex_failures, lex_outcome, Outcome};
 use pylentil_ast::PyTokenType::{Assign, Dedent, Ident, Indent, Int, Newline, EOF};
 use pylentil_common::errors::PylentilError;
-
-// ============================================================== basics ======
-// The happy path: what already works, and what must keep working.
 
 mod basics {
     use super::*;
@@ -122,8 +113,6 @@ mod basics {
     }
 }
 
-// ============================================================= numbers ======
-
 mod numbers {
     use super::*;
 
@@ -187,8 +176,6 @@ mod numbers {
         assert_eq!(tokens("imaginary_float").map(|t| t.len()), Ok(1));
     }
 }
-
-// ============================================================= strings ======
 
 mod strings {
     use super::*;
@@ -280,8 +267,6 @@ mod strings {
         assert_eq!(tokens("bytes_literal").map(|t| t.len()), Ok(1));
     }
 }
-
-// =========================================================== operators ======
 
 mod operators {
     use super::*;
@@ -391,8 +376,6 @@ mod operators {
     }
 }
 
-// ======================================== identifiers and keywords ==========
-
 mod identifiers {
     use super::*;
 
@@ -449,8 +432,6 @@ mod identifiers {
     }
 }
 
-// ============================================================ comments ======
-
 mod comments {
     use super::*;
 
@@ -489,8 +470,6 @@ mod comments {
         assert_eq!(content("# nothing but this\n"), Ok(vec![]));
     }
 }
-
-// ========================================================= indentation ======
 
 mod indentation {
     use super::*;
@@ -593,8 +572,6 @@ mod indentation {
     }
 }
 
-// ============================================ whitespace and continuations ==
-
 mod whitespace {
     use super::*;
 
@@ -652,8 +629,6 @@ mod whitespace {
     }
 }
 
-// ========================================================== robustness ======
-
 mod robustness {
     use super::*;
 
@@ -704,7 +679,6 @@ mod robustness {
     }
 }
 
-// Small conveniences used above.
 trait OutcomeExt {
     fn is_accepted(&self) -> bool;
     fn error(&self) -> Option<&PylentilError>;
