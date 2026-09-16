@@ -3,6 +3,7 @@ pub enum PylentilError {
     EndOfFileReached,
     PeekAheadFailed,
     InvalidCharacter,
+    InvalidIndentation,
     FileNotFound,
     InvalidSyntax,
     IOFailed,

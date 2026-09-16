@@ -93,7 +93,8 @@ fn trim_blank_edges(body: &str) -> String {
 // ------------------------------------------------------------------ lexing --
 
 pub fn lex(code: &str) -> Result<Vec<PyToken<'_>>, PylentilError> {
-    PyLexer::from_code(code).map(|lexer| lexer.tokens)
+    let code = PyLexer::from_code(code);
+    code.map(|lexer| lexer.tokens)
 }
 
 /// Token kinds, minus the insignificant `Whitespace` filler.

@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, ops::Index};
 use std::collections::HashSet;
 
 use pylentil_common::errors::PylentilError;
@@ -84,7 +84,7 @@ impl<'a> PyLexer<'a> {
         let mut at_line_start = true;
 
         while i < code.len() {
-            let byte = Self::peek(code, i)?;
+            let mut byte = Self::peek(code, i)?;
 
             if byte == b'#' {
                 while byte != b'\n' {
@@ -92,6 +92,7 @@ impl<'a> PyLexer<'a> {
                         return Ok(PyLexer { tokens, code });
                     }
                     Self::consume(code, &mut i)?;
+                    byte = code.chars().nth(i).unwrap() as u8;
                     continue;
                 }
             }
@@ -394,7 +395,7 @@ impl<'a> PyLexer<'a> {
                             value: Some(Cow::Borrowed(value)),
                         }
                     }
-                }
+                },
                 _ => return Err(PylentilError::InvalidCharacter),
             };
 
@@ -413,6 +414,10 @@ impl<'a> PyLexer<'a> {
     }
 
     fn indent_pass(&self) -> Result<Self, PylentilError> {
+        if self.tokens[0].kind == PyTokenType::Indent {
+            return Err(PylentilError::InvalidIndentation);
+        }
+
         let mut new_tokens: Vec<PyToken> = Vec::new();
         let mut tokens = self.tokens.clone();
         let mut indents: Vec<usize> = vec![0];
@@ -426,7 +431,7 @@ impl<'a> PyLexer<'a> {
                     match tokens[0].kind { 
                         PyTokenType::EOF => {
                             new_tokens.push(token);
-                            Self::dedent(0, &mut indents, &mut new_tokens);
+                            Self::dedent(0, &mut indents, &mut new_tokens)?;
                             new_tokens.push(tokens[0].clone());
                             break;
                         }, 
@@ -447,7 +452,7 @@ impl<'a> PyLexer<'a> {
                                 new_tokens.push(token);
                             } else {
                                 new_tokens.push(token);
-                                Self::dedent(indent, &mut indents, &mut new_tokens);
+                                Self::dedent(indent, &mut indents, &mut new_tokens)?;
                             }
 
                             tokens = tokens[1..].to_vec();
@@ -457,12 +462,12 @@ impl<'a> PyLexer<'a> {
                         },
                         _ => {
                             new_tokens.push(token);
-                            Self::dedent(0, &mut indents, &mut new_tokens);
+                            Self::dedent(0, &mut indents, &mut new_tokens)?;
                         }
                     }
                 },
                 PyToken { kind: PyTokenType::EOF, .. } => {
-                    Self::dedent(0, &mut indents, &mut new_tokens);
+                    Self::dedent(0, &mut indents, &mut new_tokens)?;
                     new_tokens.push(token);
                 },
                 _ => {
@@ -484,7 +489,7 @@ impl<'a> PyLexer<'a> {
         }
     }
 
-    fn dedent(indent: usize, indents: &mut Vec<usize>, new_tokens: &mut Vec<PyToken>) {
+    fn dedent(indent: usize, indents: &mut Vec<usize>, new_tokens: &mut Vec<PyToken>) -> Result<(), PylentilError> {
         while indent < *indents.last().unwrap() {
             indents.pop();
             let val = indents.last().unwrap().to_string();
@@ -494,7 +499,11 @@ impl<'a> PyLexer<'a> {
             });
         }
 
-        assert!(indent == *indents.last().unwrap())
+        if indent != *indents.last().unwrap() {
+            Err(PylentilError::InvalidIndentation)
+        } else {
+            Ok(())
+        }
     }
 
     pub fn spaces_scrapped(&self) -> Self {

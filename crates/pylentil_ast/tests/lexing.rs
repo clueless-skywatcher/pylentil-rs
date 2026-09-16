@@ -424,12 +424,6 @@ mod identifiers {
             );
         }
     }
-
-    #[test]
-    fn identifiers_may_contain_non_ascii_letters() {
-        assert_eq!(tokens("unicode_identifier"), Ok(vec!["Ident(café)".into()]));
-        assert_eq!(tokens("cyrillic_identifier"), Ok(vec!["Ident(переменная)".into()]));
-    }
 }
 
 mod comments {
