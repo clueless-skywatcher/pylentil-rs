@@ -12,6 +12,10 @@ pub enum PyTokenType {
     Int,
     Float,
     String,
+    Binary,
+    Hexadecimal,
+    Octal,
+    ENotation,
 
     // Keywords
     False,

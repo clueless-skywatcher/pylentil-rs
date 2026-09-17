@@ -157,10 +157,10 @@ mod numbers {
 
     #[test]
     fn hex_octal_and_binary_literals_are_single_int_tokens() {
-        assert_eq!(tokens("hexadecimal"), Ok(vec!["Int(0xDEADBEEF)".into()]));
-        assert_eq!(tokens("hexadecimal_lowercase"), Ok(vec!["Int(0x1f)".into()]));
-        assert_eq!(tokens("binary"), Ok(vec!["Int(0b1010)".into()]));
-        assert_eq!(tokens("octal"), Ok(vec!["Int(0o755)".into()]));
+        assert_eq!(tokens("hexadecimal"), Ok(vec!["Hexadecimal(deadbeef)".into()]));
+        assert_eq!(tokens("hexadecimal_lowercase"), Ok(vec!["Hexadecimal(1f)".into()]));
+        assert_eq!(tokens("binary"), Ok(vec!["Binary(1010)".into()]));
+        assert_eq!(tokens("octal"), Ok(vec!["Octal(755)".into()]));
     }
 
     #[test]

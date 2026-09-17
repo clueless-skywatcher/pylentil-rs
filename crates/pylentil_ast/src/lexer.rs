@@ -1,5 +1,5 @@
-use std::{borrow::Cow, ops::Index};
 use std::collections::HashSet;
+use std::{borrow::Cow, ops::Index};
 
 use pylentil_common::errors::PylentilError;
 
@@ -99,11 +99,11 @@ impl<'a> PyLexer<'a> {
 
             if at_line_start && (byte == b' ' || byte == b'\t') {
                 let value = Self::consume_while(code, &mut i, |b| b == b' ' || b == b'\t');
-                
+
                 if !has_all_same_chars(value) {
                     return Err(PylentilError::MixedSpacesAndTabs);
                 }
-                
+
                 tokens.push(PyToken {
                     kind: PyTokenType::Indent,
                     value: Some(Cow::Borrowed(value)),
@@ -366,19 +366,24 @@ impl<'a> PyLexer<'a> {
                     }
                 }
                 b if b.is_ascii_digit() => {
-                    let start = i;
-                    Self::consume_while(code, &mut i, |b| b.is_ascii_digit());
-                    if Self::peek(code, i) == Ok(b'.') {
-                        Self::consume(code, &mut i)?;
-                        Self::consume_while(code, &mut i, |b| b.is_ascii_digit());
-                        PyToken {
-                            kind: PyTokenType::Float,
-                            value: Some(Cow::Borrowed(&code[start..i])),
-                        }
+                    if byte == b'0' {
+                        Self::try_lex_number(code, &mut i)?
                     } else {
-                        PyToken {
-                            kind: PyTokenType::Int,
-                            value: Some(Cow::Borrowed(&code[start..i])),
+                        let start = i;
+                        Self::consume_while(code, &mut i, |b| b.is_ascii_digit());
+
+                        if Self::peek(code, i) == Ok(b'.') {
+                            Self::consume(code, &mut i)?; // Consume the '.'
+                            Self::consume_while(code, &mut i, |b| b.is_ascii_digit()); // Consume fractional part
+                            PyToken {
+                                kind: PyTokenType::Float,
+                                value: Some(Cow::Borrowed(&code[start..i])),
+                            }
+                        } else {
+                            PyToken {
+                                kind: PyTokenType::Int,
+                                value: Some(Cow::Borrowed(&code[start..i])),
+                            }
                         }
                     }
                 }
@@ -395,7 +400,7 @@ impl<'a> PyLexer<'a> {
                             value: Some(Cow::Borrowed(value)),
                         }
                     }
-                },
+                }
                 _ => return Err(PylentilError::InvalidCharacter),
             };
 
@@ -413,6 +418,109 @@ impl<'a> PyLexer<'a> {
         PyLexer { code, tokens }.indent_pass()
     }
 
+    fn try_lex_number(code: &'a str, pos: &mut usize) -> Result<PyToken<'a>, PylentilError> {
+        // Dereference `pos` to capture the actual usize index at the start of the token
+        let start = *pos;
+
+        assert_eq!(code.as_bytes()[*pos], b'0');
+        Self::consume(code, pos)?;
+        let byte_type = Self::consume(code, pos)?;
+
+        return match byte_type {
+            b'b' => Self::lex_binary(code, pos),
+            b'x' => Self::lex_hex(code, pos),
+            b'o' => Self::lex_oct(code, pos),
+            b if b.is_ascii_digit() => {
+                // Pass `pos` directly instead of `&mut pos`
+                Self::consume_while(code, pos, |b| b.is_ascii_digit());
+
+                if Self::peek(code, *pos) == Ok(b'.') {
+                    Self::consume(code, pos)?;
+                    Self::consume_while(code, pos, |b| b.is_ascii_digit());
+
+                    Ok(PyToken {
+                        kind: PyTokenType::Float,
+                        value: Some(Cow::Borrowed(&code[start..*pos])),
+                    })
+                } else {
+                    Ok(PyToken {
+                        kind: PyTokenType::Int,
+                        value: Some(Cow::Borrowed(&code[start..*pos])),
+                    })
+                }
+            },
+            b' ' | b'\n' | b'\t' => Ok(PyToken { kind: PyTokenType::Int, value: Some(Cow::Borrowed("0")) }),
+            _ => Err(PylentilError::InvalidCharacter),
+        };
+    }
+
+    fn lex_binary(code: &'a str, pos: &mut usize) -> Result<PyToken<'a>, PylentilError> {
+        let mut num: Vec<u8> = vec![];
+
+        while *pos < code.len() {
+            let char = Self::consume(code, pos)?;
+            match char {
+                b'0' | b'1' => num.push(char),
+                _ => break,
+            }
+        }
+
+        let Ok(parsed_string) = String::from_utf8(num) else {
+            return Err(PylentilError::InvalidCharacter);
+        };
+
+        Ok(PyToken {
+            kind: PyTokenType::Binary,
+            value: Some(Cow::Owned(parsed_string)),
+        })
+    }
+
+    fn lex_hex(code: &'a str, pos: &mut usize) -> Result<PyToken<'a>, PylentilError> {
+        let mut num: Vec<u8> = vec![];
+
+        while *pos < code.len() {
+            let char = Self::consume(code, pos)?;
+            match char {
+                b'0' | b'1' | b'2' | b'3' | b'4' | b'5' | b'6' | b'7' | b'8' | b'9' | b'a'
+                | b'b' | b'c' | b'd' | b'e' | b'f' => num.push(char),
+                b'A' | b'B' | b'C' | b'D' | b'E' | b'F' => num.push(char.to_ascii_lowercase()),
+                _ => break,
+            }
+        }
+
+        let Ok(parsed_string) = String::from_utf8(num) else {
+            return Err(PylentilError::InvalidCharacter);
+        };
+
+        Ok(PyToken {
+            kind: PyTokenType::Hexadecimal,
+            value: Some(Cow::Owned(parsed_string)),
+        })
+    }
+
+    fn lex_oct(code: &'a str, pos: &mut usize) -> Result<PyToken<'a>, PylentilError> {
+        let mut num: Vec<u8> = vec![];
+
+        while *pos < code.len() {
+            let char = Self::consume(code, pos)?;
+            match char {
+                b'0' | b'1' | b'2' | b'3' | b'4' | b'5' | b'6' | b'7' => {
+                    num.push(char.to_ascii_lowercase())
+                }
+                _ => break,
+            }
+        }
+
+        let Ok(parsed_string) = String::from_utf8(num) else {
+            return Err(PylentilError::InvalidCharacter);
+        };
+
+        Ok(PyToken {
+            kind: PyTokenType::Octal,
+            value: Some(Cow::Owned(parsed_string)),
+        })
+    }
+
     fn indent_pass(&self) -> Result<Self, PylentilError> {
         if self.tokens[0].kind == PyTokenType::Indent {
             return Err(PylentilError::InvalidIndentation);
@@ -427,59 +535,65 @@ impl<'a> PyLexer<'a> {
             tokens = tokens[1..].to_vec();
 
             match token {
-                PyToken {kind: PyTokenType::Newline, ..} => {
-                    match tokens[0].kind { 
-                        PyTokenType::EOF => {
+                PyToken {
+                    kind: PyTokenType::Newline,
+                    ..
+                } => match tokens[0].kind {
+                    PyTokenType::EOF => {
+                        new_tokens.push(token);
+                        Self::dedent(0, &mut indents, &mut new_tokens)?;
+                        new_tokens.push(tokens[0].clone());
+                        break;
+                    }
+                    PyTokenType::Indent if Self::is_blank_line(&tokens, 1) => {
+                        new_tokens.push(token);
+                        tokens = tokens[1..].to_vec();
+                    }
+                    PyTokenType::Indent => {
+                        let indent = get_indent_size(tokens[0].value.as_deref().unwrap())?;
+                        if indent > *indents.last().unwrap() {
+                            indents.push(indent);
                             new_tokens.push(token);
-                            Self::dedent(0, &mut indents, &mut new_tokens)?;
-                            new_tokens.push(tokens[0].clone());
-                            break;
-                        }, 
-                        PyTokenType::Indent if Self::is_blank_line(&tokens, 1) => {
+                            new_tokens.push(PyToken {
+                                kind: PyTokenType::Indent,
+                                value: Some(Cow::Owned(indent.to_string())),
+                            });
+                        } else if indent == *indents.last().unwrap() {
                             new_tokens.push(token);
-                            tokens = tokens[1..].to_vec();
-                        },
-                        PyTokenType::Indent => {
-                            let indent = get_indent_size(tokens[0].value.as_deref().unwrap())?;
-                            if indent > *indents.last().unwrap() {
-                                indents.push(indent);
-                                new_tokens.push(token);
-                                new_tokens.push(PyToken {
-                                    kind: PyTokenType::Indent,
-                                    value: Some(Cow::Owned(indent.to_string())),
-                                });
-                            } else if indent == *indents.last().unwrap() {
-                                new_tokens.push(token);
-                            } else {
-                                new_tokens.push(token);
-                                Self::dedent(indent, &mut indents, &mut new_tokens)?;
-                            }
-
-                            tokens = tokens[1..].to_vec();
-                        },
-                        PyTokenType::Newline => {
+                        } else {
                             new_tokens.push(token);
-                        },
-                        _ => {
-                            new_tokens.push(token);
-                            Self::dedent(0, &mut indents, &mut new_tokens)?;
+                            Self::dedent(indent, &mut indents, &mut new_tokens)?;
                         }
+
+                        tokens = tokens[1..].to_vec();
+                    }
+                    PyTokenType::Newline => {
+                        new_tokens.push(token);
+                    }
+                    _ => {
+                        new_tokens.push(token);
+                        Self::dedent(0, &mut indents, &mut new_tokens)?;
                     }
                 },
-                PyToken { kind: PyTokenType::EOF, .. } => {
+                PyToken {
+                    kind: PyTokenType::EOF,
+                    ..
+                } => {
                     Self::dedent(0, &mut indents, &mut new_tokens)?;
                     new_tokens.push(token);
-                },
+                }
                 _ => {
                     new_tokens.push(token);
-                },
-                
+                }
             }
         }
 
         // assert!(indents.len() == 1);
 
-        Ok(PyLexer { code: self.code, tokens: new_tokens.clone() })
+        Ok(PyLexer {
+            code: self.code,
+            tokens: new_tokens.clone(),
+        })
     }
 
     fn is_blank_line(tokens: &[PyToken], at: usize) -> bool {
@@ -489,7 +603,11 @@ impl<'a> PyLexer<'a> {
         }
     }
 
-    fn dedent(indent: usize, indents: &mut Vec<usize>, new_tokens: &mut Vec<PyToken>) -> Result<(), PylentilError> {
+    fn dedent(
+        indent: usize,
+        indents: &mut Vec<usize>,
+        new_tokens: &mut Vec<PyToken>,
+    ) -> Result<(), PylentilError> {
         while indent < *indents.last().unwrap() {
             indents.pop();
             let val = indents.last().unwrap().to_string();
@@ -535,7 +653,7 @@ fn get_indent_size(s: &str) -> Result<usize, PylentilError> {
         size += match char {
             '\t' => 4,
             ' ' => 1,
-            _ => return Err(PylentilError::InvalidCharacter)
+            _ => return Err(PylentilError::InvalidCharacter),
         }
     }
     Ok(size)
