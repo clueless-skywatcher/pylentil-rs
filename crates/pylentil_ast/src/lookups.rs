@@ -9,6 +9,7 @@ use pylentil_common::errors::PylentilError;
 use crate::{
     PyTokenType,
     ast::{PyExpr, PyStatement},
+    lookups::expr::parse_star,
     parser::PyParser,
 };
 
@@ -171,6 +172,9 @@ lazy_static! {
         nud(&mut m, PyTokenType::Tilde, parse_unary);
         nud(&mut m, PyTokenType::Not, parse_unary);
 
+        // Star
+        nud(&mut m, PyTokenType::Star, parse_star);
+
         m
     };
     static ref LED_LU: PyLEDLookup = {
@@ -267,19 +271,55 @@ pub fn parse_statement(parser: &mut PyParser) -> Result<PyStatement, PylentilErr
                     parser.consume()?;
                     let right = parse_expr(parser, PyBindingPower::Default)?;
                     let targets = match expr {
-                        PyExpr::Tuple { elts, .. } => {
-                            elts
-                        },
-                        _ => vec![expr]
+                        PyExpr::Tuple { elts, .. } => elts,
+                        _ => vec![expr],
                     };
                     let targets = targets
                         .into_iter()
                         .map(as_target)
                         .collect::<Result<Vec<_>, _>>()?;
 
-                    PyStatement::Assign { targets, value: right, type_comment: None }
-                },
-                _ => PyStatement::Expr { value: expr }
+                    PyStatement::Assign {
+                        targets,
+                        value: right,
+                        type_comment: None,
+                    }
+                }
+                PyTokenType::Colon => {
+                    parser.consume()?;
+
+                    if !matches!(expr, PyExpr::Name { .. }) {
+                        return Err(PylentilError::InvalidSyntax);
+                    }
+
+                    let annotation = parse_expr(parser, PyBindingPower::Default)?;
+
+                    if !matches!(annotation, PyExpr::Name { .. }) {
+                        return Err(PylentilError::InvalidSyntax);
+                    }
+
+                    if parser.peek()?.kind == PyTokenType::Assign {
+                        parser.consume()?;
+
+                        let value = parse_expr(parser, PyBindingPower::Default)?;
+
+                        PyStatement::AnnAssign {
+                            target: expr,
+                            annotation,
+                            value: Some(value),
+                            simple: false,
+                        }
+                    } else {
+                        PyStatement::AnnAssign {
+                            target: expr,
+                            annotation,
+                            value: None,
+                            simple: false,
+                        }
+                    }
+                }
+
+                _ => PyStatement::Expr { value: expr },
             })
         }
     }

@@ -335,13 +335,33 @@ pub(super) fn parse_tuple_or_expr(parser: &mut PyParser) -> Result<PyExpr, Pylen
     parser.expect_type(vec![PyTokenType::RParen])?;
 
     Ok(match exprs {
-        PyExpr::Tuple { elts, ctx, parenthesized } => {
-            match parenthesized {
-                true => PyExpr::Tuple { elts, ctx, parenthesized },
-                false => PyExpr::Tuple { elts, ctx, parenthesized: true }
-            }
+        PyExpr::Tuple {
+            elts,
+            ctx,
+            parenthesized,
+        } => match parenthesized {
+            true => PyExpr::Tuple {
+                elts,
+                ctx,
+                parenthesized,
+            },
+            false => PyExpr::Tuple {
+                elts,
+                ctx,
+                parenthesized: true,
+            },
         },
-        expr => expr
+        expr => expr,
     })
+}
 
+pub(super) fn parse_star(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
+    parser.expect_type(vec![PyTokenType::Star])?;
+
+    let expr = parse_expr(parser, PyBindingPower::Default)?;
+
+    Ok(PyExpr::Starred {
+        value: Box::new(expr),
+        ctx: PyRefContext::Load,
+    })
 }

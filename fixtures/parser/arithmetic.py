@@ -71,7 +71,7 @@
 1 +
 
 # case: missing_left_operand
-* 2
+/ 2
 
 # case: unbalanced_open_paren
 (1 + 2
