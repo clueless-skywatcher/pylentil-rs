@@ -370,21 +370,34 @@ impl<'a> PyLexer<'a> {
                         Self::try_lex_number(code, &mut i)?
                     } else {
                         let start = i;
+                        let mut returnable_token: PyToken;
                         Self::consume_while(code, &mut i, |b| b.is_ascii_digit());
 
                         if Self::peek(code, i) == Ok(b'.') {
                             Self::consume(code, &mut i)?; // Consume the '.'
                             Self::consume_while(code, &mut i, |b| b.is_ascii_digit()); // Consume fractional part
-                            PyToken {
+                            returnable_token = PyToken {
                                 kind: PyTokenType::Float,
                                 value: Some(Cow::Borrowed(&code[start..i])),
                             }
                         } else {
-                            PyToken {
+                            returnable_token = PyToken {
                                 kind: PyTokenType::Int,
                                 value: Some(Cow::Borrowed(&code[start..i])),
                             }
                         }
+
+                        if Self::peek(code, i) == Ok(b'e') || Self::peek(code, i) == Ok(b'E') {
+                            Self::consume(code, &mut i)?;
+                            Self::consume_while(code, &mut i, |b| b.is_ascii_digit() || b == b'.' || b == b'-');
+
+                            returnable_token = PyToken { 
+                                kind: PyTokenType::ENotation, 
+                                value: Some(Cow::Borrowed(&code[start..i]))
+                            }
+                        }
+
+                        returnable_token
                     }
                 }
                 b if b.is_ascii_alphabetic() || b == b'_' => {

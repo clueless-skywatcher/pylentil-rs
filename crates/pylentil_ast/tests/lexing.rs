@@ -164,10 +164,10 @@ mod numbers {
     }
 
     #[test]
-    fn exponent_notation_is_a_single_float_token() {
-        assert_eq!(tokens("exponent"), Ok(vec!["Float(1e10)".into()]));
-        assert_eq!(tokens("exponent_capital"), Ok(vec!["Float(1E10)".into()]));
-        assert_eq!(tokens("negative_exponent"), Ok(vec!["Float(1.5e-3)".into()]));
+    fn exponent_notation_is_a_single_token() {
+        assert_eq!(tokens("exponent"), Ok(vec!["ENotation(1e10)".into()]));
+        assert_eq!(tokens("exponent_capital"), Ok(vec!["ENotation(1E10)".into()]));
+        assert_eq!(tokens("negative_exponent"), Ok(vec!["ENotation(1.5e-3)".into()]));
     }
 
     #[test]
