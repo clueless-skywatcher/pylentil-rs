@@ -373,7 +373,7 @@ fn stmts_sexpr(stmts: &[PyStatement]) -> String {
 fn constant_sexpr(constant: &PyConstant) -> String {
     match constant {
         PyConstant::Integer(i) => i.to_string(),
-        PyConstant::Float(f) => format!("{f:?}"),
+        PyConstant::Float(f) => f.to_string(),
         // Raw source text between the quotes, so expectations stay readable.
         PyConstant::String(s) => format!("str({s})"),
         PyConstant::Bytes(b) => format!("bytes({})", b.len()),

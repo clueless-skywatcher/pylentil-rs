@@ -5,6 +5,58 @@ use pylentil_common::errors::PylentilError;
 
 use crate::token::{PyToken, PyTokenType};
 
+const BOM: &str = "\u{feff}";
+
+const OPERATORS: &[(&str, PyTokenType)] = &[
+    ("**=", PyTokenType::DoubleStarEqual),
+    ("//=", PyTokenType::DoubleSlashEqual),
+    ("<<=", PyTokenType::LShiftEqual),
+    (">>=", PyTokenType::RShiftEqual),
+    ("...", PyTokenType::Ellipsis),
+    ("**", PyTokenType::DoubleStar),
+    ("//", PyTokenType::DoubleSlash),
+    ("<<", PyTokenType::LShift),
+    (">>", PyTokenType::RShift),
+    ("+=", PyTokenType::PlusEqual),
+    ("-=", PyTokenType::MinusEqual),
+    ("*=", PyTokenType::StarEqual),
+    ("/=", PyTokenType::SlashEqual),
+    ("%=", PyTokenType::PercentEqual),
+    ("@=", PyTokenType::AtEqual),
+    ("&=", PyTokenType::AmpersandEqual),
+    ("|=", PyTokenType::VerticalBarEqual),
+    ("^=", PyTokenType::CaretEqual),
+    ("==", PyTokenType::DoubleEqual),
+    ("!=", PyTokenType::NotEqual),
+    ("<=", PyTokenType::LessEqual),
+    (">=", PyTokenType::GreaterEqual),
+    ("->", PyTokenType::Arrow),
+    (":=", PyTokenType::Walrus),
+    ("(", PyTokenType::LParen),
+    (")", PyTokenType::RParen),
+    ("[", PyTokenType::LSquare),
+    ("]", PyTokenType::RSquare),
+    ("{", PyTokenType::LBrace),
+    ("}", PyTokenType::RBrace),
+    (",", PyTokenType::Comma),
+    (":", PyTokenType::Colon),
+    (";", PyTokenType::Semicolon),
+    (".", PyTokenType::Dot),
+    ("+", PyTokenType::Plus),
+    ("-", PyTokenType::Minus),
+    ("*", PyTokenType::Star),
+    ("/", PyTokenType::Slash),
+    ("%", PyTokenType::Percent),
+    ("@", PyTokenType::At),
+    ("=", PyTokenType::Assign),
+    ("<", PyTokenType::Less),
+    (">", PyTokenType::Greater),
+    ("&", PyTokenType::Ampersand),
+    ("|", PyTokenType::VerticalBar),
+    ("^", PyTokenType::Caret),
+    ("~", PyTokenType::Tilde),
+];
+
 fn keyword_type(value: &str) -> Option<PyTokenType> {
     Some(match value {
         "False" => PyTokenType::False,
@@ -80,8 +132,9 @@ impl<'a> PyLexer<'a> {
 
     pub fn from_code(code: &'a str) -> Result<Self, PylentilError> {
         let mut tokens = Vec::<PyToken>::new();
-        let mut i = 0;
+        let mut i = if code.starts_with(BOM) { BOM.len() } else { 0 };
         let mut at_line_start = true;
+        let mut depth = 0usize;
 
         while i < code.len() {
             let mut byte = Self::peek(code, i)?;
@@ -100,14 +153,17 @@ impl<'a> PyLexer<'a> {
             if at_line_start && (byte == b' ' || byte == b'\t') {
                 let value = Self::consume_while(code, &mut i, |b| b == b' ' || b == b'\t');
 
-                if !has_all_same_chars(value) {
-                    return Err(PylentilError::MixedSpacesAndTabs);
+                if depth == 0 && Self::carries_code(code, i) {
+                    if !has_all_same_chars(value) {
+                        return Err(PylentilError::MixedSpacesAndTabs);
+                    }
+
+                    tokens.push(PyToken {
+                        kind: PyTokenType::Indent,
+                        value: Some(Cow::Borrowed(value)),
+                    });
                 }
 
-                tokens.push(PyToken {
-                    kind: PyTokenType::Indent,
-                    value: Some(Cow::Borrowed(value)),
-                });
                 at_line_start = false;
                 continue;
             }
@@ -120,302 +176,53 @@ impl<'a> PyLexer<'a> {
                         value: None,
                     }
                 }
-                b'\n' => {
-                    Self::consume(code, &mut i)?;
+                b'\n' | b'\r' => {
+                    Self::skip_line_break(code, &mut i);
                     at_line_start = true;
+
+                    if depth > 0 {
+                        continue;
+                    }
+
                     PyToken {
                         kind: PyTokenType::Newline,
                         value: None,
                     }
                 }
-                b'(' => {
-                    Self::consume(code, &mut i)?;
-                    PyToken {
-                        kind: PyTokenType::LParen,
-                        value: None,
-                    }
+                b'\\' if Self::is_line_break(code, i + 1) => {
+                    i += 1;
+                    Self::skip_line_break(code, &mut i);
+                    at_line_start = false;
+                    continue;
                 }
-                b')' => {
-                    Self::consume(code, &mut i)?;
-                    PyToken {
-                        kind: PyTokenType::RParen,
-                        value: None,
-                    }
-                }
-                b'[' => {
-                    Self::consume(code, &mut i)?;
-                    PyToken {
-                        kind: PyTokenType::LSquare,
-                        value: None,
-                    }
-                }
-                b']' => {
-                    Self::consume(code, &mut i)?;
-                    PyToken {
-                        kind: PyTokenType::RSquare,
-                        value: None,
-                    }
-                }
-                b'{' => {
-                    Self::consume(code, &mut i)?;
-                    PyToken {
-                        kind: PyTokenType::LBrace,
-                        value: None,
-                    }
-                }
-                b'}' => {
-                    Self::consume(code, &mut i)?;
-                    PyToken {
-                        kind: PyTokenType::RBrace,
-                        value: None,
-                    }
-                }
-                b',' => {
-                    Self::consume(code, &mut i)?;
-                    PyToken {
-                        kind: PyTokenType::Comma,
-                        value: None,
-                    }
-                }
-                b':' => {
-                    Self::consume(code, &mut i)?;
-                    PyToken {
-                        kind: PyTokenType::Colon,
-                        value: None,
-                    }
-                }
-                b';' => {
-                    Self::consume(code, &mut i)?;
-                    PyToken {
-                        kind: PyTokenType::Semicolon,
-                        value: None,
-                    }
-                }
-                b'.' => {
-                    Self::consume(code, &mut i)?;
-                    PyToken {
-                        kind: PyTokenType::Dot,
-                        value: None,
-                    }
-                }
-                b'+' => {
-                    Self::consume(code, &mut i)?;
-                    PyToken {
-                        kind: PyTokenType::Plus,
-                        value: None,
-                    }
-                }
-                b'-' => {
-                    Self::consume(code, &mut i)?;
-                    PyToken {
-                        kind: PyTokenType::Minus,
-                        value: None,
-                    }
-                }
-                b'%' => {
-                    Self::consume(code, &mut i)?;
-                    PyToken {
-                        kind: PyTokenType::Percent,
-                        value: None,
-                    }
-                }
-                b'*' => {
-                    Self::consume(code, &mut i)?;
-                    if Self::peek(code, i) == Ok(b'*') {
-                        Self::consume(code, &mut i)?;
-                        PyToken {
-                            kind: PyTokenType::DoubleStar,
-                            value: None,
-                        }
-                    } else {
-                        PyToken {
-                            kind: PyTokenType::Star,
-                            value: None,
-                        }
-                    }
-                }
-                b'/' => {
-                    Self::consume(code, &mut i)?;
-                    PyToken {
-                        kind: PyTokenType::Slash,
-                        value: None,
-                    }
-                }
-                b'=' => {
-                    Self::consume(code, &mut i)?;
-                    if Self::peek(code, i) == Ok(b'=') {
-                        Self::consume(code, &mut i)?;
-                        PyToken {
-                            kind: PyTokenType::DoubleEqual,
-                            value: None,
-                        }
-                    } else {
-                        PyToken {
-                            kind: PyTokenType::Assign,
-                            value: None,
-                        }
-                    }
-                }
-                b'!' => {
-                    Self::consume(code, &mut i)?;
-                    if Self::peek(code, i) == Ok(b'=') {
-                        Self::consume(code, &mut i)?;
-                        PyToken {
-                            kind: PyTokenType::NotEqual,
-                            value: None,
-                        }
-                    } else {
-                        return Err(PylentilError::InvalidCharacter);
-                    }
-                }
-                b'~' => {
-                    Self::consume(code, &mut i)?;
-                    PyToken {
-                        kind: PyTokenType::Tilde,
-                        value: None,
-                    }
-                }
-                b'&' => {
-                    Self::consume(code, &mut i)?;
-                    PyToken {
-                        kind: PyTokenType::Ampersand,
-                        value: None,
-                    }
-                }
-                b'|' => {
-                    Self::consume(code, &mut i)?;
-                    PyToken {
-                        kind: PyTokenType::VerticalBar,
-                        value: None,
-                    }
-                }
-                b'^' => {
-                    Self::consume(code, &mut i)?;
-                    PyToken {
-                        kind: PyTokenType::Caret,
-                        value: None,
-                    }
-                }
-                b'<' => {
-                    Self::consume(code, &mut i)?;
-
-                    match Self::peek(code, i) {
-                        Ok(b'=') => {
-                            Self::consume(code, &mut i)?;
-                            PyToken {
-                                kind: PyTokenType::LessEqual,
-                                value: None,
-                            }
-                        }
-                        Ok(b'<') => {
-                            Self::consume(code, &mut i)?;
-                            PyToken {
-                                kind: PyTokenType::LShift,
-                                value: None,
-                            }
-                        }
-                        _ => PyToken {
-                            kind: PyTokenType::Less,
-                            value: None,
-                        },
-                    }
-                }
-                b'>' => {
-                    Self::consume(code, &mut i)?;
-
-                    match Self::peek(code, i) {
-                        Ok(b'=') => {
-                            Self::consume(code, &mut i)?;
-                            PyToken {
-                                kind: PyTokenType::GreaterEqual,
-                                value: None,
-                            }
-                        }
-                        Ok(b'<') => {
-                            Self::consume(code, &mut i)?;
-                            PyToken {
-                                kind: PyTokenType::RShift,
-                                value: None,
-                            }
-                        }
-                        _ => PyToken {
-                            kind: PyTokenType::Greater,
-                            value: None,
-                        },
-                    }
-                }
-                b'\'' | b'"' => {
-                    let quote = Self::consume(code, &mut i)?;
-                    let start = i;
-                    loop {
-                        match Self::peek(code, i) {
-                            Ok(b) if b == quote => break,
-                            Ok(b'\\') => {
-                                i += 1;
-                                Self::consume(code, &mut i)?;
-                            }
-                            Ok(_) => i += 1,
-                            Err(e) => return Err(e),
-                        }
-                    }
-                    let value = &code[start..i];
-                    Self::consume(code, &mut i)?;
-                    PyToken {
-                        kind: PyTokenType::String,
-                        value: Some(Cow::Borrowed(value)),
-                    }
-                }
-                b if b.is_ascii_digit() => {
-                    if byte == b'0' {
-                        Self::try_lex_number(code, &mut i)?
-                    } else {
-                        let start = i;
-                        let mut returnable_token: PyToken;
-                        Self::consume_while(code, &mut i, |b| b.is_ascii_digit());
-
-                        if Self::peek(code, i) == Ok(b'.') {
-                            Self::consume(code, &mut i)?; // Consume the '.'
-                            Self::consume_while(code, &mut i, |b| b.is_ascii_digit()); // Consume fractional part
-                            returnable_token = PyToken {
-                                kind: PyTokenType::Float,
-                                value: Some(Cow::Borrowed(&code[start..i])),
-                            }
-                        } else {
-                            returnable_token = PyToken {
-                                kind: PyTokenType::Int,
-                                value: Some(Cow::Borrowed(&code[start..i])),
-                            }
-                        }
-
-                        if Self::peek(code, i) == Ok(b'e') || Self::peek(code, i) == Ok(b'E') {
-                            Self::consume(code, &mut i)?;
-                            Self::consume_while(code, &mut i, |b| b.is_ascii_digit() || b == b'.' || b == b'-');
-
-                            returnable_token = PyToken { 
-                                kind: PyTokenType::ENotation, 
-                                value: Some(Cow::Borrowed(&code[start..i]))
-                            }
-                        }
-
-                        returnable_token
-                    }
-                }
+                b'\'' | b'"' => Self::lex_string(code, &mut i)?,
+                b'.' if Self::is_digit(code, i + 1) => Self::lex_number(code, &mut i)?,
+                b if b.is_ascii_digit() => Self::lex_number(code, &mut i)?,
                 b if b.is_ascii_alphabetic() || b == b'_' => {
-                    let value = Self::consume_while(code, &mut i, |b| {
-                        b.is_ascii_alphanumeric() || b == b'_'
-                    });
+                    let word = Self::consume_while(code, &mut i, is_ident_part);
 
-                    if let Some(kind) = keyword_type(value) {
+                    if is_string_prefix(word) && matches!(Self::peek(code, i), Ok(b'\'') | Ok(b'"'))
+                    {
+                        Self::lex_string(code, &mut i)?
+                    } else if let Some(kind) = keyword_type(word) {
                         PyToken { kind, value: None }
                     } else {
                         PyToken {
                             kind: PyTokenType::Ident,
-                            value: Some(Cow::Borrowed(value)),
+                            value: Some(Cow::Borrowed(word)),
                         }
                     }
                 }
-                _ => return Err(PylentilError::InvalidCharacter),
+                _ => Self::lex_operator(code, &mut i)?,
             };
+
+            match token.kind {
+                PyTokenType::LParen | PyTokenType::LSquare | PyTokenType::LBrace => depth += 1,
+                PyTokenType::RParen | PyTokenType::RSquare | PyTokenType::RBrace => {
+                    depth = depth.saturating_sub(1)
+                }
+                _ => {}
+            }
 
             if token.kind != PyTokenType::Newline {
                 at_line_start = false;
@@ -431,107 +238,160 @@ impl<'a> PyLexer<'a> {
         PyLexer { code, tokens }.indent_pass()
     }
 
-    fn try_lex_number(code: &'a str, pos: &mut usize) -> Result<PyToken<'a>, PylentilError> {
-        // Dereference `pos` to capture the actual usize index at the start of the token
+    fn carries_code(code: &str, pos: usize) -> bool {
+        !matches!(Self::peek(code, pos), Err(_) | Ok(b'\n') | Ok(b'\r') | Ok(b'#'))
+    }
+
+    fn is_line_break(code: &str, pos: usize) -> bool {
+        matches!(Self::peek(code, pos), Ok(b'\n') | Ok(b'\r'))
+    }
+
+    fn skip_line_break(code: &str, pos: &mut usize) {
+        if Self::peek(code, *pos) == Ok(b'\r') {
+            *pos += 1;
+        }
+        if Self::peek(code, *pos) == Ok(b'\n') {
+            *pos += 1;
+        }
+    }
+
+    fn lex_operator(code: &'a str, pos: &mut usize) -> Result<PyToken<'a>, PylentilError> {
+        let rest = &code[*pos..];
+
+        let Some((spelling, kind)) = OPERATORS
+            .iter()
+            .find(|(spelling, _)| rest.starts_with(spelling))
+        else {
+            return Err(PylentilError::InvalidCharacter);
+        };
+
+        *pos += spelling.len();
+
+        Ok(PyToken {
+            kind: *kind,
+            value: None,
+        })
+    }
+
+    fn lex_string(code: &'a str, pos: &mut usize) -> Result<PyToken<'a>, PylentilError> {
+        let quote = Self::peek(code, *pos)?;
+        let marker = if quote == b'"' { "\"\"\"" } else { "'''" };
+        let triple = code[*pos..].starts_with(marker);
+        let opening = if triple { marker.len() } else { 1 };
+
+        *pos += opening;
         let start = *pos;
 
-        assert_eq!(code.as_bytes()[*pos], b'0');
-        Self::consume(code, pos)?;
-        let byte_type = Self::consume(code, pos)?;
-
-        return match byte_type {
-            b'b' => Self::lex_binary(code, pos),
-            b'x' => Self::lex_hex(code, pos),
-            b'o' => Self::lex_oct(code, pos),
-            b if b.is_ascii_digit() => {
-                // Pass `pos` directly instead of `&mut pos`
-                Self::consume_while(code, pos, |b| b.is_ascii_digit());
-
-                if Self::peek(code, *pos) == Ok(b'.') {
+        loop {
+            match Self::peek(code, *pos) {
+                Err(e) => return Err(e),
+                Ok(b'\\') => {
+                    *pos += 1;
                     Self::consume(code, pos)?;
-                    Self::consume_while(code, pos, |b| b.is_ascii_digit());
-
-                    Ok(PyToken {
-                        kind: PyTokenType::Float,
-                        value: Some(Cow::Borrowed(&code[start..*pos])),
-                    })
-                } else {
-                    Ok(PyToken {
-                        kind: PyTokenType::Int,
-                        value: Some(Cow::Borrowed(&code[start..*pos])),
-                    })
                 }
-            },
-            b' ' | b'\n' | b'\t' => Ok(PyToken { kind: PyTokenType::Int, value: Some(Cow::Borrowed("0")) }),
-            _ => Err(PylentilError::InvalidCharacter),
-        };
-    }
-
-    fn lex_binary(code: &'a str, pos: &mut usize) -> Result<PyToken<'a>, PylentilError> {
-        let mut num: Vec<u8> = vec![];
-
-        while *pos < code.len() {
-            let char = Self::consume(code, pos)?;
-            match char {
-                b'0' | b'1' => num.push(char),
-                _ => break,
-            }
-        }
-
-        let Ok(parsed_string) = String::from_utf8(num) else {
-            return Err(PylentilError::InvalidCharacter);
-        };
-
-        Ok(PyToken {
-            kind: PyTokenType::Binary,
-            value: Some(Cow::Owned(parsed_string)),
-        })
-    }
-
-    fn lex_hex(code: &'a str, pos: &mut usize) -> Result<PyToken<'a>, PylentilError> {
-        let mut num: Vec<u8> = vec![];
-
-        while *pos < code.len() {
-            let char = Self::consume(code, pos)?;
-            match char {
-                b'0' | b'1' | b'2' | b'3' | b'4' | b'5' | b'6' | b'7' | b'8' | b'9' | b'a'
-                | b'b' | b'c' | b'd' | b'e' | b'f' => num.push(char),
-                b'A' | b'B' | b'C' | b'D' | b'E' | b'F' => num.push(char.to_ascii_lowercase()),
-                _ => break,
-            }
-        }
-
-        let Ok(parsed_string) = String::from_utf8(num) else {
-            return Err(PylentilError::InvalidCharacter);
-        };
-
-        Ok(PyToken {
-            kind: PyTokenType::Hexadecimal,
-            value: Some(Cow::Owned(parsed_string)),
-        })
-    }
-
-    fn lex_oct(code: &'a str, pos: &mut usize) -> Result<PyToken<'a>, PylentilError> {
-        let mut num: Vec<u8> = vec![];
-
-        while *pos < code.len() {
-            let char = Self::consume(code, pos)?;
-            match char {
-                b'0' | b'1' | b'2' | b'3' | b'4' | b'5' | b'6' | b'7' => {
-                    num.push(char.to_ascii_lowercase())
+                Ok(b'\n') | Ok(b'\r') if !triple => return Err(PylentilError::InvalidCharacter),
+                Ok(b) if b == quote => {
+                    if !triple || code[*pos..].starts_with(marker) {
+                        break;
+                    }
+                    *pos += 1;
                 }
-                _ => break,
+                Ok(_) => *pos += 1,
             }
         }
 
-        let Ok(parsed_string) = String::from_utf8(num) else {
-            return Err(PylentilError::InvalidCharacter);
-        };
+        let value = &code[start..*pos];
+        *pos += opening;
 
         Ok(PyToken {
-            kind: PyTokenType::Octal,
-            value: Some(Cow::Owned(parsed_string)),
+            kind: PyTokenType::String,
+            value: Some(Cow::Borrowed(value)),
         })
+    }
+
+    fn lex_number(code: &'a str, pos: &mut usize) -> Result<PyToken<'a>, PylentilError> {
+        let start = *pos;
+
+        if Self::peek(code, *pos) == Ok(b'0') {
+            let radix = match Self::peek(code, *pos + 1) {
+                Ok(b'b') | Ok(b'B') => Some((PyTokenType::Binary, is_binary_digit as DigitTest)),
+                Ok(b'o') | Ok(b'O') => Some((PyTokenType::Octal, is_octal_digit as DigitTest)),
+                Ok(b'x') | Ok(b'X') => Some((PyTokenType::Hexadecimal, is_hex_digit as DigitTest)),
+                _ => None,
+            };
+
+            if let Some((kind, is_digit)) = radix {
+                *pos += 2;
+                return Self::lex_radix(code, pos, kind, is_digit);
+            }
+        }
+
+        let mut kind = PyTokenType::Int;
+        Self::consume_while(code, pos, is_number_part);
+
+        if Self::peek(code, *pos) == Ok(b'.') {
+            *pos += 1;
+            Self::consume_while(code, pos, is_number_part);
+            kind = PyTokenType::Float;
+        }
+
+        if matches!(Self::peek(code, *pos), Ok(b'e') | Ok(b'E'))
+            && Self::starts_exponent(code, *pos + 1)
+        {
+            *pos += 1;
+            if matches!(Self::peek(code, *pos), Ok(b'+') | Ok(b'-')) {
+                *pos += 1;
+            }
+            Self::consume_while(code, pos, is_number_part);
+            kind = PyTokenType::ENotation;
+        }
+
+        if matches!(Self::peek(code, *pos), Ok(b'j') | Ok(b'J')) {
+            *pos += 1;
+            kind = PyTokenType::Imaginary;
+        }
+
+        Ok(PyToken {
+            kind,
+            value: Some(Cow::Borrowed(&code[start..*pos])),
+        })
+    }
+
+    fn lex_radix(
+        code: &'a str,
+        pos: &mut usize,
+        kind: PyTokenType,
+        is_digit: DigitTest,
+    ) -> Result<PyToken<'a>, PylentilError> {
+        let digits = Self::consume_while(code, pos, |b| b == b'_' || is_digit(b));
+
+        if digits.chars().all(|c| c == '_') {
+            return Err(PylentilError::InvalidCharacter);
+        }
+
+        let value: String = digits
+            .chars()
+            .filter(|c| *c != '_')
+            .map(|c| c.to_ascii_lowercase())
+            .collect();
+
+        Ok(PyToken {
+            kind,
+            value: Some(Cow::Owned(value)),
+        })
+    }
+
+    fn starts_exponent(code: &str, pos: usize) -> bool {
+        let pos = match Self::peek(code, pos) {
+            Ok(b'+') | Ok(b'-') => pos + 1,
+            _ => pos,
+        };
+
+        Self::is_digit(code, pos)
+    }
+
+    fn is_digit(code: &str, pos: usize) -> bool {
+        matches!(Self::peek(code, pos), Ok(b) if b.is_ascii_digit())
     }
 
     fn indent_pass(&self) -> Result<Self, PylentilError> {
@@ -654,6 +514,35 @@ impl<'a> PyLexer<'a> {
             tokens,
         }
     }
+}
+
+type DigitTest = fn(u8) -> bool;
+
+fn is_ident_part(byte: u8) -> bool {
+    byte.is_ascii_alphanumeric() || byte == b'_'
+}
+
+fn is_string_prefix(word: &str) -> bool {
+    matches!(
+        word.to_ascii_lowercase().as_str(),
+        "r" | "u" | "f" | "b" | "fr" | "rf" | "br" | "rb"
+    )
+}
+
+fn is_number_part(byte: u8) -> bool {
+    byte.is_ascii_digit() || byte == b'_'
+}
+
+fn is_binary_digit(byte: u8) -> bool {
+    matches!(byte, b'0' | b'1')
+}
+
+fn is_octal_digit(byte: u8) -> bool {
+    byte.is_ascii_digit() && byte < b'8'
+}
+
+fn is_hex_digit(byte: u8) -> bool {
+    byte.is_ascii_hexdigit()
 }
 
 fn has_all_same_chars(s: &str) -> bool {
