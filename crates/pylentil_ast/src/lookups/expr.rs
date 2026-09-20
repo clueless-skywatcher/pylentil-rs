@@ -365,3 +365,39 @@ pub(super) fn parse_star(parser: &mut PyParser) -> Result<PyExpr, PylentilError>
         ctx: PyRefContext::Load,
     })
 }
+
+
+pub(super) fn parse_attribute_access(
+    parser: &mut PyParser,
+    left: PyExpr,
+    bp: PyBindingPower
+) -> Result<PyExpr, PylentilError> {
+    parser.expect_type(vec![PyTokenType::Dot])?;
+    
+    let attribute = parse_expr(parser, bp)?;
+
+    match attribute {
+        PyExpr::Name { id, ctx } =>  {
+            Ok(PyExpr::Attribute { 
+                value: Box::new(left), 
+                attr: id, 
+                ctx
+            })
+        },
+        _ => Err(PylentilError::InvalidSyntax)
+    }
+}
+
+pub(super) fn parse_subscript_access(
+    parser: &mut PyParser,
+    left: PyExpr,
+    bp: PyBindingPower
+) -> Result<PyExpr, PylentilError> {
+    parser.expect_type(vec![PyTokenType::LSquare])?;
+    
+    let slice = parse_expr(parser, bp)?;
+
+    parser.expect_type(vec![PyTokenType::RSquare])?;
+    
+    Ok(PyExpr::Subscript { value: Box::new(left), slice: Box::new(slice), ctx: PyRefContext::Load })
+}

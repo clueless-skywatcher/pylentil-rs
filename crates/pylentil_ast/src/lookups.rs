@@ -7,10 +7,7 @@ use lazy_static::lazy_static;
 use pylentil_common::errors::PylentilError;
 
 use crate::{
-    PyTokenType,
-    ast::{PyExpr, PyStatement},
-    lookups::expr::parse_star,
-    parser::PyParser,
+    PyTokenType, ast::{PyExpr, PyStatement}, lookups::expr::{parse_attribute_access, parse_star, parse_subscript_access}, parser::PyParser,
 };
 
 use expr::{
@@ -212,6 +209,12 @@ lazy_static! {
 
         // Comma
         led(&mut m, PyTokenType::Comma, parse_potentially_comma_separated);
+
+        // Attribute access
+        led(&mut m, PyTokenType::Dot, parse_attribute_access);
+
+        // Subscript access
+        led(&mut m, PyTokenType::LSquare, parse_subscript_access);
 
         m
     };
