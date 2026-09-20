@@ -19,7 +19,7 @@ a and b and c
 # case: chained_or
 a or b or c
 
-# case: comparison_binds_tighter_than_and
+# case: comparison_in_boolean
 a < b and c < d
 
 # case: parentheses_override_precedence

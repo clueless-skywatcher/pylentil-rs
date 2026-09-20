@@ -2,7 +2,7 @@ use pylentil_common::errors::PylentilError;
 
 use crate::{
     PyToken, PyTokenType,
-    ast::{PyBinaryOp, PyComparisonOp, PyConstant, PyExpr, PyRefContext, PyUnaryOp},
+    ast::{PyBinaryOp, PyBoolOp, PyComparisonOp, PyConstant, PyExpr, PyRefContext, PyUnaryOp},
     parser::PyParser,
 };
 
@@ -130,6 +130,32 @@ fn binary_op(kind: PyTokenType) -> Result<PyBinaryOp, PylentilError> {
     }
 }
 
+fn bool_op(kind: PyTokenType) -> Result<PyBoolOp, PylentilError> {
+    match kind {
+        PyTokenType::And => Ok(PyBoolOp::And),
+        PyTokenType::Or => Ok(PyBoolOp::Or),
+        _ => Err(PylentilError::InvalidSyntax),
+    }
+}
+
+pub(super) fn parse_bool_op(
+    parser: &mut PyParser,
+    left: PyExpr,
+    bp: PyBindingPower,
+) -> Result<PyExpr, PylentilError> {
+    let kind = parser.consume()?.kind;
+    let op = bool_op(kind)?;
+
+    let mut values = vec![left, parse_expr(parser, bp)?];
+
+    while parser.peek()?.kind == kind {
+        parser.consume()?;
+        values.push(parse_expr(parser, bp)?);
+    }
+
+    Ok(PyExpr::BoolOp { op, values })
+}
+
 fn unary_op(kind: PyTokenType) -> Result<PyUnaryOp, PylentilError> {
     match kind {
         PyTokenType::Minus => Ok(PyUnaryOp::UnarySub),
@@ -154,6 +180,25 @@ pub(super) fn parse_unary(parser: &mut PyParser) -> Result<PyExpr, PylentilError
     Ok(PyExpr::UnaryOp {
         op,
         operand: Box::new(operand),
+    })
+}
+
+pub(super) fn augmented_op(kind: PyTokenType) -> Option<PyBinaryOp> {
+    Some(match kind {
+        PyTokenType::PlusEqual => PyBinaryOp::Add,
+        PyTokenType::MinusEqual => PyBinaryOp::Sub,
+        PyTokenType::StarEqual => PyBinaryOp::Mul,
+        PyTokenType::SlashEqual => PyBinaryOp::Div,
+        PyTokenType::DoubleSlashEqual => PyBinaryOp::FloorDiv,
+        PyTokenType::PercentEqual => PyBinaryOp::Mod,
+        PyTokenType::DoubleStarEqual => PyBinaryOp::Pow,
+        PyTokenType::AtEqual => PyBinaryOp::MatMult,
+        PyTokenType::LShiftEqual => PyBinaryOp::LShift,
+        PyTokenType::RShiftEqual => PyBinaryOp::RShift,
+        PyTokenType::AmpersandEqual => PyBinaryOp::BitAnd,
+        PyTokenType::VerticalBarEqual => PyBinaryOp::BitOr,
+        PyTokenType::CaretEqual => PyBinaryOp::BitXor,
+        _ => return None,
     })
 }
 

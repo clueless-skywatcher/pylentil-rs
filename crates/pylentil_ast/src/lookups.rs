@@ -11,8 +11,8 @@ use crate::{
 };
 
 use expr::{
-    as_target, parse_binary, parse_comparison, parse_potentially_comma_separated, parse_terminal,
-    parse_tuple_or_expr, parse_unary,
+    as_target, augmented_op, parse_binary, parse_bool_op, parse_comparison,
+    parse_potentially_comma_separated, parse_terminal, parse_tuple_or_expr, parse_unary,
 };
 use stmt::parse_stmt_if;
 
@@ -134,6 +134,10 @@ lazy_static! {
         bp(&mut m, PyTokenType::Caret, PyBindingPower::BitXor);
         bp(&mut m, PyTokenType::VerticalBar, PyBindingPower::BitOr);
 
+        // Boolean
+        bp(&mut m, PyTokenType::Or, PyBindingPower::Or);
+        bp(&mut m, PyTokenType::And, PyBindingPower::And);
+
         // Comparisons
         bp(&mut m, PyTokenType::DoubleEqual, PyBindingPower::Comparison);
         bp(&mut m, PyTokenType::NotEqual, PyBindingPower::Comparison);
@@ -195,6 +199,10 @@ lazy_static! {
         led(&mut m, PyTokenType::Ampersand, parse_binary);
         led(&mut m, PyTokenType::Caret, parse_binary);
         led(&mut m, PyTokenType::VerticalBar, parse_binary);
+
+        // Boolean
+        led(&mut m, PyTokenType::Or, parse_bool_op);
+        led(&mut m, PyTokenType::And, parse_bool_op);
 
         // Relational
         led(&mut m, PyTokenType::DoubleEqual, parse_comparison);
@@ -286,6 +294,17 @@ pub fn parse_statement(parser: &mut PyParser) -> Result<PyStatement, PylentilErr
                         targets,
                         value: right,
                         type_comment: None,
+                    }
+                }
+                kind if augmented_op(kind).is_some() => {
+                    parser.consume()?;
+                    let op = augmented_op(kind).ok_or(PylentilError::InvalidSyntax)?;
+                    let value = parse_expr(parser, PyBindingPower::Default)?;
+
+                    PyStatement::AugAssign {
+                        target: as_target(expr)?,
+                        op,
+                        value,
                     }
                 }
                 PyTokenType::Colon => {
