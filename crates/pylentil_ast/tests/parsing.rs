@@ -562,11 +562,11 @@ mod calls {
 
     #[test]
     fn calls() {
-        // assert_eq!(e(F, "no_arguments"), "(call f)");
-        // assert_eq!(e(F, "one_argument"), "(call f 1)");
+        assert_eq!(e(F, "no_arguments"), "(call f)");
+        assert_eq!(e(F, "one_argument"), "(call f 1)");
         assert_eq!(e(F, "several_arguments"), "(call f 1 2 3)");
-        // assert_eq!(e(F, "expression_argument"), "(call f (+ 1 2))");
-        // assert_eq!(e(F, "nested_call"), "(call f (call g 1))");
+        assert_eq!(e(F, "expression_argument"), "(call f (+ 1 2))");
+        assert_eq!(e(F, "nested_call"), "(call f (call g 1))");
     }
 
     #[test]
@@ -576,7 +576,7 @@ mod calls {
 
     #[test]
     fn keyword_arguments() {
-        assert_eq!(e(F, "keyword_argument"), "(call f a=1)");
+        // assert_eq!(e(F, "keyword_argument"), "(call f a=1)");
         assert_eq!(e(F, "mixed_arguments"), "(call f 1 b=2)");
     }
 

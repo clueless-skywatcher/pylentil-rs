@@ -1,7 +1,12 @@
 use pylentil_common::errors::PylentilError;
 
 use crate::{
-    PyToken, PyTokenType, ast::{PyArg, PyBinaryOp, PyBoolOp, PyComparisonOp, PyConstant, PyExpr, PyExprBox, PyKeyword, PyRefContext, PyUnaryOp}, parser::PyParser,
+    PyToken, PyTokenType,
+    ast::{
+        PyArg, PyBinaryOp, PyBoolOp, PyComparisonOp, PyConstant, PyExpr, PyExprBox, PyKeyword,
+        PyRefContext, PyUnaryOp,
+    },
+    parser::PyParser,
 };
 
 use super::{PyBindingPower, parse_expr};
@@ -9,7 +14,7 @@ use super::{PyBindingPower, parse_expr};
 #[derive(Debug)]
 enum PyArgOrKeyword {
     Arg(PyArg),
-    Keyword(PyKeyword)
+    Keyword(PyKeyword),
 }
 
 fn parse_int(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
@@ -414,51 +419,52 @@ pub(super) fn parse_star(parser: &mut PyParser) -> Result<PyExpr, PylentilError>
     })
 }
 
-
 pub(super) fn parse_attribute_access(
     parser: &mut PyParser,
     left: PyExpr,
-    bp: PyBindingPower
+    bp: PyBindingPower,
 ) -> Result<PyExpr, PylentilError> {
     parser.expect_type(vec![PyTokenType::Dot])?;
-    
+
     let attribute = parse_expr(parser, bp)?;
 
     match attribute {
-        PyExpr::Name { id, ctx } =>  {
-            Ok(PyExpr::Attribute { 
-                value: Box::new(left), 
-                attr: id, 
-                ctx
-            })
-        },
-        _ => Err(PylentilError::InvalidSyntax)
+        PyExpr::Name { id, ctx } => Ok(PyExpr::Attribute {
+            value: Box::new(left),
+            attr: id,
+            ctx,
+        }),
+        _ => Err(PylentilError::InvalidSyntax),
     }
 }
 
 pub(super) fn parse_subscript_access(
     parser: &mut PyParser,
     left: PyExpr,
-    bp: PyBindingPower
+    bp: PyBindingPower,
 ) -> Result<PyExpr, PylentilError> {
     parser.expect_type(vec![PyTokenType::LSquare])?;
-    
+
     let slice = parse_expr(parser, bp)?;
 
     parser.expect_type(vec![PyTokenType::RSquare])?;
-    
-    Ok(PyExpr::Subscript { value: Box::new(left), slice: Box::new(slice), ctx: PyRefContext::Load })
+
+    Ok(PyExpr::Subscript {
+        value: Box::new(left),
+        slice: Box::new(slice),
+        ctx: PyRefContext::Load,
+    })
 }
 
 pub(super) fn parse_function_call(
     parser: &mut PyParser,
     left: PyExpr,
-    bp: PyBindingPower
+    bp: PyBindingPower,
 ) -> Result<PyExpr, PylentilError> {
     parser.expect_type(vec![PyTokenType::LParen])?;
     let mut args: Vec<PyExprBox> = vec![];
     let mut keywords: Vec<PyKeyword> = vec![];
-    
+
     loop {
         if parser.peek()?.kind == PyTokenType::RParen {
             break;
@@ -466,33 +472,64 @@ pub(super) fn parse_function_call(
 
         let arg = parse_arg(parser, bp)?;
         match arg {
-            PyArgOrKeyword::Arg(arg) => {
-                args.push(arg.arg);
+            PyArgOrKeyword::Arg(arg_expr) => match *arg_expr.arg {
+                PyExpr::Tuple {
+                    elts,
+                    ctx,
+                    parenthesized: false,
+                } => {
+                    let mut new_elts: Vec<PyExprBox> = vec![];
+
+                    new_elts.extend(
+                        elts
+                            .iter()
+                            .map(|elt| Box::new(elt.clone()))
+                    );
+
+                    args.append(&mut new_elts);
+                }
+                _ => args.push(arg_expr.arg),
             },
             PyArgOrKeyword::Keyword(kw) => {
                 keywords.push(kw);
             }
         }
-        println!("")
+
+        if parser.peek()?.kind == PyTokenType::RParen {
+            break;
+        }
+
         parser.expect_type(vec![PyTokenType::Comma])?;
     }
     parser.expect_type(vec![PyTokenType::RParen])?;
 
-    Ok(PyExpr::Call { func: Box::new(left), args, keywords })
+    Ok(PyExpr::Call {
+        func: Box::new(left),
+        args,
+        keywords,
+    })
 }
 
 fn parse_arg(parser: &mut PyParser, bp: PyBindingPower) -> Result<PyArgOrKeyword, PylentilError> {
-    let arg = parse_expr(parser, bp)?;
+    let arg = parse_expr(parser, PyBindingPower::Default)?;
 
     if parser.peek()?.kind == PyTokenType::Assign {
+        parser.consume()?;
         match arg {
             PyExpr::Name { id, .. } => {
-                let val = parse_expr(parser, bp)?;
-                return Ok(PyArgOrKeyword::Keyword(PyKeyword { arg: Some(id), value: Box::new(val) }));
-            },
-            _ => return Err(PylentilError::InvalidSyntax)
+                let val = parse_expr(parser, PyBindingPower::Default)?;
+                return Ok(PyArgOrKeyword::Keyword(PyKeyword {
+                    arg: Some(id),
+                    value: Box::new(val),
+                }));
+            }
+            _ => return Err(PylentilError::InvalidSyntax),
         }
     }
 
-    Ok(PyArgOrKeyword::Arg(PyArg { arg: Box::new(arg), annotation: None, type_comment: None }))
+    Ok(PyArgOrKeyword::Arg(PyArg {
+        arg: Box::new(arg),
+        annotation: None,
+        type_comment: None,
+    }))
 }
