@@ -12,7 +12,7 @@ use crate::{
 use super::{PyBindingPower, parse_expr};
 
 #[derive(Debug)]
-enum PyArgOrKeyword {
+enum PyArgType {
     Arg(PyArg),
     Keyword(PyKeyword),
 }
@@ -441,11 +441,11 @@ pub(super) fn parse_attribute_access(
 pub(super) fn parse_subscript_access(
     parser: &mut PyParser,
     left: PyExpr,
-    bp: PyBindingPower,
+    _bp: PyBindingPower,
 ) -> Result<PyExpr, PylentilError> {
     parser.expect_type(vec![PyTokenType::LSquare])?;
 
-    let slice = parse_expr(parser, bp)?;
+    let slice = parse_slice(parser)?;
 
     parser.expect_type(vec![PyTokenType::RSquare])?;
 
@@ -464,6 +464,7 @@ pub(super) fn parse_function_call(
     parser.expect_type(vec![PyTokenType::LParen])?;
     let mut args: Vec<PyExprBox> = vec![];
     let mut keywords: Vec<PyKeyword> = vec![];
+    let mut kw_phase_started = false;
 
     loop {
         if parser.peek()?.kind == PyTokenType::RParen {
@@ -471,8 +472,18 @@ pub(super) fn parse_function_call(
         }
 
         match parse_arg(parser)? {
-            PyArgOrKeyword::Arg(arg_expr) => args.push(arg_expr.arg),
-            PyArgOrKeyword::Keyword(kw) => keywords.push(kw),
+            PyArgType::Arg(arg_expr) => {
+                if kw_phase_started {
+                    return Err(PylentilError::InvalidSyntax);
+                }
+                args.push(arg_expr.arg)
+            },
+            PyArgType::Keyword(kw) => {
+                if !kw_phase_started {
+                    kw_phase_started = true;
+                }
+                keywords.push(kw);
+            },
         }
 
         if parser.peek()?.kind == PyTokenType::RParen {
@@ -490,10 +501,13 @@ pub(super) fn parse_function_call(
     })
 }
 
-/// One argument in a call. Parsed at `Comma` binding power so the comma
-/// separating arguments is never swallowed into the argument itself: the
-/// caller's loop owns the commas.
-fn parse_arg(parser: &mut PyParser) -> Result<PyArgOrKeyword, PylentilError> {
+fn parse_arg(parser: &mut PyParser) -> Result<PyArgType, PylentilError> {
+    if parser.peek()?.kind == PyTokenType::DoubleStar {
+        parser.consume()?;
+        let expr = parse_expr(parser, PyBindingPower::Comma)?;
+        return Ok(PyArgType::Keyword(PyKeyword { arg: None, value: Box::new(expr) }))
+    }
+
     let arg = parse_expr(parser, PyBindingPower::Comma)?;
 
     if parser.peek()?.kind == PyTokenType::Assign {
@@ -501,7 +515,7 @@ fn parse_arg(parser: &mut PyParser) -> Result<PyArgOrKeyword, PylentilError> {
         match arg {
             PyExpr::Name { id, .. } => {
                 let val = parse_expr(parser, PyBindingPower::Comma)?;
-                return Ok(PyArgOrKeyword::Keyword(PyKeyword {
+                return Ok(PyArgType::Keyword(PyKeyword {
                     arg: Some(id),
                     value: Box::new(val),
                 }));
@@ -510,9 +524,38 @@ fn parse_arg(parser: &mut PyParser) -> Result<PyArgOrKeyword, PylentilError> {
         }
     }
 
-    Ok(PyArgOrKeyword::Arg(PyArg {
+    Ok(PyArgType::Arg(PyArg {
         arg: Box::new(arg),
         annotation: None,
         type_comment: None,
     }))
+}
+
+fn parse_slice(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
+    let mut lower: Option<PyExprBox> = None;
+    let mut upper: Option<PyExprBox> = None;
+    let mut step: Option<PyExprBox> = None;
+
+    if parser.peek()?.kind != PyTokenType::Colon {
+        lower = Some(Box::new(parse_expr(parser, PyBindingPower::Default)?));
+    }
+    if parser.peek()?.kind == PyTokenType::RSquare {
+        return Ok(*lower.unwrap());
+    } else {
+        parser.expect_type(vec![PyTokenType::Colon])?;
+    }
+
+    if !matches!(parser.peek()?.kind, PyTokenType::RSquare | PyTokenType::Colon) {
+        upper = Some(Box::new(parse_expr(parser, PyBindingPower::Default)?));
+    }
+
+    if parser.peek()?.kind != PyTokenType::RSquare {
+        parser.expect_type(vec![PyTokenType::Colon])?;
+    }
+
+    if parser.peek()?.kind != PyTokenType::RSquare {
+        step = Some(Box::new(parse_expr(parser, PyBindingPower::Default)?));
+    }
+
+    Ok(PyExpr::Slice { lower, upper, step })
 }

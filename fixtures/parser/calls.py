@@ -40,30 +40,6 @@ f().g
 # case: attribute_on_call_result_called
 f().g()
 
-# case: subscript
-a[0]
-
-# case: chained_subscript
-a[0][1]
-
-# case: subscript_with_expression
-a[i + 1]
-
-# case: slice
-a[1:2]
-
-# case: slice_with_step
-a[1:2:3]
-
-# case: open_slice
-a[:]
-
-# case: subscript_of_call
-f()[0]
-
-# case: call_on_subscript
-a[0]()
-
 # case: star_args
 f(*args)
 
@@ -72,6 +48,9 @@ f(**kwargs)
 
 # case: trailing_comma_in_call
 f(1,)
+
+# case: keywords_before_positional_arguments
+f(a = 1, 2, 3)
 
 # case: unclosed_call
 f(1

@@ -595,6 +595,30 @@ mod calls {
     }
 
     #[test]
+    fn argument_unpacking() {
+        assert_eq!(e(F, "star_args"), "(call f (star args))");
+        assert_eq!(e(F, "double_star_kwargs"), "(call f **kwargs)");
+    }
+
+    #[test]
+    fn a_trailing_comma_in_a_call_is_allowed() {
+        assert_eq!(e(F, "trailing_comma_in_call"), "(call f 1)");
+    }
+
+    #[test]
+    fn malformed_calls_are_rejected() {
+        assert_rejected(F, "unclosed_call");
+        assert_rejected(F, "attribute_without_name");
+        assert_rejected(F, "keywords_before_positional_arguments");
+    }
+}
+
+
+mod subscripts {
+    use super::*;
+    const F: &str = "parser/subscripts.py";
+
+    #[test]
     fn subscripts() {
         assert_eq!(e(F, "subscript"), "(subscript a 0)");
         assert_eq!(e(F, "chained_subscript"), "(subscript (subscript a 0) 1)");
@@ -610,21 +634,40 @@ mod calls {
         assert_eq!(e(F, "open_slice"), "(subscript a (slice - - -))");
     }
 
+    /// Any of the three parts may be left out, in any combination.
     #[test]
-    fn argument_unpacking() {
-        assert_eq!(e(F, "star_args"), "(call f (star args))");
-        assert_eq!(e(F, "double_star_kwargs"), "(call f **kwargs)");
+    fn a_slice_part_may_be_omitted() {
+        assert_eq!(e(F, "slice_lower_only"), "(subscript a (slice 1 - -))");
+        assert_eq!(e(F, "slice_upper_only"), "(subscript a (slice - 2 -))");
+        assert_eq!(e(F, "slice_trailing_colon"), "(subscript a (slice 1 2 -))");
+        assert_eq!(e(F, "open_slice_both_colons"), "(subscript a (slice - - -))");
+    }
+
+    /// An omitted `upper` still has to let the second colon through, so the
+    /// step is reached rather than parsed as an expression starting at `:`.
+    #[test]
+    fn a_step_survives_an_omitted_upper() {
+        assert_eq!(e(F, "slice_step_only"), "(subscript a (slice - - 2))");
+        assert_eq!(e(F, "slice_omitted_upper_with_step"), "(subscript a (slice 1 - 2))");
+        assert_eq!(e(F, "slice_omitted_lower_with_step"), "(subscript a (slice - 2 3))");
     }
 
     #[test]
-    fn a_trailing_comma_in_a_call_is_allowed() {
-        assert_eq!(e(F, "trailing_comma_in_call"), "(call f 1)");
+    fn slice_bounds_are_full_expressions() {
+        assert_eq!(e(F, "slice_bounds_are_expressions"), "(subscript a (slice (+ x 1) (* y 2) -))");
+        assert_eq!(e(F, "slice_bounds_are_calls"), "(subscript a (slice (call f 1) (call g 2) -))");
+        assert_eq!(e(F, "slice_bound_is_a_subscript"), "(subscript a (slice (subscript b 0) c -))");
     }
 
     #[test]
-    fn malformed_calls_are_rejected() {
-        assert_rejected(F, "unclosed_call");
-        assert_rejected(F, "attribute_without_name");
+    fn a_comma_index_is_a_tuple_not_a_slice() {
+        assert_eq!(e(F, "tuple_index"), "(subscript a (tuple 1 2))");
+    }
+
+    #[test]
+    fn malformed_subscripts_are_rejected() {
+        assert_rejected(F, "empty_subscript");
+        assert_rejected(F, "too_many_slice_parts");
     }
 }
 
@@ -907,6 +950,7 @@ mod robustness {
             "parser/tuples.py",
             "parser/assignment.py",
             "parser/calls.py",
+            "parser/subscripts.py",
             "parser/collections.py",
             "parser/if_statements.py",
             "parser/statements.py",
