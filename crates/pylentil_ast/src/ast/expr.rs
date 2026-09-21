@@ -121,3 +121,38 @@ pub enum PyExpr {
         step: Option<PyExprBox>,
     },
 }
+
+impl PyExpr {
+    /// A noun phrase naming this kind of expression, for error messages.
+    pub fn describe(&self) -> &'static str {
+        match self {
+            PyExpr::BoolOp { .. } => "a boolean operation",
+            PyExpr::NamedExpr { .. } => "a walrus expression",
+            PyExpr::BinOp { .. } => "a binary operation",
+            PyExpr::UnaryOp { .. } => "a unary operation",
+            PyExpr::Lambda { .. } => "a lambda",
+            PyExpr::IfExp { .. } => "a conditional expression",
+            PyExpr::Dict { .. } => "a dict literal",
+            PyExpr::Set { .. } => "a set literal",
+            PyExpr::ListComp { .. } => "a list comprehension",
+            PyExpr::SetComp { .. } => "a set comprehension",
+            PyExpr::DictComp { .. } => "a dict comprehension",
+            PyExpr::GeneratorExp { .. } => "a generator expression",
+            PyExpr::Await { .. } => "an await expression",
+            PyExpr::Yield { .. } => "a yield expression",
+            PyExpr::YieldFrom { .. } => "a yield-from expression",
+            PyExpr::Compare { .. } => "a comparison",
+            PyExpr::Call { .. } => "a function call",
+            PyExpr::FormattedValue { .. } => "a formatted value",
+            PyExpr::JoinedStr { .. } => "an f-string",
+            PyExpr::Constant { .. } => "a literal",
+            PyExpr::Attribute { .. } => "an attribute access",
+            PyExpr::Subscript { .. } => "a subscript",
+            PyExpr::Starred { .. } => "a starred expression",
+            PyExpr::Name { .. } => "a name",
+            PyExpr::List { .. } => "a list",
+            PyExpr::Tuple { .. } => "a tuple",
+            PyExpr::Slice { .. } => "a slice",
+        }
+    }
+}

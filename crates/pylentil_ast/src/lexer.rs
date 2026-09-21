@@ -262,7 +262,8 @@ impl<'a> PyLexer<'a> {
             .iter()
             .find(|(spelling, _)| rest.starts_with(spelling))
         else {
-            return Err(PylentilError::InvalidCharacter);
+            let character = rest.chars().next().ok_or(PylentilError::EndOfFileReached)?;
+            return Err(PylentilError::UnknownCharacter { character });
         };
 
         *pos += spelling.len();
@@ -278,18 +279,35 @@ impl<'a> PyLexer<'a> {
         let marker = if quote == b'"' { "\"\"\"" } else { "'''" };
         let triple = code[*pos..].starts_with(marker);
         let opening = if triple { marker.len() } else { 1 };
+        let opened_with = || match (triple, quote) {
+            (true, b'"') => "\"\"\"".to_string(),
+            (true, _) => "'''".to_string(),
+            (false, b'"') => "\"".to_string(),
+            (false, _) => "'".to_string(),
+        };
 
         *pos += opening;
         let start = *pos;
 
         loop {
             match Self::peek(code, *pos) {
+                Err(PylentilError::EndOfFileReached) => {
+                    return Err(PylentilError::UnterminatedString {
+                        quote: opened_with(),
+                    });
+                }
                 Err(e) => return Err(e),
                 Ok(b'\\') => {
                     *pos += 1;
-                    Self::consume(code, pos)?;
+                    Self::consume(code, pos).map_err(|_| PylentilError::UnterminatedString {
+                        quote: opened_with(),
+                    })?;
                 }
-                Ok(b'\n') | Ok(b'\r') if !triple => return Err(PylentilError::InvalidCharacter),
+                Ok(b'\n') | Ok(b'\r') if !triple => {
+                    return Err(PylentilError::UnterminatedStringLine {
+                        quote: opened_with(),
+                    });
+                }
                 Ok(b) if b == quote => {
                     if !triple || code[*pos..].starts_with(marker) {
                         break;
@@ -314,15 +332,23 @@ impl<'a> PyLexer<'a> {
 
         if Self::peek(code, *pos) == Ok(b'0') {
             let radix = match Self::peek(code, *pos + 1) {
-                Ok(b'b') | Ok(b'B') => Some((PyTokenType::Binary, is_binary_digit as DigitTest)),
-                Ok(b'o') | Ok(b'O') => Some((PyTokenType::Octal, is_octal_digit as DigitTest)),
-                Ok(b'x') | Ok(b'X') => Some((PyTokenType::Hexadecimal, is_hex_digit as DigitTest)),
+                Ok(b'b') | Ok(b'B') => {
+                    Some((PyTokenType::Binary, is_binary_digit as DigitTest, "binary"))
+                }
+                Ok(b'o') | Ok(b'O') => {
+                    Some((PyTokenType::Octal, is_octal_digit as DigitTest, "octal"))
+                }
+                Ok(b'x') | Ok(b'X') => Some((
+                    PyTokenType::Hexadecimal,
+                    is_hex_digit as DigitTest,
+                    "hexadecimal",
+                )),
                 _ => None,
             };
 
-            if let Some((kind, is_digit)) = radix {
+            if let Some((kind, is_digit, base)) = radix {
                 *pos += 2;
-                return Self::lex_radix(code, pos, kind, is_digit);
+                return Self::lex_radix(code, start, pos, kind, is_digit, base);
             }
         }
 
@@ -359,14 +385,19 @@ impl<'a> PyLexer<'a> {
 
     fn lex_radix(
         code: &'a str,
+        start: usize,
         pos: &mut usize,
         kind: PyTokenType,
         is_digit: DigitTest,
+        base: &'static str,
     ) -> Result<PyToken<'a>, PylentilError> {
         let digits = Self::consume_while(code, pos, |b| b == b'_' || is_digit(b));
 
         if digits.chars().all(|c| c == '_') {
-            return Err(PylentilError::InvalidCharacter);
+            return Err(PylentilError::EmptyNumericLiteral {
+                prefix: code[start..*pos].to_string(),
+                base,
+            });
         }
 
         let value: String = digits
@@ -396,7 +427,7 @@ impl<'a> PyLexer<'a> {
 
     fn indent_pass(&self) -> Result<Self, PylentilError> {
         if self.tokens[0].kind == PyTokenType::Indent {
-            return Err(PylentilError::InvalidIndentation);
+            return Err(PylentilError::UnexpectedIndent);
         }
 
         let mut new_tokens: Vec<PyToken> = Vec::new();
@@ -490,8 +521,12 @@ impl<'a> PyLexer<'a> {
             });
         }
 
-        if indent != *indents.last().unwrap() {
-            Err(PylentilError::InvalidIndentation)
+        let enclosing = *indents.last().unwrap();
+        if indent != enclosing {
+            Err(PylentilError::InconsistentDedent {
+                found: indent,
+                enclosing,
+            })
         } else {
             Ok(())
         }
@@ -555,7 +590,7 @@ fn get_indent_size(s: &str) -> Result<usize, PylentilError> {
         size += match char {
             '\t' => 4,
             ' ' => 1,
-            _ => return Err(PylentilError::InvalidCharacter),
+            _ => return Err(PylentilError::InvalidIndentationCharacter { character: char }),
         }
     }
     Ok(size)

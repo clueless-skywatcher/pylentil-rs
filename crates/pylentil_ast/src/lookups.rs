@@ -239,8 +239,11 @@ lazy_static! {
 }
 
 fn parse_expr(parser: &mut PyParser, bp: PyBindingPower) -> Result<PyExpr, PylentilError> {
-    let Some(nud_fn) = NUD_LU.get(&parser.peek()?.kind) else {
-        return Err(PylentilError::InvalidSyntax);
+    let token = parser.peek()?;
+    let Some(nud_fn) = NUD_LU.get(&token.kind) else {
+        return Err(PylentilError::ExpressionExpected {
+            found: token.describe(),
+        });
     };
 
     let mut left = nud_fn(parser)?;
@@ -251,9 +254,12 @@ fn parse_expr(parser: &mut PyParser, bp: PyBindingPower) -> Result<PyExpr, Pylen
         .unwrap_or(PyBindingPower::Default)
         > bp
     {
-        let token_kind = parser.peek()?.kind;
+        let token = parser.peek()?;
+        let token_kind = token.kind;
         let Some(led_fn) = LED_LU.get(&token_kind) else {
-            return Err(PylentilError::InvalidSyntax);
+            return Err(PylentilError::TokenCannotContinueExpression {
+                found: token.describe(),
+            });
         };
 
         let op_bp = BP_LU
@@ -300,8 +306,11 @@ pub fn parse_statement(parser: &mut PyParser) -> Result<PyStatement, PylentilErr
                     }
                 }
                 kind if augmented_op(kind).is_some() => {
-                    parser.consume()?;
-                    let op = augmented_op(kind).ok_or(PylentilError::InvalidSyntax)?;
+                    let token = parser.consume()?;
+                    let op = augmented_op(kind).ok_or(PylentilError::UnsupportedOperator {
+                        found: token.describe(),
+                        context: "an augmented assignment",
+                    })?;
                     let value = parse_expr(parser, PyBindingPower::Default)?;
 
                     PyStatement::AugAssign {
@@ -314,13 +323,17 @@ pub fn parse_statement(parser: &mut PyParser) -> Result<PyStatement, PylentilErr
                     parser.consume()?;
 
                     if !matches!(expr, PyExpr::Name { .. }) {
-                        return Err(PylentilError::InvalidSyntax);
+                        return Err(PylentilError::InvalidAnnotationTarget {
+                            found: expr.describe(),
+                        });
                     }
 
                     let annotation = parse_expr(parser, PyBindingPower::Default)?;
 
                     if !matches!(annotation, PyExpr::Name { .. }) {
-                        return Err(PylentilError::InvalidSyntax);
+                        return Err(PylentilError::InvalidAnnotation {
+                            found: annotation.describe(),
+                        });
                     }
 
                     if parser.peek()?.kind == PyTokenType::Assign {

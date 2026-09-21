@@ -26,7 +26,16 @@ fn parse_int(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
             kind: None,
             value: PyConstant::Integer(value.to_string()),
         }),
-        _ => Err(PylentilError::InvalidSyntax),
+        PyToken {
+            kind: PyTokenType::Int,
+            value: None,
+        } => Err(PylentilError::TokenMissingValue {
+            kind: "an integer literal",
+        }),
+        other => Err(PylentilError::UnexpectedToken {
+            expected: PyTokenType::Int.describe().to_string(),
+            found: other.describe(),
+        }),
     }
 }
 
@@ -39,7 +48,16 @@ fn parse_float(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
             kind: None,
             value: PyConstant::Float(value.to_string()),
         }),
-        _ => Err(PylentilError::InvalidSyntax),
+        PyToken {
+            kind: PyTokenType::Float,
+            value: None,
+        } => Err(PylentilError::TokenMissingValue {
+            kind: "a float literal",
+        }),
+        other => Err(PylentilError::UnexpectedToken {
+            expected: PyTokenType::Float.describe().to_string(),
+            found: other.describe(),
+        }),
     }
 }
 
@@ -54,15 +72,30 @@ fn parse_ident(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
                 ctx: PyRefContext::Load,
             }
         }),
-        _ => Err(PylentilError::InvalidSyntax),
+        PyToken {
+            kind: PyTokenType::Ident,
+            value: None,
+        } => Err(PylentilError::TokenMissingValue {
+            kind: "an identifier",
+        }),
+        other => Err(PylentilError::UnexpectedToken {
+            expected: PyTokenType::Ident.describe().to_string(),
+            found: other.describe(),
+        }),
     }
 }
 
 fn parse_boolean(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
-    let bool_val = match parser.consume()?.kind {
+    let token = parser.consume()?;
+    let bool_val = match token.kind {
         PyTokenType::True => true,
         PyTokenType::False => false,
-        _ => return Err(PylentilError::InvalidSyntax),
+        _ => {
+            return Err(PylentilError::UnexpectedToken {
+                expected: "keyword `True` or keyword `False`".to_string(),
+                found: token.describe(),
+            });
+        }
     };
 
     Ok(PyExpr::Constant {
@@ -72,22 +105,30 @@ fn parse_boolean(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
 }
 
 fn parse_none(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
-    match parser.consume()?.kind {
+    let token = parser.consume()?;
+    match token.kind {
         PyTokenType::None => Ok(PyExpr::Constant {
             value: PyConstant::None,
             kind: None,
         }),
-        _ => Err(PylentilError::InvalidSyntax),
+        _ => Err(PylentilError::UnexpectedToken {
+            expected: PyTokenType::None.describe().to_string(),
+            found: token.describe(),
+        }),
     }
 }
 
 fn parse_ellipsis(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
-    match parser.consume()?.kind {
+    let token = parser.consume()?;
+    match token.kind {
         PyTokenType::Ellipsis => Ok(PyExpr::Constant {
             value: PyConstant::Ellipsis,
             kind: None,
         }),
-        _ => Err(PylentilError::InvalidSyntax),
+        _ => Err(PylentilError::UnexpectedToken {
+            expected: PyTokenType::Ellipsis.describe().to_string(),
+            found: token.describe(),
+        }),
     }
 }
 
@@ -102,7 +143,16 @@ fn parse_string(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
                 kind: None,
             }
         }),
-        _ => Err(PylentilError::InvalidSyntax),
+        PyToken {
+            kind: PyTokenType::String,
+            value: None,
+        } => Err(PylentilError::TokenMissingValue {
+            kind: "a string literal",
+        }),
+        other => Err(PylentilError::UnexpectedToken {
+            expected: PyTokenType::String.describe().to_string(),
+            found: other.describe(),
+        }),
     }
 }
 
@@ -116,7 +166,9 @@ pub(super) fn parse_terminal(parser: &mut PyParser) -> Result<PyExpr, PylentilEr
         PyTokenType::Ident => parse_ident(parser),
         PyTokenType::None => parse_none(parser),
         PyTokenType::Ellipsis => parse_ellipsis(parser),
-        _ => Err(PylentilError::NotATerminal),
+        _ => Err(PylentilError::NotATerminal {
+            found: token.describe(),
+        }),
     }
 }
 
@@ -135,7 +187,10 @@ fn binary_op(kind: PyTokenType) -> Result<PyBinaryOp, PylentilError> {
         PyTokenType::Ampersand => Ok(PyBinaryOp::BitAnd),
         PyTokenType::Caret => Ok(PyBinaryOp::BitXor),
         PyTokenType::VerticalBar => Ok(PyBinaryOp::BitOr),
-        _ => Err(PylentilError::InvalidSyntax),
+        _ => Err(PylentilError::UnsupportedOperator {
+            found: kind.describe().to_string(),
+            context: "a binary expression",
+        }),
     }
 }
 
@@ -143,7 +198,10 @@ fn bool_op(kind: PyTokenType) -> Result<PyBoolOp, PylentilError> {
     match kind {
         PyTokenType::And => Ok(PyBoolOp::And),
         PyTokenType::Or => Ok(PyBoolOp::Or),
-        _ => Err(PylentilError::InvalidSyntax),
+        _ => Err(PylentilError::UnsupportedOperator {
+            found: kind.describe().to_string(),
+            context: "a boolean expression",
+        }),
     }
 }
 
@@ -171,7 +229,10 @@ fn unary_op(kind: PyTokenType) -> Result<PyUnaryOp, PylentilError> {
         PyTokenType::Plus => Ok(PyUnaryOp::UnaryAdd),
         PyTokenType::Tilde => Ok(PyUnaryOp::Invert),
         PyTokenType::Not => Ok(PyUnaryOp::Not),
-        _ => Err(PylentilError::InvalidSyntax),
+        _ => Err(PylentilError::UnsupportedOperator {
+            found: kind.describe().to_string(),
+            context: "a unary expression",
+        }),
     }
 }
 
@@ -212,7 +273,8 @@ pub(super) fn augmented_op(kind: PyTokenType) -> Option<PyBinaryOp> {
 }
 
 fn comparison_op(parser: &mut PyParser) -> Result<PyComparisonOp, PylentilError> {
-    match parser.consume()?.kind {
+    let token = parser.consume()?;
+    match token.kind {
         PyTokenType::DoubleEqual => Ok(PyComparisonOp::Eq),
         PyTokenType::NotEqual => Ok(PyComparisonOp::NotEq),
         PyTokenType::Less => Ok(PyComparisonOp::Lt),
@@ -231,7 +293,10 @@ fn comparison_op(parser: &mut PyParser) -> Result<PyComparisonOp, PylentilError>
             parser.expect_type(vec![PyTokenType::In])?;
             Ok(PyComparisonOp::NotIn)
         }
-        _ => Err(PylentilError::InvalidSyntax),
+        _ => Err(PylentilError::UnsupportedOperator {
+            found: token.describe(),
+            context: "a comparison",
+        }),
     }
 }
 
@@ -329,7 +394,11 @@ pub(super) fn as_target(expr: PyExpr) -> Result<PyExpr, PylentilError> {
             slice,
             ctx: PyRefContext::Store,
         },
-        _ => return Err(PylentilError::InvalidSyntax),
+        other => {
+            return Err(PylentilError::InvalidAssignmentTarget {
+                found: other.describe(),
+            });
+        }
     })
 }
 
@@ -434,7 +503,9 @@ pub(super) fn parse_attribute_access(
             attr: id,
             ctx,
         }),
-        _ => Err(PylentilError::InvalidSyntax),
+        other => Err(PylentilError::InvalidAttributeName {
+            found: other.describe(),
+        }),
     }
 }
 
@@ -474,7 +545,7 @@ pub(super) fn parse_function_call(
         match parse_arg(parser)? {
             PyArgType::Arg(arg_expr) => {
                 if kw_phase_started {
-                    return Err(PylentilError::InvalidSyntax);
+                    return Err(PylentilError::PositionalArgumentAfterKeyword);
                 }
                 args.push(arg_expr.arg)
             },
@@ -520,7 +591,11 @@ fn parse_arg(parser: &mut PyParser) -> Result<PyArgType, PylentilError> {
                     value: Box::new(val),
                 }));
             }
-            _ => return Err(PylentilError::InvalidSyntax),
+            other => {
+                return Err(PylentilError::InvalidKeywordArgumentName {
+                    found: other.describe(),
+                });
+            }
         }
     }
 

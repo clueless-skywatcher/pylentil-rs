@@ -4,6 +4,7 @@ use crate::{
     PyToken, PyTokenType,
     ast::{PyModule, PyStatement},
     lookups::parse_statement,
+    token::describe_any_of,
 };
 
 #[derive(Debug)]
@@ -87,9 +88,13 @@ impl<'a> PyParser<'a> {
     }
 
     pub fn expect_type(&mut self, token_type: Vec<PyTokenType>) -> Result<PyToken<'_>, PylentilError> {
-        match token_type.contains(&self.peek()?.kind) {
+        let found = self.peek()?;
+        match token_type.contains(&found.kind) {
             true => Ok(self.consume()?),
-            false => Err(PylentilError::InvalidSyntax),
+            false => Err(PylentilError::UnexpectedToken {
+                expected: describe_any_of(&token_type),
+                found: found.describe(),
+            }),
         }
     }
 
