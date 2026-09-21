@@ -459,7 +459,7 @@ pub(super) fn parse_subscript_access(
 pub(super) fn parse_function_call(
     parser: &mut PyParser,
     left: PyExpr,
-    bp: PyBindingPower,
+    _bp: PyBindingPower,
 ) -> Result<PyExpr, PylentilError> {
     parser.expect_type(vec![PyTokenType::LParen])?;
     let mut args: Vec<PyExprBox> = vec![];
@@ -470,29 +470,9 @@ pub(super) fn parse_function_call(
             break;
         }
 
-        let arg = parse_arg(parser, bp)?;
-        match arg {
-            PyArgOrKeyword::Arg(arg_expr) => match *arg_expr.arg {
-                PyExpr::Tuple {
-                    elts,
-                    ctx,
-                    parenthesized: false,
-                } => {
-                    let mut new_elts: Vec<PyExprBox> = vec![];
-
-                    new_elts.extend(
-                        elts
-                            .iter()
-                            .map(|elt| Box::new(elt.clone()))
-                    );
-
-                    args.append(&mut new_elts);
-                }
-                _ => args.push(arg_expr.arg),
-            },
-            PyArgOrKeyword::Keyword(kw) => {
-                keywords.push(kw);
-            }
+        match parse_arg(parser)? {
+            PyArgOrKeyword::Arg(arg_expr) => args.push(arg_expr.arg),
+            PyArgOrKeyword::Keyword(kw) => keywords.push(kw),
         }
 
         if parser.peek()?.kind == PyTokenType::RParen {
@@ -510,14 +490,17 @@ pub(super) fn parse_function_call(
     })
 }
 
-fn parse_arg(parser: &mut PyParser, bp: PyBindingPower) -> Result<PyArgOrKeyword, PylentilError> {
-    let arg = parse_expr(parser, PyBindingPower::Default)?;
+/// One argument in a call. Parsed at `Comma` binding power so the comma
+/// separating arguments is never swallowed into the argument itself: the
+/// caller's loop owns the commas.
+fn parse_arg(parser: &mut PyParser) -> Result<PyArgOrKeyword, PylentilError> {
+    let arg = parse_expr(parser, PyBindingPower::Comma)?;
 
     if parser.peek()?.kind == PyTokenType::Assign {
         parser.consume()?;
         match arg {
             PyExpr::Name { id, .. } => {
-                let val = parse_expr(parser, PyBindingPower::Default)?;
+                let val = parse_expr(parser, PyBindingPower::Comma)?;
                 return Ok(PyArgOrKeyword::Keyword(PyKeyword {
                     arg: Some(id),
                     value: Box::new(val),

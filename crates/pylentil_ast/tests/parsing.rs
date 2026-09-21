@@ -576,7 +576,7 @@ mod calls {
 
     #[test]
     fn keyword_arguments() {
-        // assert_eq!(e(F, "keyword_argument"), "(call f a=1)");
+        assert_eq!(e(F, "keyword_argument"), "(call f a=1)");
         assert_eq!(e(F, "mixed_arguments"), "(call f 1 b=2)");
     }
 
