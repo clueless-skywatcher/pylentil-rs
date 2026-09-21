@@ -34,5 +34,9 @@ pub(super) fn parse_stmt_if(parser: &mut PyParser) -> Result<PyStatement, Pylent
         parser.skip_newlines()?;
     }
 
-    Ok(PyStatement::If { test, body, orelse })
+    Ok(PyStatement::If {
+        test: Box::new(test),
+        body,
+        orelse,
+    })
 }

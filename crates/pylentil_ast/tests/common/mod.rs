@@ -238,7 +238,7 @@ pub fn stmt_sexpr(stmt: &PyStatement) -> String {
             "(annassign {} {} {})",
             expr_sexpr(target),
             expr_sexpr(annotation),
-            value.as_ref().map(expr_sexpr).unwrap_or_else(|| "-".into())
+            value.as_ref().map(|v| expr_sexpr(v)).unwrap_or_else(|| "-".into())
         ),
         PyStatement::If { test, body, orelse } => format!(
             "(if {} ({}) ({}))",
@@ -320,7 +320,10 @@ pub fn expr_sexpr(expr: &PyExpr) -> String {
         }
         PyExpr::Call { func, args, keywords } => {
             let mut parts = vec![expr_sexpr(func)];
-            parts.extend(args.iter().map(expr_sexpr));
+            parts.extend(args.iter()
+                .map(|bx| bx.as_ref())
+                .map(expr_sexpr)
+            );
             parts.extend(keywords.iter().map(|kw| match &kw.arg {
                 Some(name) => format!("{name}={}", expr_sexpr(&kw.value)),
                 None => format!("**{}", expr_sexpr(&kw.value)),

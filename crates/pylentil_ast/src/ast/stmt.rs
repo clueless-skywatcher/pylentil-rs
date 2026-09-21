@@ -1,4 +1,4 @@
-use super::expr::PyExpr;
+use super::expr::{PyExpr, PyExprBox};
 use super::ops::PyBinaryOp;
 use super::shared::{
     PyAlias, PyArguments, PyExceptHandler, PyKeyword, PyMatchCase, PyTypeParam, PyWithItem,
@@ -8,19 +8,19 @@ use super::shared::{
 pub enum PyStatement {
     FunctionDef {
         name: String,
-        args: PyArguments,
+        args: Box<PyArguments>,
         body: Vec<PyStatement>,
         decorator_list: Vec<PyExpr>,
-        returns: Option<PyExpr>,
+        returns: Option<PyExprBox>,
         type_comment: Option<String>,
         type_params: Vec<PyTypeParam>,
     },
     AsyncFunctionDef {
         name: String,
-        args: PyArguments,
+        args: Box<PyArguments>,
         body: Vec<PyStatement>,
         decorator_list: Vec<PyExpr>,
-        returns: Option<PyExpr>,
+        returns: Option<PyExprBox>,
         type_comment: Option<String>,
         type_params: Vec<PyTypeParam>,
     },
@@ -33,53 +33,53 @@ pub enum PyStatement {
         type_params: Vec<PyTypeParam>,
     },
     Return {
-        value: Option<PyExpr>,
+        value: Option<PyExprBox>,
     },
     Delete {
         targets: Vec<PyExpr>,
     },
     Assign {
         targets: Vec<PyExpr>,
-        value: PyExpr,
+        value: PyExprBox,
         type_comment: Option<String>,
     },
     TypeAlias {
-        name: PyExpr,
+        name: PyExprBox,
         type_params: Vec<PyTypeParam>,
-        value: PyExpr,
+        value: PyExprBox,
     },
     AugAssign {
-        target: PyExpr,
+        target: PyExprBox,
         op: PyBinaryOp,
-        value: PyExpr,
+        value: PyExprBox,
     },
     AnnAssign {
-        target: PyExpr,
-        annotation: PyExpr,
-        value: Option<PyExpr>,
+        target: PyExprBox,
+        annotation: PyExprBox,
+        value: Option<PyExprBox>,
         simple: bool,
     },
     For {
-        target: PyExpr,
-        iter: PyExpr,
+        target: PyExprBox,
+        iter: PyExprBox,
         body: Vec<PyStatement>,
         orelse: Vec<PyStatement>,
         type_comment: Option<String>,
     },
     AsyncFor {
-        target: PyExpr,
-        iter: PyExpr,
+        target: PyExprBox,
+        iter: PyExprBox,
         body: Vec<PyStatement>,
         orelse: Vec<PyStatement>,
         type_comment: Option<String>,
     },
     While {
-        test: PyExpr,
+        test: PyExprBox,
         body: Vec<PyStatement>,
         orelse: Vec<PyStatement>,
     },
     If {
-        test: PyExpr,
+        test: PyExprBox,
         body: Vec<PyStatement>,
         orelse: Vec<PyStatement>,
     },
@@ -94,12 +94,12 @@ pub enum PyStatement {
         type_comment: Option<String>,
     },
     Match {
-        subject: PyExpr,
+        subject: PyExprBox,
         cases: Vec<PyMatchCase>,
     },
     Raise {
-        exc: Option<PyExpr>,
-        cause: Option<PyExpr>,
+        exc: Option<PyExprBox>,
+        cause: Option<PyExprBox>,
     },
     Try {
         body: Vec<PyStatement>,
@@ -114,8 +114,8 @@ pub enum PyStatement {
         finalbody: Vec<PyStatement>,
     },
     Assert {
-        test: PyExpr,
-        msg: Option<PyExpr>,
+        test: PyExprBox,
+        msg: Option<PyExprBox>,
     },
     Import {
         names: Vec<PyAlias>,
@@ -132,7 +132,7 @@ pub enum PyStatement {
         names: Vec<String>,
     },
     Expr {
-        value: PyExpr,
+        value: PyExprBox,
     },
     Pass,
     Break,

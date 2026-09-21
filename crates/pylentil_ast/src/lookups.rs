@@ -7,7 +7,7 @@ use lazy_static::lazy_static;
 use pylentil_common::errors::PylentilError;
 
 use crate::{
-    PyTokenType, ast::{PyExpr, PyStatement}, lookups::expr::{parse_attribute_access, parse_star, parse_subscript_access}, parser::PyParser,
+    PyTokenType, ast::{PyExpr, PyStatement}, lookups::expr::{parse_attribute_access, parse_function_call, parse_star, parse_subscript_access}, parser::PyParser,
 };
 
 use expr::{
@@ -224,6 +224,9 @@ lazy_static! {
         // Subscript access
         led(&mut m, PyTokenType::LSquare, parse_subscript_access);
 
+        // Function calls
+        led(&mut m, PyTokenType::LParen, parse_function_call);
+
         m
     };
     static ref STMT_LU: PyStatementLookup = {
@@ -292,7 +295,7 @@ pub fn parse_statement(parser: &mut PyParser) -> Result<PyStatement, PylentilErr
 
                     PyStatement::Assign {
                         targets,
-                        value: right,
+                        value: Box::new(right),
                         type_comment: None,
                     }
                 }
@@ -302,9 +305,9 @@ pub fn parse_statement(parser: &mut PyParser) -> Result<PyStatement, PylentilErr
                     let value = parse_expr(parser, PyBindingPower::Default)?;
 
                     PyStatement::AugAssign {
-                        target: as_target(expr)?,
+                        target: Box::new(as_target(expr)?),
                         op,
-                        value,
+                        value: Box::new(value),
                     }
                 }
                 PyTokenType::Colon => {
@@ -326,22 +329,24 @@ pub fn parse_statement(parser: &mut PyParser) -> Result<PyStatement, PylentilErr
                         let value = parse_expr(parser, PyBindingPower::Default)?;
 
                         PyStatement::AnnAssign {
-                            target: expr,
-                            annotation,
-                            value: Some(value),
+                            target: Box::new(expr),
+                            annotation: Box::new(annotation),
+                            value: Some(Box::new(value)),
                             simple: false,
                         }
                     } else {
                         PyStatement::AnnAssign {
-                            target: expr,
-                            annotation,
+                            target: Box::new(expr),
+                            annotation: Box::new(annotation),
                             value: None,
                             simple: false,
                         }
                     }
                 }
 
-                _ => PyStatement::Expr { value: expr },
+                _ => PyStatement::Expr {
+                    value: Box::new(expr),
+                },
             })
         }
     }

@@ -25,7 +25,7 @@ pub enum PyExpr {
         operand: PyExprBox,
     },
     Lambda {
-        args: PyArguments,
+        args: Box<PyArguments>,
         body: PyExprBox,
     },
     IfExp {
@@ -73,7 +73,7 @@ pub enum PyExpr {
     },
     Call {
         func: PyExprBox,
-        args: Vec<PyExpr>,
+        args: Vec<PyExprBox>,
         keywords: Vec<PyKeyword>,
     },
     FormattedValue {

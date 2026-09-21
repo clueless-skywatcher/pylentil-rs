@@ -1,18 +1,18 @@
 use super::expr::{PyExpr, PyExprBox};
-use super::pattern::PyPattern;
+use super::pattern::PyPatternBox;
 use super::stmt::PyStatement;
 
 /// Keyword argument in a call (`arg=value` or `**value` when `arg` is `None`).
 #[derive(Debug, Clone)]
 pub struct PyKeyword {
     pub arg: Option<String>,
-    pub value: PyExpr,
+    pub value: PyExprBox,
 }
 
 #[derive(Debug, Clone)]
 pub struct PyComprehension {
-    pub target: PyExpr,
-    pub iter: PyExpr,
+    pub target: PyExprBox,
+    pub iter: PyExprBox,
     pub ifs: Vec<PyExpr>,
     pub is_async: bool,
 }
@@ -25,7 +25,7 @@ pub struct PyAlias {
 
 #[derive(Debug, Clone)]
 pub struct PyArg {
-    pub arg: String,
+    pub arg: PyExprBox,
     pub annotation: Option<PyExprBox>,
     pub type_comment: Option<String>,
 }
@@ -43,21 +43,21 @@ pub struct PyArguments {
 
 #[derive(Debug, Clone)]
 pub struct PyWithItem {
-    pub context_expr: PyExpr,
-    pub optional_vars: Option<PyExpr>,
+    pub context_expr: PyExprBox,
+    pub optional_vars: Option<PyExprBox>,
 }
 
 #[derive(Debug, Clone)]
 pub struct PyExceptHandler {
-    pub type_: Option<PyExpr>,
+    pub type_: Option<PyExprBox>,
     pub name: Option<String>,
     pub body: Vec<PyStatement>,
 }
 
 #[derive(Debug, Clone)]
 pub struct PyMatchCase {
-    pub pattern: PyPattern,
-    pub guard: Option<PyExpr>,
+    pub pattern: PyPatternBox,
+    pub guard: Option<PyExprBox>,
     pub body: Vec<PyStatement>,
 }
 
@@ -71,7 +71,7 @@ pub struct PyTypeIgnore {
 pub enum PyTypeParam {
     TypeVar {
         name: String,
-        bound: Option<PyExpr>,
+        bound: Option<PyExprBox>,
     },
     ParamSpec {
         name: String,

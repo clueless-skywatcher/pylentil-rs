@@ -1,12 +1,12 @@
 use super::constant::PyConstant;
-use super::expr::PyExpr;
+use super::expr::{PyExpr, PyExprBox};
 
 pub type PyPatternBox = Box<PyPattern>;
 
 #[derive(Debug, Clone)]
 pub enum PyPattern {
     MatchValue {
-        value: PyExpr,
+        value: PyExprBox,
     },
     MatchSingleton {
         value: PyConstant,
@@ -20,7 +20,7 @@ pub enum PyPattern {
         rest: Option<String>,
     },
     MatchClass {
-        cls: PyExpr,
+        cls: PyExprBox,
         patterns: Vec<PyPattern>,
         kwd_attrs: Vec<String>,
         kwd_patterns: Vec<PyPattern>,
