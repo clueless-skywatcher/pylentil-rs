@@ -7,7 +7,7 @@ use lazy_static::lazy_static;
 use pylentil_common::errors::PylentilError;
 
 use crate::{
-    PyTokenType, ast::{PyExpr, PyStatement}, lookups::{expr::{parse_attribute_access, parse_function_call, parse_star, parse_subscript_access}, stmt::{parse_stmt_break, parse_stmt_continue, parse_stmt_pass}}, parser::PyParser,
+    PyTokenType, ast::{PyExpr, PyRefContext, PyStatement}, lookups::{expr::{parse_attribute_access, parse_function_call, parse_star, parse_subscript_access}, stmt::{parse_stmt_break, parse_stmt_continue, parse_stmt_pass}}, parser::PyParser,
 };
 
 use expr::{
@@ -291,22 +291,7 @@ pub fn parse_statement(parser: &mut PyParser) -> Result<PyStatement, PylentilErr
 
             Ok(match parser.peek()?.kind {
                 PyTokenType::Assign => {
-                    parser.consume()?;
-                    let right = parse_expr(parser, PyBindingPower::Default)?;
-                    let targets = match expr {
-                        PyExpr::Tuple { elts, .. } => elts,
-                        _ => vec![expr],
-                    };
-                    let targets = targets
-                        .into_iter()
-                        .map(as_target)
-                        .collect::<Result<Vec<_>, _>>()?;
-
-                    PyStatement::Assign {
-                        targets,
-                        value: Box::new(right),
-                        type_comment: None,
-                    }
+                    parse_assigns(parser, expr)?
                 }
                 kind if augmented_op(kind).is_some() => {
                     let token = parser.consume()?;
@@ -366,4 +351,28 @@ pub fn parse_statement(parser: &mut PyParser) -> Result<PyStatement, PylentilErr
             })
         }
     }
+}
+
+fn parse_assigns(parser: &mut PyParser, first: PyExpr) -> Result<PyStatement, PylentilError> {
+    parser.expect_type(vec![PyTokenType::Assign])?;
+
+    let mut targets: Vec<PyExpr> = vec![first];
+    let mut value: PyExpr;
+
+    loop {
+        value = parse_expr(parser, PyBindingPower::Default)?;
+        if parser.peek()?.kind != PyTokenType::Assign {
+            break;
+        } else {
+            parser.consume()?;
+            targets.push(value);
+        }
+    }
+
+    targets = targets
+        .iter()
+        .map(|expr| as_target(expr.clone()).unwrap())
+        .collect();
+
+    Ok(PyStatement::Assign { targets, value: Box::new(value), type_comment: None })
 }
