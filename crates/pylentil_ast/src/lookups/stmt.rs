@@ -40,3 +40,21 @@ pub(super) fn parse_stmt_if(parser: &mut PyParser) -> Result<PyStatement, Pylent
         orelse,
     })
 }
+
+pub(super) fn parse_stmt_pass(parser: &mut PyParser) -> Result<PyStatement, PylentilError> {
+    parser.expect_type(vec![PyTokenType::Pass])?;
+    
+    Ok(PyStatement::Pass)
+}
+
+pub(super) fn parse_stmt_break(parser: &mut PyParser) -> Result<PyStatement, PylentilError> {
+    parser.expect_type(vec![PyTokenType::Break])?;
+    
+    Ok(PyStatement::Break)
+}
+
+pub(super) fn parse_stmt_continue(parser: &mut PyParser) -> Result<PyStatement, PylentilError> {
+    parser.expect_type(vec![PyTokenType::Continue])?;
+    
+    Ok(PyStatement::Continue)
+}

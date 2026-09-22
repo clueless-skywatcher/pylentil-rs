@@ -7,7 +7,7 @@ use lazy_static::lazy_static;
 use pylentil_common::errors::PylentilError;
 
 use crate::{
-    PyTokenType, ast::{PyExpr, PyStatement}, lookups::expr::{parse_attribute_access, parse_function_call, parse_star, parse_subscript_access}, parser::PyParser,
+    PyTokenType, ast::{PyExpr, PyStatement}, lookups::{expr::{parse_attribute_access, parse_function_call, parse_star, parse_subscript_access}, stmt::{parse_stmt_break, parse_stmt_continue, parse_stmt_pass}}, parser::PyParser,
 };
 
 use expr::{
@@ -233,6 +233,9 @@ lazy_static! {
         let mut m = HashMap::new();
 
         stmt(&mut m, PyTokenType::If, parse_stmt_if);
+        stmt(&mut m, PyTokenType::Pass, parse_stmt_pass);
+        stmt(&mut m, PyTokenType::Break, parse_stmt_break);
+        stmt(&mut m, PyTokenType::Continue, parse_stmt_continue);
 
         m
     };
