@@ -458,7 +458,11 @@ pub(super) fn parse_walrus_tuple_or_expr(parser: &mut PyParser) -> Result<PyExpr
     if parser.peek()?.kind == PyTokenType::Walrus {
         parser.consume()?;
 
-        if !matches!(exprs, PyExpr::Name { .. } | PyExpr::Tuple { parenthesized: false, .. }) {
+        if !matches!(exprs, PyExpr::Name { .. } 
+            | PyExpr::Tuple { .. }
+            | PyExpr::Attribute { .. }
+            | PyExpr::Subscript { .. }
+        ) {
             return Err(PylentilError::InvalidAssignmentTarget { found: exprs.describe() });
         }
 

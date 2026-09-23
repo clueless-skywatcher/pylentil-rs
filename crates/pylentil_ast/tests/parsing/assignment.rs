@@ -18,9 +18,9 @@ fn simple_assignment() {
 
 #[test]
 fn tuple_unpacking_spreads_the_targets() {
-    assert_eq!(s("tuple_unpack"), "(assign (a b) (tuple 1 2))");
-    assert_eq!(s("parenthesized_target"), "(assign (a b) (tuple 1 2))");
-    assert_eq!(s("swap"), "(assign (a b) (tuple b a))");
+    assert_eq!(s("tuple_unpack"), "(assign ((tuple a b)) (tuple 1 2))");
+    assert_eq!(s("parenthesized_target"), "(assign ((ptuple a b)) (tuple 1 2))");
+    assert_eq!(s("swap"), "(assign ((tuple a b)) (tuple b a))");
 }
 
 #[test]
@@ -30,7 +30,7 @@ fn a_tuple_value_is_kept_whole() {
 
 #[test]
 fn nested_unpacking() {
-    assert_eq!(s("nested_unpack"), "(assign ((ptuple a b) c) (tuple (ptuple 1 2) 3))");
+    assert_eq!(s("nested_unpack"), "(assign ((tuple (ptuple a b) c)) (tuple (ptuple 1 2) 3))");
 }
 
 #[test]

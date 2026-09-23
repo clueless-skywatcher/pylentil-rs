@@ -360,7 +360,12 @@ fn parse_assigns(parser: &mut PyParser, first: PyExpr) -> Result<PyStatement, Py
     let mut value: PyExpr;
 
     loop {
-        if !matches!(targets.last().unwrap(), PyExpr::Name { .. } | PyExpr::Tuple { parenthesized: false, .. }) {
+        if !matches!(targets.last().unwrap(), 
+            PyExpr::Name { .. } 
+                | PyExpr::Tuple { .. }
+                | PyExpr::Attribute { .. }
+                | PyExpr::Subscript { .. }
+            ) {
             return Err(PylentilError::InvalidAssignmentTarget { found: targets.last().unwrap().describe() });
         }
 
