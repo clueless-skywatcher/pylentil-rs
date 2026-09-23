@@ -7,12 +7,12 @@ use lazy_static::lazy_static;
 use pylentil_common::errors::PylentilError;
 
 use crate::{
-    PyTokenType, ast::{PyExpr, PyRefContext, PyStatement}, lookups::{expr::{parse_attribute_access, parse_function_call, parse_star, parse_subscript_access}, stmt::{parse_stmt_break, parse_stmt_continue, parse_stmt_pass}}, parser::PyParser,
+    PyTokenType, ast::{PyExpr, PyRefContext, PyStatement}, lookups::{expr::{parse_attribute_access, parse_function_call, parse_star, parse_subscript_access, parse_walrus_tuple_or_expr}, stmt::{parse_stmt_break, parse_stmt_continue, parse_stmt_pass}}, parser::PyParser,
 };
 
 use expr::{
     as_target, augmented_op, parse_binary, parse_bool_op, parse_comparison,
-    parse_potentially_comma_separated, parse_terminal, parse_tuple_or_expr, parse_unary,
+    parse_potentially_comma_separated, parse_terminal, parse_unary,
 };
 use stmt::parse_stmt_if;
 
@@ -165,7 +165,7 @@ lazy_static! {
         nud(&mut m, PyTokenType::Ident, parse_terminal);
         nud(&mut m, PyTokenType::None, parse_terminal);
         nud(&mut m, PyTokenType::Ellipsis, parse_terminal);
-        nud(&mut m, PyTokenType::LParen, parse_tuple_or_expr);
+        nud(&mut m, PyTokenType::LParen, parse_walrus_tuple_or_expr);
 
         // Unary
         nud(&mut m, PyTokenType::Minus, parse_unary);
@@ -360,6 +360,10 @@ fn parse_assigns(parser: &mut PyParser, first: PyExpr) -> Result<PyStatement, Py
     let mut value: PyExpr;
 
     loop {
+        if !matches!(targets.last().unwrap(), PyExpr::Name { .. } | PyExpr::Tuple { parenthesized: false, .. }) {
+            return Err(PylentilError::InvalidAssignmentTarget { found: targets.last().unwrap().describe() });
+        }
+
         value = parse_expr(parser, PyBindingPower::Default)?;
         if parser.peek()?.kind != PyTokenType::Assign {
             break;

@@ -440,7 +440,7 @@ pub(super) fn parse_potentially_comma_separated(
     })
 }
 
-pub(super) fn parse_tuple_or_expr(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
+pub(super) fn parse_walrus_tuple_or_expr(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
     parser.expect_type(vec![PyTokenType::LParen])?;
 
     if parser.peek()?.kind == PyTokenType::RParen {
@@ -454,6 +454,20 @@ pub(super) fn parse_tuple_or_expr(parser: &mut PyParser) -> Result<PyExpr, Pylen
     }
 
     let exprs = parse_expr(parser, PyBindingPower::Default)?;
+
+    if parser.peek()?.kind == PyTokenType::Walrus {
+        parser.consume()?;
+
+        if !matches!(exprs, PyExpr::Name { .. } | PyExpr::Tuple { parenthesized: false, .. }) {
+            return Err(PylentilError::InvalidAssignmentTarget { found: exprs.describe() });
+        }
+
+        let value = parse_expr(parser, PyBindingPower::Default)?;
+        parser.expect_type(vec![PyTokenType::RParen])?;
+
+        return Ok(PyExpr::NamedExpr { target: Box::new(exprs), value: Box::new(value) });
+    }
+
     parser.expect_type(vec![PyTokenType::RParen])?;
 
     Ok(match exprs {
