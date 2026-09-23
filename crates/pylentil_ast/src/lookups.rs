@@ -7,7 +7,7 @@ use lazy_static::lazy_static;
 use pylentil_common::errors::PylentilError;
 
 use crate::{
-    PyTokenType, ast::{PyExpr, PyRefContext, PyStatement}, lookups::{expr::{parse_attribute_access, parse_function_call, parse_star, parse_subscript_access, parse_walrus_tuple_or_expr}, stmt::{parse_stmt_break, parse_stmt_continue, parse_stmt_pass}}, parser::PyParser,
+    PyTokenType, ast::{PyExpr, PyStatement}, lookups::{expr::{parse_attribute_access, parse_function_call, parse_star, parse_subscript_access, parse_walrus_tuple_or_expr}, stmt::{parse_stmt_break, parse_stmt_continue, parse_stmt_pass}}, parser::PyParser,
 };
 
 use expr::{
