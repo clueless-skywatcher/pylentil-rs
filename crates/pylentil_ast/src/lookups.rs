@@ -7,7 +7,7 @@ use lazy_static::lazy_static;
 use pylentil_common::errors::PylentilError;
 
 use crate::{
-    PyTokenType, ast::{PyExpr, PyStatement}, lookups::{expr::{parse_attribute_access, parse_function_call, parse_star, parse_subscript_access, parse_walrus_tuple_or_expr}, stmt::{parse_stmt_break, parse_stmt_continue, parse_stmt_pass}}, parser::PyParser,
+    PyTokenType, ast::{PyExpr, PyStatement}, lookups::{expr::{parse_attribute_access, parse_function_call, parse_if, parse_star, parse_subscript_access, parse_walrus_tuple_or_expr}, stmt::{parse_stmt_break, parse_stmt_continue, parse_stmt_pass}}, parser::PyParser,
 };
 
 use expr::{
@@ -152,6 +152,9 @@ lazy_static! {
         // Assignment / separators
         bp(&mut m, PyTokenType::Comma, PyBindingPower::Comma);
 
+        // Ternary If
+        bp(&mut m, PyTokenType::If, PyBindingPower::Ternary);
+
         m
     };
     static ref NUD_LU: PyNUDLookup = {
@@ -226,6 +229,9 @@ lazy_static! {
 
         // Function calls
         led(&mut m, PyTokenType::LParen, parse_function_call);
+
+        // Ternary if
+        led(&mut m, PyTokenType::If, parse_if);
 
         m
     };

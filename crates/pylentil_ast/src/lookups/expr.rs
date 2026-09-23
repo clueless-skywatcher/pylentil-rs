@@ -458,18 +458,25 @@ pub(super) fn parse_walrus_tuple_or_expr(parser: &mut PyParser) -> Result<PyExpr
     if parser.peek()?.kind == PyTokenType::Walrus {
         parser.consume()?;
 
-        if !matches!(exprs, PyExpr::Name { .. } 
-            | PyExpr::Tuple { .. }
-            | PyExpr::Attribute { .. }
-            | PyExpr::Subscript { .. }
+        if !matches!(
+            exprs,
+            PyExpr::Name { .. }
+                | PyExpr::Tuple { .. }
+                | PyExpr::Attribute { .. }
+                | PyExpr::Subscript { .. }
         ) {
-            return Err(PylentilError::InvalidAssignmentTarget { found: exprs.describe() });
+            return Err(PylentilError::InvalidAssignmentTarget {
+                found: exprs.describe(),
+            });
         }
 
         let value = parse_expr(parser, PyBindingPower::Default)?;
         parser.expect_type(vec![PyTokenType::RParen])?;
 
-        return Ok(PyExpr::NamedExpr { target: Box::new(exprs), value: Box::new(value) });
+        return Ok(PyExpr::NamedExpr {
+            target: Box::new(exprs),
+            value: Box::new(value),
+        });
     }
 
     parser.expect_type(vec![PyTokenType::RParen])?;
@@ -566,13 +573,13 @@ pub(super) fn parse_function_call(
                     return Err(PylentilError::PositionalArgumentAfterKeyword);
                 }
                 args.push(arg_expr.arg)
-            },
+            }
             PyArgType::Keyword(kw) => {
                 if !kw_phase_started {
                     kw_phase_started = true;
                 }
                 keywords.push(kw);
-            },
+            }
         }
 
         if parser.peek()?.kind == PyTokenType::RParen {
@@ -594,7 +601,10 @@ fn parse_arg(parser: &mut PyParser) -> Result<PyArgType, PylentilError> {
     if parser.peek()?.kind == PyTokenType::DoubleStar {
         parser.consume()?;
         let expr = parse_expr(parser, PyBindingPower::Comma)?;
-        return Ok(PyArgType::Keyword(PyKeyword { arg: None, value: Box::new(expr) }))
+        return Ok(PyArgType::Keyword(PyKeyword {
+            arg: None,
+            value: Box::new(expr),
+        }));
     }
 
     let arg = parse_expr(parser, PyBindingPower::Comma)?;
@@ -638,7 +648,10 @@ fn parse_slice(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
         parser.expect_type(vec![PyTokenType::Colon])?;
     }
 
-    if !matches!(parser.peek()?.kind, PyTokenType::RSquare | PyTokenType::Colon) {
+    if !matches!(
+        parser.peek()?.kind,
+        PyTokenType::RSquare | PyTokenType::Colon
+    ) {
         upper = Some(Box::new(parse_expr(parser, PyBindingPower::Default)?));
     }
 
@@ -651,4 +664,23 @@ fn parse_slice(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
     }
 
     Ok(PyExpr::Slice { lower, upper, step })
+}
+
+pub(super) fn parse_if(
+    parser: &mut PyParser,
+    left: PyExpr,
+    bp: PyBindingPower,
+) -> Result<PyExpr, PylentilError> {
+    parser.expect_type(vec![PyTokenType::If])?;
+
+    let test = parse_expr(parser, PyBindingPower::Ternary)?;
+
+    parser.expect_type(vec![PyTokenType::Else])?;
+    let orelse = parse_expr(parser, PyBindingPower::Default)?;
+
+    Ok(PyExpr::IfExp {
+        test: Box::new(test),
+        body: Box::new(left),
+        orelse: Box::new(orelse),
+    })
 }
