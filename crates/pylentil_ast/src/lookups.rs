@@ -7,7 +7,16 @@ use lazy_static::lazy_static;
 use pylentil_common::errors::PylentilError;
 
 use crate::{
-    PyTokenType, ast::{PyExpr, PyStatement}, lookups::{expr::{parse_attribute_access, parse_function_call, parse_if, parse_star, parse_subscript_access, parse_walrus_tuple_or_expr}, stmt::{parse_stmt_break, parse_stmt_continue, parse_stmt_pass}}, parser::PyParser,
+    PyTokenType,
+    ast::{PyExpr, PyStatement},
+    lookups::{
+        expr::{
+            parse_attribute_access, parse_dict_or_set, parse_function_call, parse_if, parse_list,
+            parse_star, parse_subscript_access, parse_walrus_tuple_or_expr,
+        },
+        stmt::{parse_stmt_break, parse_stmt_continue, parse_stmt_pass},
+    },
+    parser::PyParser,
 };
 
 use expr::{
@@ -169,6 +178,8 @@ lazy_static! {
         nud(&mut m, PyTokenType::None, parse_terminal);
         nud(&mut m, PyTokenType::Ellipsis, parse_terminal);
         nud(&mut m, PyTokenType::LParen, parse_walrus_tuple_or_expr);
+        nud(&mut m, PyTokenType::LBrace, parse_dict_or_set);
+        nud(&mut m, PyTokenType::LSquare, parse_list);
 
         // Unary
         nud(&mut m, PyTokenType::Minus, parse_unary);
@@ -296,9 +307,7 @@ pub fn parse_statement(parser: &mut PyParser) -> Result<PyStatement, PylentilErr
             let expr = parse_expr(parser, PyBindingPower::Default)?;
 
             Ok(match parser.peek()?.kind {
-                PyTokenType::Assign => {
-                    parse_assigns(parser, expr)?
-                }
+                PyTokenType::Assign => parse_assigns(parser, expr)?,
                 kind if augmented_op(kind).is_some() => {
                     let token = parser.consume()?;
                     let op = augmented_op(kind).ok_or(PylentilError::UnsupportedOperator {
@@ -366,13 +375,16 @@ fn parse_assigns(parser: &mut PyParser, first: PyExpr) -> Result<PyStatement, Py
     let mut value: PyExpr;
 
     loop {
-        if !matches!(targets.last().unwrap(), 
-            PyExpr::Name { .. } 
+        if !matches!(
+            targets.last().unwrap(),
+            PyExpr::Name { .. }
                 | PyExpr::Tuple { .. }
                 | PyExpr::Attribute { .. }
                 | PyExpr::Subscript { .. }
-            ) {
-            return Err(PylentilError::InvalidAssignmentTarget { found: targets.last().unwrap().describe() });
+        ) {
+            return Err(PylentilError::InvalidAssignmentTarget {
+                found: targets.last().unwrap().describe(),
+            });
         }
 
         value = parse_expr(parser, PyBindingPower::Default)?;
@@ -389,5 +401,9 @@ fn parse_assigns(parser: &mut PyParser, first: PyExpr) -> Result<PyStatement, Py
         .map(|expr| as_target(expr.clone()).unwrap())
         .collect();
 
-    Ok(PyStatement::Assign { targets, value: Box::new(value), type_comment: None })
+    Ok(PyStatement::Assign {
+        targets,
+        value: Box::new(value),
+        type_comment: None,
+    })
 }

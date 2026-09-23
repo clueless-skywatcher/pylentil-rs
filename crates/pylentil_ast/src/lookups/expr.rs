@@ -673,7 +673,7 @@ pub(super) fn parse_if(
 ) -> Result<PyExpr, PylentilError> {
     parser.expect_type(vec![PyTokenType::If])?;
 
-    let test = parse_expr(parser, PyBindingPower::Ternary)?;
+    let test = parse_expr(parser, bp)?;
 
     parser.expect_type(vec![PyTokenType::Else])?;
     let orelse = parse_expr(parser, PyBindingPower::Default)?;
@@ -683,4 +683,65 @@ pub(super) fn parse_if(
         body: Box::new(left),
         orelse: Box::new(orelse),
     })
+}
+
+pub(super) fn parse_dict_or_set(
+    parser: &mut PyParser,
+) -> Result<PyExpr, PylentilError> {
+    parser.expect_type(vec![PyTokenType::LBrace])?;
+    let mut final_expr: Result<PyExpr, PylentilError>;
+    if parser.peek()?.kind == PyTokenType::DoubleStar {
+        final_expr = parse_dict(parser, None);
+    }
+
+    let expr = parse_expr(parser, PyBindingPower::Default)?;
+    if parser.peek()?.kind == PyTokenType::Colon {
+        final_expr = parse_dict(parser, Some(expr));
+    } else {
+        final_expr = parse_set(parser, expr);
+    }
+
+    parser.expect_type(vec![PyTokenType::RBrace])?;
+
+    final_expr
+}
+
+pub(super) fn parse_list(
+    parser: &mut PyParser,
+) -> Result<PyExpr, PylentilError> {
+    parser.expect_type(vec![PyTokenType::LSquare])?;
+
+    let mut elts: Vec<PyExpr> = vec![];
+
+    loop {
+        if parser.peek()?.kind == PyTokenType::RSquare {
+            break;
+        }
+
+        elts.push(parse_expr(parser, PyBindingPower::Comma)?);
+
+        if parser.peek()?.kind == PyTokenType::RSquare {
+            break;
+        }
+
+        parser.expect_type(vec![PyTokenType::Comma])?;
+    }
+
+    parser.expect_type(vec![PyTokenType::RSquare])?;
+
+    Ok(PyExpr::List { elts, ctx: PyRefContext::Load })
+}
+
+fn parse_dict(parser: &mut PyParser, first: Option<PyExpr>) -> Result<PyExpr, PylentilError> {
+    parser.expect_type(vec![PyTokenType::Colon])?;
+    let mut keys: Vec<Option<PyExpr>> = vec![first];
+    let mut vals: Vec<PyExpr> = vec![];
+
+    loop {
+        let expr = parse_expr(parser, PyBindingPower::Comma)?;
+    }
+}
+
+fn parse_set(parser: &mut PyParser, first: PyExpr) -> Result<PyExpr, PylentilError> {
+    Err(PylentilError::NotImplemented)
 }

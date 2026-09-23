@@ -64,6 +64,9 @@ pub enum PylentilError {
     // -------------------------------------------------------------- driver --
     /// The source file could not be read.
     IOFailed { path: String, reason: String },
+
+    /// The code path has not been implemented yet
+    NotImplemented
 }
 
 impl fmt::Display for PylentilError {
@@ -162,6 +165,9 @@ impl fmt::Display for PylentilError {
 
             PylentilError::IOFailed { path, reason } => {
                 write!(f, "could not read `{path}`: {reason}")
+            },
+            PylentilError::NotImplemented => {
+                write!(f, "Has not been implemented")
             }
         }
     }
