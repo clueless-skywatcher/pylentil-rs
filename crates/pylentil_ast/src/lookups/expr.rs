@@ -461,6 +461,16 @@ pub(super) fn parse_walrus_tuple_or_expr(parser: &mut PyParser) -> Result<PyExpr
 
     let exprs = parse_expr(parser, PyBindingPower::Default)?;
 
+    if parser.peek()?.kind == PyTokenType::For {
+        let generators = parse_generators(parser)?;
+        parser.expect_type(vec![PyTokenType::RParen])?;
+
+        return Ok(PyExpr::GeneratorExp {
+            elt: Box::new(exprs),
+            generators,
+        });
+    }
+
     if parser.peek()?.kind == PyTokenType::Walrus {
         parser.consume()?;
 
@@ -615,6 +625,21 @@ fn parse_arg(parser: &mut PyParser) -> Result<PyArgType, PylentilError> {
 
     let arg = parse_expr(parser, PyBindingPower::Comma)?;
 
+    // `f(x for x in xs)`: a generator expression may be the sole argument
+    // without its own parentheses.
+    if parser.peek()?.kind == PyTokenType::For {
+        let generators = parse_generators(parser)?;
+
+        return Ok(PyArgType::Arg(PyArg {
+            arg: Box::new(PyExpr::GeneratorExp {
+                elt: Box::new(arg),
+                generators,
+            }),
+            annotation: None,
+            type_comment: None,
+        }));
+    }
+
     if parser.peek()?.kind == PyTokenType::Assign {
         parser.consume()?;
         match arg {
@@ -710,7 +735,29 @@ pub(super) fn parse_dict_or_set_or_comprehension(parser: &mut PyParser) -> Resul
     if parser.peek()?.kind == PyTokenType::Colon {
         parser.consume()?;
         let value = parse_expr(parser, PyBindingPower::Comma)?;
+
+        if parser.peek()?.kind == PyTokenType::For {
+            let generators = parse_generators(parser)?;
+            parser.expect_type(vec![PyTokenType::RBrace])?;
+
+            return Ok(PyExpr::DictComp {
+                key: Box::new(first),
+                value: Box::new(value),
+                generators,
+            });
+        }
+
         return parse_dict(parser, Some(first), value);
+    }
+
+    if parser.peek()?.kind == PyTokenType::For {
+        let generators = parse_generators(parser)?;
+        parser.expect_type(vec![PyTokenType::RBrace])?;
+
+        return Ok(PyExpr::SetComp {
+            elt: Box::new(first),
+            generators,
+        });
     }
 
     parse_set(parser, first)
@@ -729,16 +776,13 @@ pub(super) fn parse_list_or_comprehension(parser: &mut PyParser) -> Result<PyExp
         let expr = parse_expr(parser, PyBindingPower::Comma)?;
 
         if parser.peek()?.kind == PyTokenType::For {
-            let mut generators: Vec<PyComprehension> = vec![];
-            loop {
-                generators.push(parse_comprehension(parser)?);
-                if parser.peek()?.kind == PyTokenType::RSquare {
-                    break;
-                }
-            }
-
+            let generators = parse_generators(parser)?;
             parser.expect_type(vec![PyTokenType::RSquare])?;
-            return Ok(PyExpr::ListComp { elt: Box::new(expr), generators })
+
+            return Ok(PyExpr::ListComp {
+                elt: Box::new(expr),
+                generators,
+            });
         }
 
         elts.push(expr);
@@ -804,6 +848,18 @@ fn parse_set(parser: &mut PyParser, first: PyExpr) -> Result<PyExpr, PylentilErr
     parser.expect_type(vec![PyTokenType::RBrace])?;
 
     Ok(PyExpr::Set { elts })
+}
+
+/// Parses every `for ... in ... [if ...]` clause of a comprehension, stopping
+/// at the first token that is not `for` (normally the closing bracket).
+fn parse_generators(parser: &mut PyParser) -> Result<Vec<PyComprehension>, PylentilError> {
+    let mut generators: Vec<PyComprehension> = vec![];
+
+    while parser.peek()?.kind == PyTokenType::For {
+        generators.push(parse_comprehension(parser)?);
+    }
+
+    Ok(generators)
 }
 
 fn parse_comprehension(parser: &mut PyParser) -> Result<PyComprehension, PylentilError> {
