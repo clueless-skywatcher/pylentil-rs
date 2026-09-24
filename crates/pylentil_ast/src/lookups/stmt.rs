@@ -1,6 +1,10 @@
 use pylentil_common::errors::PylentilError;
 
-use crate::{PyTokenType, ast::PyStatement, parser::PyParser};
+use crate::{
+    PyTokenType,
+    ast::{PyAlias, PyStatement},
+    parser::PyParser,
+};
 
 use super::{PyBindingPower, parse_expr, parse_statement};
 
@@ -85,18 +89,151 @@ fn parse_inline_body(parser: &mut PyParser) -> Result<Vec<PyStatement>, Pylentil
 
 pub(super) fn parse_stmt_pass(parser: &mut PyParser) -> Result<PyStatement, PylentilError> {
     parser.expect_type(vec![PyTokenType::Pass])?;
-    
+
     Ok(PyStatement::Pass)
 }
 
 pub(super) fn parse_stmt_break(parser: &mut PyParser) -> Result<PyStatement, PylentilError> {
     parser.expect_type(vec![PyTokenType::Break])?;
-    
+
     Ok(PyStatement::Break)
 }
 
 pub(super) fn parse_stmt_continue(parser: &mut PyParser) -> Result<PyStatement, PylentilError> {
     parser.expect_type(vec![PyTokenType::Continue])?;
-    
+
     Ok(PyStatement::Continue)
+}
+
+pub(super) fn parse_stmt_import(parser: &mut PyParser) -> Result<PyStatement, PylentilError> {
+    parser.expect_type(vec![PyTokenType::Import])?;
+
+    let first = parse_alias(parser)?;
+    let mut aliases: Vec<PyAlias> = vec![first];
+    
+    if parser.peek()?.kind == PyTokenType::Comma {
+        loop {
+            parser.consume()?;
+            let import = parse_alias(parser)?;
+            aliases.push(import);
+
+            if parser.peek()?.kind.is_eof() || parser.peek()?.kind == PyTokenType::Newline {
+                break;
+            }    
+        }
+    }
+
+    Ok(PyStatement::Import { names: aliases })
+}
+
+/// Parses `from [.]*[module] import (* | names | (names[,]))`.
+pub(super) fn parse_stmt_import_from(parser: &mut PyParser) -> Result<PyStatement, PylentilError> {
+    parser.expect_type(vec![PyTokenType::From])?;
+
+    let mut level = 0;
+    loop {
+        match parser.peek()?.kind {
+            PyTokenType::Dot => level += 1,
+            PyTokenType::Ellipsis => level += 3,
+            _ => break,
+        }
+        parser.consume()?;
+    }
+
+    let module = if parser.peek()?.kind == PyTokenType::Import {
+        if level == 0 {
+            return Err(PylentilError::UnexpectedToken {
+                expected: "a module name".to_string(),
+                found: parser.peek()?.describe(),
+            });
+        }
+        None
+    } else {
+        Some(parse_dotted_name(parser)?)
+    };
+
+    parser.expect_type(vec![PyTokenType::Import])?;
+
+    let names = match parser.peek()?.kind {
+        PyTokenType::Star => {
+            parser.consume()?;
+            vec![PyAlias {
+                name: "*".to_string(),
+                asname: None,
+            }]
+        }
+        PyTokenType::LParen => {
+            parser.consume()?;
+            let names = parse_import_names(parser, true)?;
+            parser.expect_type(vec![PyTokenType::RParen])?;
+            names
+        }
+        _ => parse_import_names(parser, false)?,
+    };
+
+    Ok(PyStatement::ImportFrom {
+        module,
+        names,
+        level: (level > 0).then_some(level),
+    })
+}
+
+/// Parses `name [as alias] (, name [as alias])*`. A trailing comma is only
+/// legal inside parentheses.
+fn parse_import_names(
+    parser: &mut PyParser,
+    parenthesized: bool,
+) -> Result<Vec<PyAlias>, PylentilError> {
+    let mut names = vec![parse_alias(parser)?];
+
+    while parser.peek()?.kind == PyTokenType::Comma {
+        parser.consume()?;
+
+        if parenthesized && parser.peek()?.kind == PyTokenType::RParen {
+            break;
+        }
+
+        names.push(parse_alias(parser)?);
+    }
+
+    Ok(names)
+}
+
+/// Parses `name[.name...]` into a single dotted string.
+fn parse_dotted_name(parser: &mut PyParser) -> Result<String, PylentilError> {
+    let mut name = expect_ident(parser)?;
+
+    while parser.peek()?.kind == PyTokenType::Dot {
+        parser.consume()?;
+        name.push('.');
+        name.push_str(&expect_ident(parser)?);
+    }
+
+    Ok(name)
+}
+
+/// Parses `name[.name...] [as alias]`.
+fn parse_alias(parser: &mut PyParser) -> Result<PyAlias, PylentilError> {
+    let name = parse_dotted_name(parser)?;
+
+    let asname = if parser.peek()?.kind == PyTokenType::As {
+        parser.consume()?;
+        Some(expect_ident(parser)?)
+    } else {
+        None
+    };
+
+    Ok(PyAlias { name, asname })
+}
+
+/// Consumes an identifier token and returns its text.
+fn expect_ident(parser: &mut PyParser) -> Result<String, PylentilError> {
+    let token = parser.expect_type(vec![PyTokenType::Ident])?;
+
+    match token.value {
+        Some(value) => Ok(value.to_string()),
+        None => Err(PylentilError::TokenMissingValue {
+            kind: "an identifier",
+        }),
+    }
 }

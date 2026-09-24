@@ -263,6 +263,13 @@ pub fn stmt_sexpr(stmt: &PyStatement) -> String {
             None => "(return)".to_string(),
         },
         PyStatement::Delete { targets } => format!("(del {})", exprs_sexpr(targets)),
+        PyStatement::Import { names } => format!("(import {})", aliases_sexpr(names)),
+        PyStatement::ImportFrom { module, names, level } => format!(
+            "(from {}{} {})",
+            ".".repeat(level.unwrap_or(0).max(0) as usize),
+            module.as_deref().unwrap_or(""),
+            aliases_sexpr(names)
+        ),
         PyStatement::Global { names } => format!("(global {})", names.join(" ")),
         PyStatement::Nonlocal { names } => format!("(nonlocal {})", names.join(" ")),
         PyStatement::FunctionDef { name, body, .. } => {
@@ -367,6 +374,18 @@ fn optional_sexpr(expr: Option<&PyExpr>) -> String {
 
 fn exprs_sexpr(exprs: &[PyExpr]) -> String {
     exprs.iter().map(expr_sexpr).collect::<Vec<_>>().join(" ")
+}
+
+/// `name` for a plain alias, `name:asname` for an aliased one.
+fn aliases_sexpr(aliases: &[pylentil_ast::ast::PyAlias]) -> String {
+    aliases
+        .iter()
+        .map(|a| match &a.asname {
+            Some(asname) => format!("{}:{asname}", a.name),
+            None => a.name.clone(),
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 fn stmts_sexpr(stmts: &[PyStatement]) -> String {

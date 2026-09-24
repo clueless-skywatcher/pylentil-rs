@@ -42,8 +42,6 @@ fn parse_float(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
             kind: PyTokenType::Float,
             value: Some(value),
         } => {
-            // The lexer keeps the source text, so `2.` arrives as-is. Normalise
-            // it to `2.0`, which is how Python itself prints the value.
             let mut value = value.to_string();
             if value.ends_with('.') {
                 value.push('0');
@@ -625,8 +623,6 @@ fn parse_arg(parser: &mut PyParser) -> Result<PyArgType, PylentilError> {
 
     let arg = parse_expr(parser, PyBindingPower::Comma)?;
 
-    // `f(x for x in xs)`: a generator expression may be the sole argument
-    // without its own parentheses.
     if parser.peek()?.kind == PyTokenType::For {
         let generators = parse_generators(parser)?;
 
@@ -867,8 +863,6 @@ fn parse_comprehension(parser: &mut PyParser) -> Result<PyComprehension, Pylenti
     let target = parse_comprehension_target(parser)?;
     parser.expect_type(vec![PyTokenType::In])?;
 
-    // `Ternary` stops before `if`, `for` and `,`, so a following `if` is read as
-    // a filter clause instead of the start of a conditional expression.
     let iter = parse_expr(parser, PyBindingPower::Ternary)?;
 
     let mut ifs: Vec<PyExpr> = vec![];
@@ -899,7 +893,7 @@ fn parse_comprehension_target(parser: &mut PyParser) -> Result<PyExpr, PylentilE
     while parser.peek()?.kind == PyTokenType::Comma {
         parser.consume()?;
         if parser.peek()?.kind == PyTokenType::In {
-            break; // trailing comma: `for a, in xs`
+            break;
         }
         elts.push(parse_expr(parser, PyBindingPower::Comparison)?);
     }

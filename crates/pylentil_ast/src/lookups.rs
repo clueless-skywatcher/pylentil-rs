@@ -10,7 +10,7 @@ use crate::{
     PyTokenType, ast::{PyExpr, PyStatement}, lookups::{
         expr::{
             parse_attribute_access, parse_dict_or_set_or_comprehension, parse_function_call, parse_if, parse_list_or_comprehension, parse_star, parse_subscript_access, parse_walrus_tuple_or_expr,
-        }, stmt::{parse_stmt_break, parse_stmt_continue, parse_stmt_pass},
+        }, stmt::{parse_stmt_break, parse_stmt_continue, parse_stmt_import, parse_stmt_import_from, parse_stmt_pass},
     }, parser::PyParser,
 };
 
@@ -250,6 +250,8 @@ lazy_static! {
         stmt(&mut m, PyTokenType::Pass, parse_stmt_pass);
         stmt(&mut m, PyTokenType::Break, parse_stmt_break);
         stmt(&mut m, PyTokenType::Continue, parse_stmt_continue);
+        stmt(&mut m, PyTokenType::Import, parse_stmt_import);
+        stmt(&mut m, PyTokenType::From, parse_stmt_import_from);
 
         m
     };

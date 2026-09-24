@@ -35,5 +35,6 @@ mod subscripts;
 mod collections;
 mod if_statements;
 mod statements;
+mod imports;
 mod modules;
 mod robustness;

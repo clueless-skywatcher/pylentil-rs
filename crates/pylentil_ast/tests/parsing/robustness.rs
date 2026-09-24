@@ -39,6 +39,7 @@ fn nothing_in_the_fixtures_makes_the_parser_panic() {
         "parser/collections.py",
         "parser/if_statements.py",
         "parser/statements.py",
+        "parser/imports.py",
         "parser/modules.py",
     ] {
         for c in cases(fixture) {
