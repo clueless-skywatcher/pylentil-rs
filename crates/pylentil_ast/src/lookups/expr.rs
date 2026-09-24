@@ -41,10 +41,19 @@ fn parse_float(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
         PyToken {
             kind: PyTokenType::Float,
             value: Some(value),
-        } => Ok(PyExpr::Constant {
-            kind: None,
-            value: PyConstant::Float(value.to_string()),
-        }),
+        } => {
+            // The lexer keeps the source text, so `2.` arrives as-is. Normalise
+            // it to `2.0`, which is how Python itself prints the value.
+            let mut value = value.to_string();
+            if value.ends_with('.') {
+                value.push('0');
+            }
+
+            Ok(PyExpr::Constant {
+                kind: None,
+                value: PyConstant::Float(value),
+            })
+        }
         PyToken {
             kind: PyTokenType::Float,
             value: None,
@@ -799,22 +808,49 @@ fn parse_set(parser: &mut PyParser, first: PyExpr) -> Result<PyExpr, PylentilErr
 
 fn parse_comprehension(parser: &mut PyParser) -> Result<PyComprehension, PylentilError> {
     parser.expect_type(vec![PyTokenType::For])?;
-    let target = parse_expr(parser, PyBindingPower::Ternary)?;
+    let target = parse_comprehension_target(parser)?;
     parser.expect_type(vec![PyTokenType::In])?;
-    let iter = parse_expr(parser, PyBindingPower::Default)?;
+
+    // `Ternary` stops before `if`, `for` and `,`, so a following `if` is read as
+    // a filter clause instead of the start of a conditional expression.
+    let iter = parse_expr(parser, PyBindingPower::Ternary)?;
 
     let mut ifs: Vec<PyExpr> = vec![];
 
-    if parser.peek()?.kind == PyTokenType::If {
-        loop {
-            parser.consume()?;
-            ifs.push(parse_expr(parser, PyBindingPower::Default)?);
-
-            if parser.peek()?.kind != PyTokenType::If {
-                break;
-            }
-        }
+    while parser.peek()?.kind == PyTokenType::If {
+        parser.consume()?;
+        ifs.push(parse_expr(parser, PyBindingPower::Ternary)?);
     }
 
     Ok(PyComprehension { target: Box::new(target), iter: Box::new(iter), ifs, is_async: false })
+}
+
+/// Parses the `for` target of a comprehension: one or more comma-separated
+/// targets, stopping before `in`.
+///
+/// Each element is parsed at `Comparison` so the Pratt loop stops before `in`
+/// (which has comparison precedence) instead of folding `a in xs` into a single
+/// comparison. That also stops before `,`, so tuple targets are collected here.
+fn parse_comprehension_target(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
+    let first = parse_expr(parser, PyBindingPower::Comparison)?;
+
+    if parser.peek()?.kind != PyTokenType::Comma {
+        return Ok(first);
+    }
+
+    let mut elts = vec![first];
+
+    while parser.peek()?.kind == PyTokenType::Comma {
+        parser.consume()?;
+        if parser.peek()?.kind == PyTokenType::In {
+            break; // trailing comma: `for a, in xs`
+        }
+        elts.push(parse_expr(parser, PyBindingPower::Comparison)?);
+    }
+
+    Ok(PyExpr::Tuple {
+        elts,
+        ctx: PyRefContext::Store,
+        parenthesized: false,
+    })
 }

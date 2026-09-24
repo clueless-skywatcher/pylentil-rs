@@ -22,7 +22,7 @@ fn dicts() {
 #[test]
 fn sets_and_comprehensions_are_distinguishable() {
     assert_eq!(e(F, "set_literal"), "(set 1 2)");
-    assert!(e(F, "list_comprehension").starts_with("(<ListComp"));
+    assert!(e(F, "list_comprehension").starts_with("<ListComp"));
 }
 
 #[test]

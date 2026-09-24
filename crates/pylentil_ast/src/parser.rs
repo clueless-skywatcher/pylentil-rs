@@ -42,6 +42,8 @@ impl<'a> PyParser<'a> {
                 Ok(stmt) => body.push(stmt),
                 Err(e) => return Err(e)
             };
+
+            self.skip_statement_separators()?;
         }
 
         self.expect_type(vec![PyTokenType::EOF])?;
@@ -107,6 +109,18 @@ impl<'a> PyParser<'a> {
 
     pub fn skip_newlines(&mut self) -> Result<(), PylentilError> {
         self.skip_any_number_of(PyTokenType::Newline)
+    }
+
+    /// Skips whatever separates one statement from the next: newlines and
+    /// semicolons, in any combination (`a = 1; b = 2`, `a = 1;`).
+    pub fn skip_statement_separators(&mut self) -> Result<(), PylentilError> {
+        while matches!(
+            self.peek()?.kind,
+            PyTokenType::Newline | PyTokenType::Semicolon
+        ) {
+            self.consume()?;
+        }
+        Ok(())
     }
 
     pub fn optional_skip_one(&mut self, token_type: PyTokenType) -> Result<(), PylentilError> {
