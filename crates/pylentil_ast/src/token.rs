@@ -231,6 +231,10 @@ impl PyTokenType {
             PyTokenType::Caret => "`^`",
         }
     }
+
+    pub fn is_eof(self) -> bool {
+        self == PyTokenType::EOF
+    }
 }
 
 /// Joins the kinds a parser was willing to accept into one phrase, so an

@@ -1,12 +1,9 @@
 use pylentil_common::errors::PylentilError;
 
 use crate::{
-    PyToken, PyTokenType,
-    ast::{
-        PyArg, PyBinaryOp, PyBoolOp, PyComparisonOp, PyConstant, PyExpr, PyExprBox, PyKeyword,
-        PyRefContext, PyUnaryOp,
-    },
-    parser::PyParser,
+    PyToken, PyTokenType, ast::{
+        PyArg, PyBinaryOp, PyBoolOp, PyComparisonOp, PyComprehension, PyConstant, PyExpr, PyExprBox, PyKeyword, PyRefContext, PyUnaryOp,
+    }, parser::PyParser,
 };
 
 use super::{PyBindingPower, parse_expr};
@@ -685,30 +682,32 @@ pub(super) fn parse_if(
     })
 }
 
-pub(super) fn parse_dict_or_set(
-    parser: &mut PyParser,
-) -> Result<PyExpr, PylentilError> {
+pub(super) fn parse_dict_or_set_or_comprehension(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
     parser.expect_type(vec![PyTokenType::LBrace])?;
-    let mut final_expr: Result<PyExpr, PylentilError>;
+
+    if parser.peek()?.kind == PyTokenType::RBrace {
+        parser.consume()?;
+        return Ok(PyExpr::Dict { keys: vec![], values: vec![] });
+    }
+
     if parser.peek()?.kind == PyTokenType::DoubleStar {
-        final_expr = parse_dict(parser, None);
+        parser.consume()?;
+        let value = parse_expr(parser, PyBindingPower::Comma)?;
+        return parse_dict(parser, None, value);
     }
 
-    let expr = parse_expr(parser, PyBindingPower::Default)?;
+    let first = parse_expr(parser, PyBindingPower::Comma)?;
+
     if parser.peek()?.kind == PyTokenType::Colon {
-        final_expr = parse_dict(parser, Some(expr));
-    } else {
-        final_expr = parse_set(parser, expr);
+        parser.consume()?;
+        let value = parse_expr(parser, PyBindingPower::Comma)?;
+        return parse_dict(parser, Some(first), value);
     }
 
-    parser.expect_type(vec![PyTokenType::RBrace])?;
-
-    final_expr
+    parse_set(parser, first)
 }
 
-pub(super) fn parse_list(
-    parser: &mut PyParser,
-) -> Result<PyExpr, PylentilError> {
+pub(super) fn parse_list_or_comprehension(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
     parser.expect_type(vec![PyTokenType::LSquare])?;
 
     let mut elts: Vec<PyExpr> = vec![];
@@ -718,8 +717,22 @@ pub(super) fn parse_list(
             break;
         }
 
-        elts.push(parse_expr(parser, PyBindingPower::Comma)?);
+        let expr = parse_expr(parser, PyBindingPower::Comma)?;
 
+        if parser.peek()?.kind == PyTokenType::For {
+            let mut generators: Vec<PyComprehension> = vec![];
+            loop {
+                generators.push(parse_comprehension(parser)?);
+                if parser.peek()?.kind == PyTokenType::RSquare {
+                    break;
+                }
+            }
+
+            parser.expect_type(vec![PyTokenType::RSquare])?;
+            return Ok(PyExpr::ListComp { elt: Box::new(expr), generators })
+        }
+
+        elts.push(expr);
         if parser.peek()?.kind == PyTokenType::RSquare {
             break;
         }
@@ -729,19 +742,79 @@ pub(super) fn parse_list(
 
     parser.expect_type(vec![PyTokenType::RSquare])?;
 
-    Ok(PyExpr::List { elts, ctx: PyRefContext::Load })
+    Ok(PyExpr::List {
+        elts,
+        ctx: PyRefContext::Load,
+    })
 }
 
-fn parse_dict(parser: &mut PyParser, first: Option<PyExpr>) -> Result<PyExpr, PylentilError> {
-    parser.expect_type(vec![PyTokenType::Colon])?;
-    let mut keys: Vec<Option<PyExpr>> = vec![first];
-    let mut vals: Vec<PyExpr> = vec![];
+fn parse_dict(parser: &mut PyParser, key: Option<PyExpr>, value: PyExpr) -> Result<PyExpr, PylentilError> {
+    let mut keys = vec![key];
+    let mut values = vec![value];
 
     loop {
-        let expr = parse_expr(parser, PyBindingPower::Comma)?;
+        if parser.peek()?.kind == PyTokenType::RBrace {
+            break;
+        }
+
+        parser.expect_type(vec![PyTokenType::Comma])?;
+
+        if parser.peek()?.kind == PyTokenType::RBrace {
+            break;
+        }
+
+        if parser.peek()?.kind == PyTokenType::DoubleStar {
+            parser.consume()?;
+            keys.push(None);
+            values.push(parse_expr(parser, PyBindingPower::Comma)?);
+        } else {
+            let key = parse_expr(parser, PyBindingPower::Comma)?;
+            parser.expect_type(vec![PyTokenType::Colon])?;
+            keys.push(Some(key));
+            values.push(parse_expr(parser, PyBindingPower::Comma)?);
+        }
     }
+    parser.expect_type(vec![PyTokenType::RBrace])?;
+    Ok(PyExpr::Dict { keys, values })
 }
 
 fn parse_set(parser: &mut PyParser, first: PyExpr) -> Result<PyExpr, PylentilError> {
-    Err(PylentilError::NotImplemented)
+    let mut elts = vec![first];
+
+    loop {
+        if parser.peek()?.kind == PyTokenType::RBrace {
+            break;
+        }
+        parser.expect_type(vec![PyTokenType::Comma])?;
+        if parser.peek()?.kind == PyTokenType::RBrace {
+            break;
+        }
+
+        elts.push(parse_expr(parser, PyBindingPower::Comma)?);
+    }
+    parser.expect_type(vec![PyTokenType::RBrace])?;
+
+    Ok(PyExpr::Set { elts })
+}
+
+fn parse_comprehension(parser: &mut PyParser) -> Result<PyComprehension, PylentilError> {
+    parser.expect_type(vec![PyTokenType::For])?;
+    let target = parse_expr(parser, PyBindingPower::Ternary)?;
+    parser.expect_type(vec![PyTokenType::In])?;
+    let iter = parse_expr(parser, PyBindingPower::Default)?;
+
+    let mut ifs: Vec<PyExpr> = vec![];
+
+    if parser.peek()?.kind == PyTokenType::If {
+        loop {
+            parser.consume()?;
+            ifs.push(parse_expr(parser, PyBindingPower::Default)?);
+
+            if parser.peek()?.kind != PyTokenType::If {
+                break;
+            }
+        }
+    }
+
+    Ok(PyComprehension { target: Box::new(target), iter: Box::new(iter), ifs, is_async: false })
 }
