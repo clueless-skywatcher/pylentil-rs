@@ -64,6 +64,46 @@ abstract syntax tree. Grouped by what each one is most useful for.
   model pyflakes and ruff use.
 - [Scope analysis utilities (eslint-utils)](https://eslint-community.github.io/eslint-utils/api/scope-utils.html).
 
+## Linters built from scratch, with write-ups
+
+The sections above mostly cover writing rules on top of someone else's parser
+and driver. These are projects where the author built the whole linter and
+wrote about it. Sorted by how much of the linter is built.
+
+### Full linter with its own parser, written up step by step
+
+| Resource | Language | What is built |
+| --- | --- | --- |
+| [Making Your Own JavaScript Linter, parts 1–4 (Joana Borges Late)](https://medium.com/codex/making-your-own-javascript-linter-part-1-ee9f91dc49d8), repo [JoanaBLate/dirtyrat](https://github.com/JoanaBLate/dirtyrat) | JS on Deno | Tokenizer, parser, rule checks, CLI, for a JS subset. Parts [2](https://medium.com/codex/making-your-own-javascript-linter-part-2-288841612f4d), [3](https://medium.com/codex/making-your-own-javascript-linter-part-3-da14e2aaf051), [4](https://medium.com/codex/making-your-own-javascript-linter-part-4-de4f106a9785). |
+| [Markdown Linter series (Jack De Winter)](https://jackdewinter.github.io/2019/12/08/markdown-linter-collecting-requirements/), project PyMarkdown | Python | Requirements, tokenizer, parser tested against all 637 CommonMark examples, rules, release. Around 18 posts from Dec 2019 to May 2020, then more up to release. An engineering diary, closest in shape to this project. |
+| [The inception of ESLint (Nicholas Zakas)](https://humanwhocodes.com/blog/2018/02/the-inception-of-eslint/) | JS | Origin story of ESLint itself. Parser borrowed (Esprima); traversal, scope, rule engine, config and CLI built. |
+| [Inside gomarklint: architecture, rule engine, extending it](https://dev.to/_402ccbd6e5cb02871506/inside-gomarklint-architecture-rule-engine-and-how-to-extend-it-1377) | Go | A Markdown linter's own parser and rule engine. |
+
+### Architecture write-ups of shipped from-scratch linters
+
+| Resource | What it covers |
+| --- | --- |
+| [Oxlint architecture (oxc.rs)](https://oxc.rs/docs/learn/architecture/linter) | CLI → `LintRunner` → `LintService` → parser → `SemanticBuilder` → rules held in `self.rules` → diagnostics over an `mpsc::channel`. The closest public doc to ruff's design. |
+| [Ruff: Internals of a Rust-backed Python linter-formatter, Part 1 (Compiler Alchemy)](https://compileralchemy.substack.com/p/ruff-internals-of-a-rust-backed-python) | Sections on Lexer, Parser, AST, CST, how the first version of ruff worked, and how the parser evolved. A Part 2 is mentioned without a link. |
+| [Python tooling could be much, much faster (Charlie Marsh)](https://notes.crmarsh.com/python-tooling-could-be-much-much-faster) | The ruff announcement. RustPython's parser was borrowed; the AST traversal, visitor abstraction and rule logic were built. One pass per file. |
+| [Biome internals: architecture](https://biomejs.dev/internals/architecture/) | Parser and CST design only. The linter section is marked work in progress. |
+| [quick-lint-js docs directory](https://github.com/quick-lint/quick-lint-js/tree/master/docs) | Own lexer, parser and "variable analyzer" in C++. Which file holds the architecture overview is unverified. |
+
+### Design proposal, not implemented
+
+- [If I Wrote a Linter, Part 1: Architecture (Josh Goldberg)](https://www.joshuakgoldberg.com/blog/if-i-wrote-a-linter-part-1-architecture/).
+  File intake, AST, rules, caching, watch mode. Explicitly hypothetical, no
+  repo. Useful as a checklist of parts.
+
+### Not included, and why
+
+- Guillaume Gomez, Trail of Bits, Clippy, go/analysis, Pylint checker docs:
+  all build rules on someone else's parser and driver.
+- DeepSource, third-bit, Gui Commits: use Python's built-in `ast`, so no
+  parser and no engine.
+- [Building a Go linter from scratch (YouTube)](https://www.youtube.com/watch?v=ycU-GXL_ix4):
+  contents not checked.
+
 ## Where ruff does each of these things
 
 All paths are under `crates/` in [astral-sh/ruff](https://github.com/astral-sh/ruff).
