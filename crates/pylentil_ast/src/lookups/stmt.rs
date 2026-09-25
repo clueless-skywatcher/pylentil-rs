@@ -2,11 +2,12 @@ use pylentil_common::errors::PylentilError;
 
 use crate::{
     PyTokenType,
-    ast::{PyAlias, PyStatement},
+    ast::{PyAlias, PyArg, PyArguments, PyExpr, PyKeyword, PyRefContext, PyStatement},
     parser::PyParser,
 };
 
 use super::{PyBindingPower, parse_expr, parse_statement};
+use crate::common::{PyArgType, expect_ident, parse_parenthesized_args};
 
 pub(super) fn parse_stmt_if(parser: &mut PyParser) -> Result<PyStatement, PylentilError> {
     parser.expect_type(vec![PyTokenType::If])?;
@@ -110,7 +111,7 @@ pub(super) fn parse_stmt_import(parser: &mut PyParser) -> Result<PyStatement, Py
 
     let first = parse_alias(parser)?;
     let mut aliases: Vec<PyAlias> = vec![first];
-    
+
     if parser.peek()?.kind == PyTokenType::Comma {
         loop {
             parser.consume()?;
@@ -119,7 +120,7 @@ pub(super) fn parse_stmt_import(parser: &mut PyParser) -> Result<PyStatement, Py
 
             if parser.peek()?.kind.is_eof() || parser.peek()?.kind == PyTokenType::Newline {
                 break;
-            }    
+            }
         }
     }
 
@@ -226,14 +227,102 @@ fn parse_alias(parser: &mut PyParser) -> Result<PyAlias, PylentilError> {
     Ok(PyAlias { name, asname })
 }
 
-/// Consumes an identifier token and returns its text.
-fn expect_ident(parser: &mut PyParser) -> Result<String, PylentilError> {
-    let token = parser.expect_type(vec![PyTokenType::Ident])?;
+pub(super) fn parse_stmt_funcdef(parser: &mut PyParser) -> Result<PyStatement, PylentilError> {
+    parser.expect_type(vec![PyTokenType::Def])?;
 
-    match token.value {
-        Some(value) => Ok(value.to_string()),
-        None => Err(PylentilError::TokenMissingValue {
-            kind: "an identifier",
-        }),
+    let name = expect_ident(parser)?;
+    let parsed_args: Vec<PyArgType> = parse_parenthesized_args(parser, true)?;
+
+    parser.expect_type(vec![PyTokenType::Colon])?;
+    let def_block = parse_block(parser)?;
+
+    let mut posonlyargs: Vec<PyArg> = vec![];
+    let mut args: Vec<PyArg> = vec![];
+    let mut vararg: Option<PyArg> = None;
+    let mut kwonlyargs: Vec<PyArg> = vec![];
+    let kw_defaults: Vec<Option<PyExpr>> = vec![];
+    let mut defaults: Vec<Option<PyExpr>> = vec![];
+    let mut kwarg: Option<PyArg> = None;
+
+    let mut posonly_marker_seen = false;
+    let vararg_seen = false;
+
+    for arg_type in parsed_args {
+        match arg_type {
+            PyArgType::Arg(arg) => match arg.arg.as_ref() {
+                PyExpr::Starred { .. } => {
+                    vararg = Some(arg);
+                }
+                PyExpr::Name { .. } => {
+                    if vararg_seen {
+                        kwonlyargs.push(arg);
+                        defaults.push(None);
+                    } else {
+                        args.push(arg);
+                    }
+                }
+                _ => {
+                    return Err(PylentilError::InvalidArgumentType);
+                }
+            },
+            PyArgType::Keyword {
+                keyword:
+                    PyKeyword {
+                        arg: Some(kw_arg),
+                        value: kw_value,
+                    },
+                annotation,
+            } => {
+                kwonlyargs.push(PyArg {
+                    arg: Box::new(PyExpr::Name {
+                        id: kw_arg,
+                        ctx: PyRefContext::Unspecified,
+                    }),
+                    annotation,
+                    type_comment: None,
+                });
+                defaults.push(Some(*kw_value));
+            }
+            PyArgType::Keyword {
+                keyword: PyKeyword {
+                    arg: None,
+                    value: kw_name,
+                },
+                ..
+            } => {
+                kwarg = Some(PyArg {
+                    arg: kw_name,
+                    annotation: None,
+                    type_comment: None,
+                });
+            }
+            PyArgType::PosOnlyMarker => {
+                if !posonly_marker_seen {
+                    posonly_marker_seen = true;
+                } else {
+                    return Err(PylentilError::InvalidArgumentType);
+                }
+
+                posonlyargs.append(&mut args);
+            }
+        }
     }
+
+    Ok(PyStatement::FunctionDef {
+        name,
+        args: Box::new(PyArguments {
+            posonlyargs,
+            args,
+            vararg,
+            kwonlyargs,
+            kw_defaults,
+            kwarg,
+            defaults,
+        }),
+        body: def_block,
+        decorator_list: vec![],
+        returns: None,
+        type_comment: None,
+        type_params: vec![],
+    })
 }

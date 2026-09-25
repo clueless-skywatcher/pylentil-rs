@@ -1,18 +1,16 @@
 use pylentil_common::errors::PylentilError;
 
 use crate::{
-    PyToken, PyTokenType, ast::{
-        PyArg, PyBinaryOp, PyBoolOp, PyComparisonOp, PyComprehension, PyConstant, PyExpr, PyExprBox, PyKeyword, PyRefContext, PyUnaryOp,
-    }, parser::PyParser,
+    PyToken, PyTokenType,
+    ast::{
+        PyBinaryOp, PyBoolOp, PyComparisonOp, PyComprehension, PyConstant, PyExpr, PyExprBox,
+        PyKeyword, PyRefContext, PyUnaryOp,
+    },
+    parser::PyParser,
 };
 
 use super::{PyBindingPower, parse_expr};
-
-#[derive(Debug)]
-enum PyArgType {
-    Arg(PyArg),
-    Keyword(PyKeyword),
-}
+use crate::common::{PyArgType, parse_parenthesized_args};
 
 fn parse_int(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
     match parser.consume()? {
@@ -571,94 +569,27 @@ pub(super) fn parse_function_call(
     left: PyExpr,
     _bp: PyBindingPower,
 ) -> Result<PyExpr, PylentilError> {
-    parser.expect_type(vec![PyTokenType::LParen])?;
     let mut args: Vec<PyExprBox> = vec![];
     let mut keywords: Vec<PyKeyword> = vec![];
-    let mut kw_phase_started = false;
 
-    loop {
-        if parser.peek()?.kind == PyTokenType::RParen {
-            break;
-        }
-
-        match parse_arg(parser)? {
-            PyArgType::Arg(arg_expr) => {
-                if kw_phase_started {
-                    return Err(PylentilError::PositionalArgumentAfterKeyword);
-                }
-                args.push(arg_expr.arg)
-            }
-            PyArgType::Keyword(kw) => {
-                if !kw_phase_started {
-                    kw_phase_started = true;
-                }
-                keywords.push(kw);
+    for entry in parse_parenthesized_args(parser, false)? {
+        match entry {
+            PyArgType::Arg(arg) => args.push(arg.arg),
+            PyArgType::Keyword { keyword, .. } => keywords.push(keyword),
+            PyArgType::PosOnlyMarker => {
+                return Err(PylentilError::UnexpectedToken {
+                    expected: "either an argument or a keyword".into(),
+                    found: "a positional-only marker".into(),
+                });
             }
         }
-
-        if parser.peek()?.kind == PyTokenType::RParen {
-            break;
-        }
-
-        parser.expect_type(vec![PyTokenType::Comma])?;
     }
-    parser.expect_type(vec![PyTokenType::RParen])?;
 
     Ok(PyExpr::Call {
         func: Box::new(left),
         args,
         keywords,
     })
-}
-
-fn parse_arg(parser: &mut PyParser) -> Result<PyArgType, PylentilError> {
-    if parser.peek()?.kind == PyTokenType::DoubleStar {
-        parser.consume()?;
-        let expr = parse_expr(parser, PyBindingPower::Comma)?;
-        return Ok(PyArgType::Keyword(PyKeyword {
-            arg: None,
-            value: Box::new(expr),
-        }));
-    }
-
-    let arg = parse_expr(parser, PyBindingPower::Comma)?;
-
-    if parser.peek()?.kind == PyTokenType::For {
-        let generators = parse_generators(parser)?;
-
-        return Ok(PyArgType::Arg(PyArg {
-            arg: Box::new(PyExpr::GeneratorExp {
-                elt: Box::new(arg),
-                generators,
-            }),
-            annotation: None,
-            type_comment: None,
-        }));
-    }
-
-    if parser.peek()?.kind == PyTokenType::Assign {
-        parser.consume()?;
-        match arg {
-            PyExpr::Name { id, .. } => {
-                let val = parse_expr(parser, PyBindingPower::Comma)?;
-                return Ok(PyArgType::Keyword(PyKeyword {
-                    arg: Some(id),
-                    value: Box::new(val),
-                }));
-            }
-            other => {
-                return Err(PylentilError::InvalidKeywordArgumentName {
-                    found: other.describe(),
-                });
-            }
-        }
-    }
-
-    Ok(PyArgType::Arg(PyArg {
-        arg: Box::new(arg),
-        annotation: None,
-        type_comment: None,
-    }))
 }
 
 fn parse_slice(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
@@ -712,12 +643,17 @@ pub(super) fn parse_if(
     })
 }
 
-pub(super) fn parse_dict_or_set_or_comprehension(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
+pub(super) fn parse_dict_or_set_or_comprehension(
+    parser: &mut PyParser,
+) -> Result<PyExpr, PylentilError> {
     parser.expect_type(vec![PyTokenType::LBrace])?;
 
     if parser.peek()?.kind == PyTokenType::RBrace {
         parser.consume()?;
-        return Ok(PyExpr::Dict { keys: vec![], values: vec![] });
+        return Ok(PyExpr::Dict {
+            keys: vec![],
+            values: vec![],
+        });
     }
 
     if parser.peek()?.kind == PyTokenType::DoubleStar {
@@ -797,7 +733,11 @@ pub(super) fn parse_list_or_comprehension(parser: &mut PyParser) -> Result<PyExp
     })
 }
 
-fn parse_dict(parser: &mut PyParser, key: Option<PyExpr>, value: PyExpr) -> Result<PyExpr, PylentilError> {
+fn parse_dict(
+    parser: &mut PyParser,
+    key: Option<PyExpr>,
+    value: PyExpr,
+) -> Result<PyExpr, PylentilError> {
     let mut keys = vec![key];
     let mut values = vec![value];
 
@@ -848,7 +788,9 @@ fn parse_set(parser: &mut PyParser, first: PyExpr) -> Result<PyExpr, PylentilErr
 
 /// Parses every `for ... in ... [if ...]` clause of a comprehension, stopping
 /// at the first token that is not `for` (normally the closing bracket).
-fn parse_generators(parser: &mut PyParser) -> Result<Vec<PyComprehension>, PylentilError> {
+pub(crate) fn parse_generators(
+    parser: &mut PyParser,
+) -> Result<Vec<PyComprehension>, PylentilError> {
     let mut generators: Vec<PyComprehension> = vec![];
 
     while parser.peek()?.kind == PyTokenType::For {
@@ -872,7 +814,12 @@ fn parse_comprehension(parser: &mut PyParser) -> Result<PyComprehension, Pylenti
         ifs.push(parse_expr(parser, PyBindingPower::Ternary)?);
     }
 
-    Ok(PyComprehension { target: Box::new(target), iter: Box::new(iter), ifs, is_async: false })
+    Ok(PyComprehension {
+        target: Box::new(target),
+        iter: Box::new(iter),
+        ifs,
+        is_async: false,
+    })
 }
 
 /// Parses the `for` target of a comprehension: one or more comma-separated

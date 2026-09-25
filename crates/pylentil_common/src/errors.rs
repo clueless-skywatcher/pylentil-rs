@@ -1,4 +1,4 @@
-use std::fmt;
+use std::fmt::{self};
 
 /// Everything that can go wrong while turning Python source into an AST.
 ///
@@ -60,6 +60,8 @@ pub enum PylentilError {
     InvalidKeywordArgumentName { found: &'static str },
     /// A positional argument after a keyword argument in the same call.
     PositionalArgumentAfterKeyword,
+    /// Invalid argument type
+    InvalidArgumentType,
 
     // -------------------------------------------------------------- driver --
     /// The source file could not be read.
@@ -168,6 +170,9 @@ impl fmt::Display for PylentilError {
             },
             PylentilError::NotImplemented => {
                 write!(f, "Has not been implemented")
+            },
+            PylentilError::InvalidArgumentType => {
+                write!(f, "Invalid argument type")
             }
         }
     }

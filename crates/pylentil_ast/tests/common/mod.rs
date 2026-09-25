@@ -17,7 +17,8 @@ use std::panic::{self, AssertUnwindSafe};
 use std::path::PathBuf;
 
 use pylentil_ast::ast::{
-    PyBinaryOp, PyBoolOp, PyComparisonOp, PyConstant, PyExpr, PyModule, PyStatement, PyUnaryOp,
+    PyArg, PyArguments, PyBinaryOp, PyBoolOp, PyComparisonOp, PyConstant, PyExpr, PyModule,
+    PyStatement, PyUnaryOp,
 };
 use pylentil_ast::parser::PyParser;
 use pylentil_ast::{PyLexer, PyToken, PyTokenType};
@@ -272,8 +273,11 @@ pub fn stmt_sexpr(stmt: &PyStatement) -> String {
         ),
         PyStatement::Global { names } => format!("(global {})", names.join(" ")),
         PyStatement::Nonlocal { names } => format!("(nonlocal {})", names.join(" ")),
-        PyStatement::FunctionDef { name, body, .. } => {
-            format!("(def {name} ({}))", stmts_sexpr(body))
+        PyStatement::FunctionDef { name, args, body, decorator_list, returns, .. } => {
+            function_sexpr("def", name, args, body, decorator_list, returns.as_deref())
+        }
+        PyStatement::AsyncFunctionDef { name, args, body, decorator_list, returns, .. } => {
+            function_sexpr("async-def", name, args, body, decorator_list, returns.as_deref())
         }
         PyStatement::ClassDef { name, body, .. } => {
             format!("(class {name} ({}))", stmts_sexpr(body))
@@ -390,6 +394,96 @@ fn aliases_sexpr(aliases: &[pylentil_ast::ast::PyAlias]) -> String {
 
 fn stmts_sexpr(stmts: &[PyStatement]) -> String {
     stmts.iter().map(stmt_sexpr).collect::<Vec<_>>().join(" ")
+}
+
+/// `(def @deco name (params) -> ret (body))`; the `@deco` and `-> ret` parts
+/// appear only when present.
+fn function_sexpr(
+    keyword: &str,
+    name: &str,
+    args: &PyArguments,
+    body: &[PyStatement],
+    decorators: &[PyExpr],
+    returns: Option<&PyExpr>,
+) -> String {
+    let mut head = vec![keyword.to_string()];
+    head.extend(decorators.iter().map(|d| format!("@{}", expr_sexpr(d))));
+    head.push(name.to_string());
+    head.push(format!("({})", arguments_sexpr(args)));
+    if let Some(ret) = returns {
+        head.push(format!("-> {}", expr_sexpr(ret)));
+    }
+    head.push(format!("({})", stmts_sexpr(body)));
+    format!("({})", head.join(" "))
+}
+
+/// Parameters in source order: `a b:int=1 / c *rest d e=2 **kw`.
+///
+/// Defaults are right-aligned across positional-only and regular parameters,
+/// as in `ast.arguments`. A bare `*` is printed when there are keyword-only
+/// parameters but no `*args`.
+fn arguments_sexpr(args: &PyArguments) -> String {
+    let positional: Vec<&PyArg> = args.posonlyargs.iter().chain(args.args.iter()).collect();
+    let first_default = positional.len().saturating_sub(args.defaults.len());
+
+    let mut parts: Vec<String> = Vec::new();
+    for (i, arg) in positional.iter().enumerate() {
+        let default = if i >= first_default {
+            args.defaults.get(i - first_default).and_then(|d| d.as_ref())
+        } else {
+            None
+        };
+        parts.push(param_sexpr(arg, default));
+        if i + 1 == args.posonlyargs.len() && !args.posonlyargs.is_empty() {
+            parts.push("/".to_string());
+        }
+    }
+
+    match &args.vararg {
+        Some(v) => parts.push(format!("*{}", param_sexpr_unstarred(v))),
+        None if !args.kwonlyargs.is_empty() => parts.push("*".to_string()),
+        None => {}
+    }
+
+    for (i, kw) in args.kwonlyargs.iter().enumerate() {
+        let default = args.kw_defaults.get(i).and_then(|d| d.as_ref());
+        parts.push(param_sexpr(kw, default));
+    }
+
+    if let Some(k) = &args.kwarg {
+        parts.push(format!("**{}", param_sexpr_unstarred(k)));
+    }
+
+    parts.join(" ")
+}
+
+/// `name`, `name:ann`, `name=default` or `name:ann=default`.
+fn param_sexpr(arg: &PyArg, default: Option<&PyExpr>) -> String {
+    let mut s = expr_sexpr(&arg.arg);
+    if let Some(ann) = &arg.annotation {
+        s.push(':');
+        s.push_str(&expr_sexpr(ann));
+    }
+    if let Some(d) = default {
+        s.push('=');
+        s.push_str(&expr_sexpr(d));
+    }
+    s
+}
+
+/// Like `param_sexpr`, but strips a `Starred` wrapper so `*args` prints as
+/// `*args` and not `*(star args)`.
+fn param_sexpr_unstarred(arg: &PyArg) -> String {
+    let inner: &PyExpr = match arg.arg.as_ref() {
+        PyExpr::Starred { value, .. } => value,
+        other => other,
+    };
+    let mut s = expr_sexpr(inner);
+    if let Some(ann) = &arg.annotation {
+        s.push(':');
+        s.push_str(&expr_sexpr(ann));
+    }
+    s
 }
 
 fn constant_sexpr(constant: &PyConstant) -> String {

@@ -430,73 +430,69 @@ impl<'a> PyLexer<'a> {
             return Err(PylentilError::UnexpectedIndent);
         }
 
-        let mut new_tokens: Vec<PyToken> = Vec::new();
-        let mut tokens = self.tokens.clone();
+        let tokens = &self.tokens;
+        let mut new_tokens: Vec<PyToken> = Vec::with_capacity(tokens.len());
         let mut indents: Vec<usize> = vec![0];
 
-        while tokens.len() > 0 {
-            let token = tokens[0].clone();
-            tokens = tokens[1..].to_vec();
+        // Walk by index. `i` always points one past `token`, so `tokens[i]` is
+        // the lookahead and `i += 1` consumes it.
+        let mut i = 0;
+        while i < tokens.len() {
+            let token = &tokens[i];
+            let next = tokens.get(i + 1);
+            i += 1;
 
-            match token {
-                PyToken {
-                    kind: PyTokenType::Newline,
-                    ..
-                } => match tokens[0].kind {
-                    PyTokenType::EOF => {
-                        new_tokens.push(token);
+            match token.kind {
+                PyTokenType::Newline => match next.map(|t| t.kind) {
+                    Some(PyTokenType::EOF) => {
+                        new_tokens.push(token.clone());
                         Self::dedent(0, &mut indents, &mut new_tokens)?;
-                        new_tokens.push(tokens[0].clone());
+                        new_tokens.push(tokens[i].clone());
                         break;
                     }
-                    PyTokenType::Indent if Self::is_blank_line(&tokens, 1) => {
-                        new_tokens.push(token);
-                        tokens = tokens[1..].to_vec();
+                    Some(PyTokenType::Indent) if Self::is_blank_line(tokens, i + 1) => {
+                        new_tokens.push(token.clone());
+                        i += 1;
                     }
-                    PyTokenType::Indent => {
-                        let indent = get_indent_size(tokens[0].value.as_deref().unwrap())?;
+                    Some(PyTokenType::Indent) => {
+                        let indent = get_indent_size(tokens[i].value.as_deref().unwrap())?;
                         if indent > *indents.last().unwrap() {
                             indents.push(indent);
-                            new_tokens.push(token);
+                            new_tokens.push(token.clone());
                             new_tokens.push(PyToken {
                                 kind: PyTokenType::Indent,
                                 value: Some(Cow::Owned(indent.to_string())),
                             });
                         } else if indent == *indents.last().unwrap() {
-                            new_tokens.push(token);
+                            new_tokens.push(token.clone());
                         } else {
-                            new_tokens.push(token);
+                            new_tokens.push(token.clone());
                             Self::dedent(indent, &mut indents, &mut new_tokens)?;
                         }
 
-                        tokens = tokens[1..].to_vec();
+                        i += 1;
                     }
-                    PyTokenType::Newline => {
-                        new_tokens.push(token);
+                    Some(PyTokenType::Newline) => {
+                        new_tokens.push(token.clone());
                     }
                     _ => {
-                        new_tokens.push(token);
+                        new_tokens.push(token.clone());
                         Self::dedent(0, &mut indents, &mut new_tokens)?;
                     }
                 },
-                PyToken {
-                    kind: PyTokenType::EOF,
-                    ..
-                } => {
+                PyTokenType::EOF => {
                     Self::dedent(0, &mut indents, &mut new_tokens)?;
-                    new_tokens.push(token);
+                    new_tokens.push(token.clone());
                 }
                 _ => {
-                    new_tokens.push(token);
+                    new_tokens.push(token.clone());
                 }
             }
         }
 
-        // assert!(indents.len() == 1);
-
         Ok(PyLexer {
             code: self.code,
-            tokens: new_tokens.clone(),
+            tokens: new_tokens,
         })
     }
 

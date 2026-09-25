@@ -16,8 +16,8 @@ fn loops() {
 
 #[test]
 fn function_definitions() {
-    assert_eq!(one_stmt(&case(F, "function_no_arguments")), Ok("(def f (pass))".into()));
-    assert_eq!(one_stmt(&case(F, "function_definition")), Ok("(def f ((return a)))".into()));
+    assert_eq!(one_stmt(&case(F, "function_no_arguments")), Ok("(def f () (pass))".into()));
+    assert_eq!(one_stmt(&case(F, "function_definition")), Ok("(def f (a b) ((return a)))".into()));
 }
 
 #[test]

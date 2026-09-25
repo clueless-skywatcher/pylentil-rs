@@ -38,7 +38,7 @@ pub struct PyArguments {
     pub kwonlyargs: Vec<PyArg>,
     pub kw_defaults: Vec<Option<PyExpr>>,
     pub kwarg: Option<PyArg>,
-    pub defaults: Vec<PyExpr>,
+    pub defaults: Vec<Option<PyExpr>>,
 }
 
 #[derive(Debug, Clone)]
