@@ -14,15 +14,7 @@ pub enum PyStatement {
         returns: Option<PyExprBox>,
         type_comment: Option<String>,
         type_params: Vec<PyTypeParam>,
-    },
-    AsyncFunctionDef {
-        name: String,
-        args: Box<PyArguments>,
-        body: Vec<PyStatement>,
-        decorator_list: Vec<PyExpr>,
-        returns: Option<PyExprBox>,
-        type_comment: Option<String>,
-        type_params: Vec<PyTypeParam>,
+        is_async: bool
     },
     ClassDef {
         name: String,

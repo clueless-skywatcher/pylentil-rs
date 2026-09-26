@@ -273,10 +273,10 @@ pub fn stmt_sexpr(stmt: &PyStatement) -> String {
         ),
         PyStatement::Global { names } => format!("(global {})", names.join(" ")),
         PyStatement::Nonlocal { names } => format!("(nonlocal {})", names.join(" ")),
-        PyStatement::FunctionDef { name, args, body, decorator_list, returns, .. } => {
+        PyStatement::FunctionDef { name, args, body, decorator_list, returns, is_async: false, .. } => {
             function_sexpr("def", name, args, body, decorator_list, returns.as_deref())
         }
-        PyStatement::AsyncFunctionDef { name, args, body, decorator_list, returns, .. } => {
+        PyStatement::FunctionDef { name, args, body, decorator_list, returns, is_async: true, .. } => {
             function_sexpr("async-def", name, args, body, decorator_list, returns.as_deref())
         }
         PyStatement::ClassDef { name, body, .. } => {

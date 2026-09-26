@@ -284,10 +284,11 @@ pub(super) fn parse_stmt_funcdef(parser: &mut PyParser) -> Result<PyStatement, P
                 defaults.push(Some(*kw_value));
             }
             PyArgType::Keyword {
-                keyword: PyKeyword {
-                    arg: None,
-                    value: kw_name,
-                },
+                keyword:
+                    PyKeyword {
+                        arg: None,
+                        value: kw_name,
+                    },
                 ..
             } => {
                 kwarg = Some(PyArg {
@@ -317,12 +318,55 @@ pub(super) fn parse_stmt_funcdef(parser: &mut PyParser) -> Result<PyStatement, P
             kwonlyargs,
             kw_defaults,
             kwarg,
-            defaults,
+            defaults
         }),
         body: def_block,
         decorator_list: vec![],
         returns: None,
         type_comment: None,
         type_params: vec![],
+        is_async: false
     })
+}
+
+pub(super) fn parse_stmt_async(parser: &mut PyParser) -> Result<PyStatement, PylentilError> {
+    parser.expect_type(vec![PyTokenType::Async])?;
+
+    if parser.peek()?.kind == PyTokenType::Def {
+        let func_def = parse_stmt_funcdef(parser)?;
+        return match func_def {
+            PyStatement::FunctionDef {
+                name,
+                args,
+                body,
+                decorator_list,
+                returns,
+                type_comment,
+                type_params,
+                ..
+            } => Ok(PyStatement::FunctionDef {
+                name,
+                args,
+                body,
+                decorator_list,
+                returns,
+                type_comment,
+                type_params,
+                is_async: true,
+            }),
+            _ => Err(PylentilError::NotImplemented)
+        };
+    }
+    Err(PylentilError::NotImplemented)
+}
+
+pub fn parse_stmt_return(parser: &mut PyParser) -> Result<PyStatement, PylentilError> {
+    parser.expect_type(vec![PyTokenType::Return])?;
+    
+    if parser.peek()?.kind.is_eof() || parser.peek()?.kind == PyTokenType::Newline {
+        return Ok(PyStatement::Return { value: None });
+    }
+
+    let value = parse_expr(parser, PyBindingPower::Default)?;
+    Ok(PyStatement::Return { value: Some(Box::new(value)) })
 }

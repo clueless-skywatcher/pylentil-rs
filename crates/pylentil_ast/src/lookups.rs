@@ -9,11 +9,20 @@ use std::sync::LazyLock;
 use pylentil_common::errors::PylentilError;
 
 use crate::{
-    PyTokenType, ast::{PyExpr, PyStatement}, lookups::{
+    PyTokenType,
+    ast::{PyExpr, PyStatement},
+    lookups::{
         expr::{
-            parse_attribute_access, parse_dict_or_set_or_comprehension, parse_function_call, parse_if, parse_list_or_comprehension, parse_star, parse_subscript_access, parse_walrus_tuple_or_expr,
-        }, stmt::{parse_stmt_break, parse_stmt_continue, parse_stmt_funcdef, parse_stmt_import, parse_stmt_import_from, parse_stmt_pass},
-    }, parser::PyParser,
+            parse_attribute_access, parse_dict_or_set_or_comprehension, parse_function_call,
+            parse_if, parse_list_or_comprehension, parse_star, parse_subscript_access,
+            parse_walrus_tuple_or_expr,
+        },
+        stmt::{
+            parse_stmt_async, parse_stmt_break, parse_stmt_continue, parse_stmt_funcdef,
+            parse_stmt_import, parse_stmt_import_from, parse_stmt_pass, parse_stmt_return,
+        },
+    },
+    parser::PyParser,
 };
 
 use expr::{
@@ -93,9 +102,7 @@ fn stmt(lu: &mut PyStatementLookup, kind: PyTokenType, stmt_handler: PyStatement
     lu.insert(kind, stmt_handler);
 }
 
-static RIGHT_ASSOC: LazyLock<Vec<PyTokenType>> = LazyLock::new(|| vec![
-    PyTokenType::DoubleStar
-]);
+static RIGHT_ASSOC: LazyLock<Vec<PyTokenType>> = LazyLock::new(|| vec![PyTokenType::DoubleStar]);
 
 static BP_LU: LazyLock<PyBindingPowerLookup> = LazyLock::new(|| {
     let mut m = HashMap::new();
@@ -121,7 +128,11 @@ static BP_LU: LazyLock<PyBindingPowerLookup> = LazyLock::new(|| {
     // Multiplicative
     bp(&mut m, PyTokenType::Star, PyBindingPower::Multiplicative);
     bp(&mut m, PyTokenType::Slash, PyBindingPower::Multiplicative);
-    bp(&mut m, PyTokenType::DoubleSlash, PyBindingPower::Multiplicative);
+    bp(
+        &mut m,
+        PyTokenType::DoubleSlash,
+        PyBindingPower::Multiplicative,
+    );
     bp(&mut m, PyTokenType::Percent, PyBindingPower::Multiplicative);
     bp(&mut m, PyTokenType::At, PyBindingPower::Multiplicative);
 
@@ -149,7 +160,11 @@ static BP_LU: LazyLock<PyBindingPowerLookup> = LazyLock::new(|| {
     bp(&mut m, PyTokenType::Less, PyBindingPower::Comparison);
     bp(&mut m, PyTokenType::Greater, PyBindingPower::Comparison);
     bp(&mut m, PyTokenType::LessEqual, PyBindingPower::Comparison);
-    bp(&mut m, PyTokenType::GreaterEqual, PyBindingPower::Comparison);
+    bp(
+        &mut m,
+        PyTokenType::GreaterEqual,
+        PyBindingPower::Comparison,
+    );
     bp(&mut m, PyTokenType::Is, PyBindingPower::Comparison);
     bp(&mut m, PyTokenType::In, PyBindingPower::Comparison);
     bp(&mut m, PyTokenType::Not, PyBindingPower::Comparison);
@@ -176,7 +191,11 @@ static NUD_LU: LazyLock<PyNUDLookup> = LazyLock::new(|| {
 
     // Bracket expressions
     nud(&mut m, PyTokenType::LParen, parse_walrus_tuple_or_expr);
-    nud(&mut m, PyTokenType::LBrace, parse_dict_or_set_or_comprehension);
+    nud(
+        &mut m,
+        PyTokenType::LBrace,
+        parse_dict_or_set_or_comprehension,
+    );
     nud(&mut m, PyTokenType::LSquare, parse_list_or_comprehension);
 
     // Unary
@@ -228,7 +247,11 @@ static LED_LU: LazyLock<PyLEDLookup> = LazyLock::new(|| {
     led(&mut m, PyTokenType::Not, parse_comparison);
 
     // Comma
-    led(&mut m, PyTokenType::Comma, parse_potentially_comma_separated);
+    led(
+        &mut m,
+        PyTokenType::Comma,
+        parse_potentially_comma_separated,
+    );
 
     // Attribute access
     led(&mut m, PyTokenType::Dot, parse_attribute_access);
@@ -254,11 +277,16 @@ static STMT_LU: LazyLock<PyStatementLookup> = LazyLock::new(|| {
     stmt(&mut m, PyTokenType::Import, parse_stmt_import);
     stmt(&mut m, PyTokenType::From, parse_stmt_import_from);
     stmt(&mut m, PyTokenType::Def, parse_stmt_funcdef);
+    stmt(&mut m, PyTokenType::Async, parse_stmt_async);
+    stmt(&mut m, PyTokenType::Return, parse_stmt_return);
 
     m
 });
 
-pub(crate) fn parse_expr(parser: &mut PyParser, bp: PyBindingPower) -> Result<PyExpr, PylentilError> {
+pub(crate) fn parse_expr(
+    parser: &mut PyParser,
+    bp: PyBindingPower,
+) -> Result<PyExpr, PylentilError> {
     let token = parser.peek()?;
     let Some(nud_fn) = NUD_LU.get(&token.kind) else {
         return Err(PylentilError::ExpressionExpected {

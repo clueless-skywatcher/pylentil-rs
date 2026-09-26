@@ -822,12 +822,6 @@ fn parse_comprehension(parser: &mut PyParser) -> Result<PyComprehension, Pylenti
     })
 }
 
-/// Parses the `for` target of a comprehension: one or more comma-separated
-/// targets, stopping before `in`.
-///
-/// Each element is parsed at `Comparison` so the Pratt loop stops before `in`
-/// (which has comparison precedence) instead of folding `a in xs` into a single
-/// comparison. That also stops before `,`, so tuple targets are collected here.
 fn parse_comprehension_target(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
     let first = parse_expr(parser, PyBindingPower::Comparison)?;
 
