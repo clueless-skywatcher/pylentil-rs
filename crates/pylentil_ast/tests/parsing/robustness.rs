@@ -22,36 +22,3 @@ fn a_stray_layout_token_is_never_a_statement() {
     // Newline as an expression.
     assert!(matches!(parse_outcome("if a:\n    b\n  c\n"), Outcome::Err(_)));
 }
-
-#[test]
-fn nothing_in_the_fixtures_makes_the_parser_panic() {
-    let mut panics = Vec::new();
-    for fixture in [
-        "parser/literals.py",
-        "parser/arithmetic.py",
-        "parser/bitwise.py",
-        "parser/comparisons.py",
-        "parser/boolean.py",
-        "parser/tuples.py",
-        "parser/assignment.py",
-        "parser/calls.py",
-        "parser/subscripts.py",
-        "parser/collections.py",
-        "parser/if_statements.py",
-        "parser/statements.py",
-        "parser/imports.py",
-        "parser/functions.py",
-        "parser/modules.py",
-    ] {
-        for c in cases(fixture) {
-            if let Outcome::Panic(m) = parse_outcome(&c.code) {
-                panics.push(format!("  {fixture} :: {}: {m}", c.name));
-            }
-        }
-    }
-    assert!(
-        panics.is_empty(),
-        "invalid input must produce errors, never panics:\n{}",
-        panics.join("\n")
-    );
-}

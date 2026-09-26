@@ -2,36 +2,62 @@ use super::*;
 const F: &str = "parser/literals.py";
 
 #[test]
-fn numbers_and_text() {
+fn parse_literals_integer() {
     assert_eq!(e(F, "integer"), "42");
+}
+
+#[test]
+fn parse_literals_zero() {
     assert_eq!(e(F, "zero"), "0");
+}
+
+#[test]
+fn parse_literals_float() {
     assert_eq!(e(F, "float"), "3.5");
+}
+
+#[test]
+fn parse_literals_float_trailing_dot() {
     assert_eq!(e(F, "float_trailing_dot"), "2.0");
+}
+
+#[test]
+fn parse_literals_string() {
     assert_eq!(e(F, "string"), "str(text)");
-    assert_eq!(e(F, "single_quoted_string"), "str(text)");
+}
+
+#[test]
+fn parse_literals_empty_string() {
     assert_eq!(e(F, "empty_string"), "str()");
 }
 
 #[test]
-fn constants_and_names() {
+fn parse_literals_single_quoted_string() {
+    assert_eq!(e(F, "single_quoted_string"), "str(text)");
+}
+
+#[test]
+fn parse_literals_true() {
     assert_eq!(e(F, "true"), "True");
+}
+
+#[test]
+fn parse_literals_false() {
     assert_eq!(e(F, "false"), "False");
+}
+
+#[test]
+fn parse_literals_none() {
     assert_eq!(e(F, "none"), "None");
+}
+
+#[test]
+fn parse_literals_name() {
     assert_eq!(e(F, "name"), "value");
 }
 
 #[test]
-fn an_escape_sequence_stays_inside_the_string() {
-    assert_eq!(e(F, "escape_in_string"), "str(tab\\there)");
-}
-
-#[test]
-fn a_negative_literal() {
-    assert_eq!(e(F, "negative_literal"), "(neg 1)");
-}
-
-#[test]
-fn an_integer_too_large_for_i64_is_still_an_integer() {
+fn parse_literals_huge_integer() {
     // Python integers are arbitrary precision; overflowing i64 is not a
     // syntax error.
     assert!(
@@ -41,6 +67,26 @@ fn an_integer_too_large_for_i64_is_still_an_integer() {
 }
 
 #[test]
-fn ellipsis_is_a_constant() {
+fn parse_literals_negative_literal() {
+    assert_eq!(e(F, "negative_literal"), "(neg 1)");
+}
+
+#[test]
+fn parse_literals_parenthesized_literal() {
+    assert_eq!(e(F, "parenthesized_literal"), "42");
+}
+
+#[test]
+fn parse_literals_doubly_parenthesized() {
+    assert_eq!(e(F, "doubly_parenthesized"), "42");
+}
+
+#[test]
+fn parse_literals_ellipsis() {
     assert_eq!(e(F, "ellipsis"), "...");
+}
+
+#[test]
+fn parse_literals_escape_in_string() {
+    assert_eq!(e(F, "escape_in_string"), "str(tab\\there)");
 }
