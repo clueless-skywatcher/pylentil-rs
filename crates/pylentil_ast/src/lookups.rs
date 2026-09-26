@@ -4,8 +4,8 @@ mod stmt;
 pub(crate) use expr::parse_generators;
 
 use std::collections::HashMap;
+use std::sync::LazyLock;
 
-use lazy_static::lazy_static;
 use pylentil_common::errors::PylentilError;
 
 use crate::{
@@ -93,172 +93,170 @@ fn stmt(lu: &mut PyStatementLookup, kind: PyTokenType, stmt_handler: PyStatement
     lu.insert(kind, stmt_handler);
 }
 
-lazy_static! {
-    static ref RIGHT_ASSOC: Vec<PyTokenType> = vec![
-        PyTokenType::DoubleStar
-    ];
+static RIGHT_ASSOC: LazyLock<Vec<PyTokenType>> = LazyLock::new(|| vec![
+    PyTokenType::DoubleStar
+]);
 
-    static ref BP_LU: PyBindingPowerLookup = {
-        let mut m = HashMap::new();
+static BP_LU: LazyLock<PyBindingPowerLookup> = LazyLock::new(|| {
+    let mut m = HashMap::new();
 
-        // Atoms
-        bp(&mut m, PyTokenType::Int, PyBindingPower::Terminal);
-        bp(&mut m, PyTokenType::Float, PyBindingPower::Terminal);
-        bp(&mut m, PyTokenType::String, PyBindingPower::Terminal);
-        bp(&mut m, PyTokenType::Ident, PyBindingPower::Terminal);
-        bp(&mut m, PyTokenType::True, PyBindingPower::Terminal);
-        bp(&mut m, PyTokenType::False, PyBindingPower::Terminal);
-        bp(&mut m, PyTokenType::None, PyBindingPower::Terminal);
-        bp(&mut m, PyTokenType::Ellipsis, PyBindingPower::Terminal);
+    // Atoms
+    bp(&mut m, PyTokenType::Int, PyBindingPower::Terminal);
+    bp(&mut m, PyTokenType::Float, PyBindingPower::Terminal);
+    bp(&mut m, PyTokenType::String, PyBindingPower::Terminal);
+    bp(&mut m, PyTokenType::Ident, PyBindingPower::Terminal);
+    bp(&mut m, PyTokenType::True, PyBindingPower::Terminal);
+    bp(&mut m, PyTokenType::False, PyBindingPower::Terminal);
+    bp(&mut m, PyTokenType::None, PyBindingPower::Terminal);
+    bp(&mut m, PyTokenType::Ellipsis, PyBindingPower::Terminal);
 
-        // Postfix: attr, call, subscript
-        bp(&mut m, PyTokenType::Dot, PyBindingPower::Postfix);
-        bp(&mut m, PyTokenType::LParen, PyBindingPower::Postfix);
-        bp(&mut m, PyTokenType::LSquare, PyBindingPower::Postfix);
+    // Postfix: attr, call, subscript
+    bp(&mut m, PyTokenType::Dot, PyBindingPower::Postfix);
+    bp(&mut m, PyTokenType::LParen, PyBindingPower::Postfix);
+    bp(&mut m, PyTokenType::LSquare, PyBindingPower::Postfix);
 
-        // Unary
-        bp(&mut m, PyTokenType::Tilde, PyBindingPower::Unary);
+    // Unary
+    bp(&mut m, PyTokenType::Tilde, PyBindingPower::Unary);
 
-        // Multiplicative
-        bp(&mut m, PyTokenType::Star, PyBindingPower::Multiplicative);
-        bp(&mut m, PyTokenType::Slash, PyBindingPower::Multiplicative);
-        bp(&mut m, PyTokenType::DoubleSlash, PyBindingPower::Multiplicative);
-        bp(&mut m, PyTokenType::Percent, PyBindingPower::Multiplicative);
-        bp(&mut m, PyTokenType::At, PyBindingPower::Multiplicative);
+    // Multiplicative
+    bp(&mut m, PyTokenType::Star, PyBindingPower::Multiplicative);
+    bp(&mut m, PyTokenType::Slash, PyBindingPower::Multiplicative);
+    bp(&mut m, PyTokenType::DoubleSlash, PyBindingPower::Multiplicative);
+    bp(&mut m, PyTokenType::Percent, PyBindingPower::Multiplicative);
+    bp(&mut m, PyTokenType::At, PyBindingPower::Multiplicative);
 
-        // Exponents
-        bp(&mut m, PyTokenType::DoubleStar, PyBindingPower::Power);
+    // Exponents
+    bp(&mut m, PyTokenType::DoubleStar, PyBindingPower::Power);
 
-        // Additive / shifts
-        bp(&mut m, PyTokenType::Plus, PyBindingPower::Additive);
-        bp(&mut m, PyTokenType::Minus, PyBindingPower::Additive);
-        bp(&mut m, PyTokenType::LShift, PyBindingPower::Shift);
-        bp(&mut m, PyTokenType::RShift, PyBindingPower::Shift);
+    // Additive / shifts
+    bp(&mut m, PyTokenType::Plus, PyBindingPower::Additive);
+    bp(&mut m, PyTokenType::Minus, PyBindingPower::Additive);
+    bp(&mut m, PyTokenType::LShift, PyBindingPower::Shift);
+    bp(&mut m, PyTokenType::RShift, PyBindingPower::Shift);
 
-        // Bitwise
-        bp(&mut m, PyTokenType::Ampersand, PyBindingPower::BitAnd);
-        bp(&mut m, PyTokenType::Caret, PyBindingPower::BitXor);
-        bp(&mut m, PyTokenType::VerticalBar, PyBindingPower::BitOr);
+    // Bitwise
+    bp(&mut m, PyTokenType::Ampersand, PyBindingPower::BitAnd);
+    bp(&mut m, PyTokenType::Caret, PyBindingPower::BitXor);
+    bp(&mut m, PyTokenType::VerticalBar, PyBindingPower::BitOr);
 
-        // Boolean
-        bp(&mut m, PyTokenType::Or, PyBindingPower::Or);
-        bp(&mut m, PyTokenType::And, PyBindingPower::And);
+    // Boolean
+    bp(&mut m, PyTokenType::Or, PyBindingPower::Or);
+    bp(&mut m, PyTokenType::And, PyBindingPower::And);
 
-        // Comparisons
-        bp(&mut m, PyTokenType::DoubleEqual, PyBindingPower::Comparison);
-        bp(&mut m, PyTokenType::NotEqual, PyBindingPower::Comparison);
-        bp(&mut m, PyTokenType::Less, PyBindingPower::Comparison);
-        bp(&mut m, PyTokenType::Greater, PyBindingPower::Comparison);
-        bp(&mut m, PyTokenType::LessEqual, PyBindingPower::Comparison);
-        bp(&mut m, PyTokenType::GreaterEqual, PyBindingPower::Comparison);
-        bp(&mut m, PyTokenType::Is, PyBindingPower::Comparison);
-        bp(&mut m, PyTokenType::In, PyBindingPower::Comparison);
-        bp(&mut m, PyTokenType::Not, PyBindingPower::Comparison);
+    // Comparisons
+    bp(&mut m, PyTokenType::DoubleEqual, PyBindingPower::Comparison);
+    bp(&mut m, PyTokenType::NotEqual, PyBindingPower::Comparison);
+    bp(&mut m, PyTokenType::Less, PyBindingPower::Comparison);
+    bp(&mut m, PyTokenType::Greater, PyBindingPower::Comparison);
+    bp(&mut m, PyTokenType::LessEqual, PyBindingPower::Comparison);
+    bp(&mut m, PyTokenType::GreaterEqual, PyBindingPower::Comparison);
+    bp(&mut m, PyTokenType::Is, PyBindingPower::Comparison);
+    bp(&mut m, PyTokenType::In, PyBindingPower::Comparison);
+    bp(&mut m, PyTokenType::Not, PyBindingPower::Comparison);
 
-        // Assignment / separators
-        bp(&mut m, PyTokenType::Comma, PyBindingPower::Comma);
+    // Assignment / separators
+    bp(&mut m, PyTokenType::Comma, PyBindingPower::Comma);
 
-        // Ternary If
-        bp(&mut m, PyTokenType::If, PyBindingPower::Ternary);
+    // Ternary If
+    bp(&mut m, PyTokenType::If, PyBindingPower::Ternary);
 
-        m
-    };
-    static ref NUD_LU: PyNUDLookup = {
-        let mut m = HashMap::new();
+    m
+});
+static NUD_LU: LazyLock<PyNUDLookup> = LazyLock::new(|| {
+    let mut m = HashMap::new();
 
-        nud(&mut m, PyTokenType::Int, parse_terminal);
-        nud(&mut m, PyTokenType::Float, parse_terminal);
-        nud(&mut m, PyTokenType::True, parse_terminal);
-        nud(&mut m, PyTokenType::False, parse_terminal);
-        nud(&mut m, PyTokenType::String, parse_terminal);
-        nud(&mut m, PyTokenType::Ident, parse_terminal);
-        nud(&mut m, PyTokenType::None, parse_terminal);
-        nud(&mut m, PyTokenType::Ellipsis, parse_terminal);
+    nud(&mut m, PyTokenType::Int, parse_terminal);
+    nud(&mut m, PyTokenType::Float, parse_terminal);
+    nud(&mut m, PyTokenType::True, parse_terminal);
+    nud(&mut m, PyTokenType::False, parse_terminal);
+    nud(&mut m, PyTokenType::String, parse_terminal);
+    nud(&mut m, PyTokenType::Ident, parse_terminal);
+    nud(&mut m, PyTokenType::None, parse_terminal);
+    nud(&mut m, PyTokenType::Ellipsis, parse_terminal);
 
-        // Bracket expressions
-        nud(&mut m, PyTokenType::LParen, parse_walrus_tuple_or_expr);
-        nud(&mut m, PyTokenType::LBrace, parse_dict_or_set_or_comprehension);
-        nud(&mut m, PyTokenType::LSquare, parse_list_or_comprehension);
+    // Bracket expressions
+    nud(&mut m, PyTokenType::LParen, parse_walrus_tuple_or_expr);
+    nud(&mut m, PyTokenType::LBrace, parse_dict_or_set_or_comprehension);
+    nud(&mut m, PyTokenType::LSquare, parse_list_or_comprehension);
 
-        // Unary
-        nud(&mut m, PyTokenType::Minus, parse_unary);
-        nud(&mut m, PyTokenType::Plus, parse_unary);
-        nud(&mut m, PyTokenType::Tilde, parse_unary);
-        nud(&mut m, PyTokenType::Not, parse_unary);
+    // Unary
+    nud(&mut m, PyTokenType::Minus, parse_unary);
+    nud(&mut m, PyTokenType::Plus, parse_unary);
+    nud(&mut m, PyTokenType::Tilde, parse_unary);
+    nud(&mut m, PyTokenType::Not, parse_unary);
 
-        // Star
-        nud(&mut m, PyTokenType::Star, parse_star);
+    // Star
+    nud(&mut m, PyTokenType::Star, parse_star);
 
-        m
-    };
-    static ref LED_LU: PyLEDLookup = {
-        let mut m = HashMap::new();
+    m
+});
+static LED_LU: LazyLock<PyLEDLookup> = LazyLock::new(|| {
+    let mut m = HashMap::new();
 
-        // Multiplicative / power
-        led(&mut m, PyTokenType::Star, parse_binary);
-        led(&mut m, PyTokenType::Slash, parse_binary);
-        led(&mut m, PyTokenType::DoubleSlash, parse_binary);
-        led(&mut m, PyTokenType::Percent, parse_binary);
-        led(&mut m, PyTokenType::At, parse_binary);
-        led(&mut m, PyTokenType::DoubleStar, parse_binary);
+    // Multiplicative / power
+    led(&mut m, PyTokenType::Star, parse_binary);
+    led(&mut m, PyTokenType::Slash, parse_binary);
+    led(&mut m, PyTokenType::DoubleSlash, parse_binary);
+    led(&mut m, PyTokenType::Percent, parse_binary);
+    led(&mut m, PyTokenType::At, parse_binary);
+    led(&mut m, PyTokenType::DoubleStar, parse_binary);
 
-        // Additive / shifts
-        led(&mut m, PyTokenType::Plus, parse_binary);
-        led(&mut m, PyTokenType::Minus, parse_binary);
-        led(&mut m, PyTokenType::LShift, parse_binary);
-        led(&mut m, PyTokenType::RShift, parse_binary);
+    // Additive / shifts
+    led(&mut m, PyTokenType::Plus, parse_binary);
+    led(&mut m, PyTokenType::Minus, parse_binary);
+    led(&mut m, PyTokenType::LShift, parse_binary);
+    led(&mut m, PyTokenType::RShift, parse_binary);
 
-        // Bitwise
-        led(&mut m, PyTokenType::Ampersand, parse_binary);
-        led(&mut m, PyTokenType::Caret, parse_binary);
-        led(&mut m, PyTokenType::VerticalBar, parse_binary);
+    // Bitwise
+    led(&mut m, PyTokenType::Ampersand, parse_binary);
+    led(&mut m, PyTokenType::Caret, parse_binary);
+    led(&mut m, PyTokenType::VerticalBar, parse_binary);
 
-        // Boolean
-        led(&mut m, PyTokenType::Or, parse_bool_op);
-        led(&mut m, PyTokenType::And, parse_bool_op);
+    // Boolean
+    led(&mut m, PyTokenType::Or, parse_bool_op);
+    led(&mut m, PyTokenType::And, parse_bool_op);
 
-        // Relational
-        led(&mut m, PyTokenType::DoubleEqual, parse_comparison);
-        led(&mut m, PyTokenType::NotEqual, parse_comparison);
-        led(&mut m, PyTokenType::Less, parse_comparison);
-        led(&mut m, PyTokenType::Greater, parse_comparison);
-        led(&mut m, PyTokenType::LessEqual, parse_comparison);
-        led(&mut m, PyTokenType::GreaterEqual, parse_comparison);
-        led(&mut m, PyTokenType::Is, parse_comparison);
-        led(&mut m, PyTokenType::In, parse_comparison);
-        led(&mut m, PyTokenType::Not, parse_comparison);
+    // Relational
+    led(&mut m, PyTokenType::DoubleEqual, parse_comparison);
+    led(&mut m, PyTokenType::NotEqual, parse_comparison);
+    led(&mut m, PyTokenType::Less, parse_comparison);
+    led(&mut m, PyTokenType::Greater, parse_comparison);
+    led(&mut m, PyTokenType::LessEqual, parse_comparison);
+    led(&mut m, PyTokenType::GreaterEqual, parse_comparison);
+    led(&mut m, PyTokenType::Is, parse_comparison);
+    led(&mut m, PyTokenType::In, parse_comparison);
+    led(&mut m, PyTokenType::Not, parse_comparison);
 
-        // Comma
-        led(&mut m, PyTokenType::Comma, parse_potentially_comma_separated);
+    // Comma
+    led(&mut m, PyTokenType::Comma, parse_potentially_comma_separated);
 
-        // Attribute access
-        led(&mut m, PyTokenType::Dot, parse_attribute_access);
+    // Attribute access
+    led(&mut m, PyTokenType::Dot, parse_attribute_access);
 
-        // Subscript access
-        led(&mut m, PyTokenType::LSquare, parse_subscript_access);
+    // Subscript access
+    led(&mut m, PyTokenType::LSquare, parse_subscript_access);
 
-        // Function calls
-        led(&mut m, PyTokenType::LParen, parse_function_call);
+    // Function calls
+    led(&mut m, PyTokenType::LParen, parse_function_call);
 
-        // Ternary if
-        led(&mut m, PyTokenType::If, parse_if);
+    // Ternary if
+    led(&mut m, PyTokenType::If, parse_if);
 
-        m
-    };
-    static ref STMT_LU: PyStatementLookup = {
-        let mut m = HashMap::new();
+    m
+});
+static STMT_LU: LazyLock<PyStatementLookup> = LazyLock::new(|| {
+    let mut m = HashMap::new();
 
-        stmt(&mut m, PyTokenType::If, parse_stmt_if);
-        stmt(&mut m, PyTokenType::Pass, parse_stmt_pass);
-        stmt(&mut m, PyTokenType::Break, parse_stmt_break);
-        stmt(&mut m, PyTokenType::Continue, parse_stmt_continue);
-        stmt(&mut m, PyTokenType::Import, parse_stmt_import);
-        stmt(&mut m, PyTokenType::From, parse_stmt_import_from);
-        stmt(&mut m, PyTokenType::Def, parse_stmt_funcdef);
+    stmt(&mut m, PyTokenType::If, parse_stmt_if);
+    stmt(&mut m, PyTokenType::Pass, parse_stmt_pass);
+    stmt(&mut m, PyTokenType::Break, parse_stmt_break);
+    stmt(&mut m, PyTokenType::Continue, parse_stmt_continue);
+    stmt(&mut m, PyTokenType::Import, parse_stmt_import);
+    stmt(&mut m, PyTokenType::From, parse_stmt_import_from);
+    stmt(&mut m, PyTokenType::Def, parse_stmt_funcdef);
 
-        m
-    };
-}
+    m
+});
 
 pub(crate) fn parse_expr(parser: &mut PyParser, bp: PyBindingPower) -> Result<PyExpr, PylentilError> {
     let token = parser.peek()?;
