@@ -1,6 +1,6 @@
 pub type PyConstantBox = Box<PyConstant>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum PyConstant {
     Integer(String),
     Float(String),

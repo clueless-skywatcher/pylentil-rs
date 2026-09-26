@@ -1,113 +1,166 @@
 use super::*;
 const F: &str = "parser/assignment.py";
 
-fn s(name: &str) -> String {
-    let code = case(F, name);
-    match one_stmt(&code) {
-        Ok(rendered) => rendered,
-        Err(err) => format!("<rejected: {err:?}>"),
-    }
-}
-
 #[test]
 fn parse_assignment_simple() {
-    assert_eq!(s("simple"), "(assign (x) 1)");
-    let module = parse_module(&case(F, "simple")).expect("x = 1 must parse");
-    let PyStatement::Assign { targets, .. } = &module.body[0] else {
-        panic!("expected an assignment, got {:?}", module.body[0]);
-    };
-    let PyExpr::Name { ctx, .. } = &targets[0] else {
-        panic!("expected a name target, got {:?}", targets[0]);
-    };
-    assert!(
-        matches!(ctx, PyRefContext::Store),
-        "an assignment target is a Store, got {ctx:?}"
-    );
+    assert_eq!(stmt(F, "simple"), assign(vec![store(name("x"))], int(1)));
 }
 
 #[test]
 fn parse_assignment_expression_value() {
-    assert_eq!(s("expression_value"), "(assign (x) (+ 1 2))");
+    assert_eq!(
+        stmt(F, "expression_value"),
+        assign(
+            vec![store(name("x"))],
+            bin_op(int(1), PyBinaryOp::Add, int(2))
+        )
+    );
 }
 
 #[test]
 fn parse_assignment_name_value() {
-    assert_eq!(s("name_value"), "(assign (x) y)");
+    assert_eq!(
+        stmt(F, "name_value"),
+        assign(vec![store(name("x"))], name("y"))
+    );
 }
 
 #[test]
 fn parse_assignment_tuple_unpack() {
-    assert_eq!(s("tuple_unpack"), "(assign ((tuple a b)) (tuple 1 2))");
+    assert_eq!(
+        stmt(F, "tuple_unpack"),
+        assign(
+            vec![store(tuple(vec![name("a"), name("b")]))],
+            tuple(vec![int(1), int(2)])
+        )
+    );
 }
 
 #[test]
 fn parse_assignment_parenthesized_target() {
-    assert_eq!(s("parenthesized_target"), "(assign ((ptuple a b)) (tuple 1 2))");
+    assert_eq!(
+        stmt(F, "parenthesized_target"),
+        assign(
+            vec![store(parenthesized_tuple(vec![name("a"), name("b")]))],
+            tuple(vec![int(1), int(2)])
+        )
+    );
 }
 
 #[test]
 fn parse_assignment_nested_unpack() {
-    assert_eq!(s("nested_unpack"), "(assign ((tuple (ptuple a b) c)) (tuple (ptuple 1 2) 3))");
+    assert_eq!(
+        stmt(F, "nested_unpack"),
+        assign(
+            vec![store(tuple(vec![
+                parenthesized_tuple(vec![name("a"), name("b")]),
+                name("c")
+            ]))],
+            tuple(vec![parenthesized_tuple(vec![int(1), int(2)]), int(3)])
+        )
+    );
 }
 
 #[test]
 fn parse_assignment_swap() {
-    assert_eq!(s("swap"), "(assign ((tuple a b)) (tuple b a))");
+    assert_eq!(
+        stmt(F, "swap"),
+        assign(
+            vec![store(tuple(vec![name("a"), name("b")]))],
+            tuple(vec![name("b"), name("a")])
+        )
+    );
 }
 
 #[test]
 fn parse_assignment_chained() {
-    assert_eq!(s("chained"), "(assign (a b) 1)");
+    assert_eq!(
+        stmt(F, "chained"),
+        assign(vec![store(name("a")), store(name("b"))], int(1))
+    );
 }
 
 #[test]
 fn parse_assignment_chained_three() {
-    assert_eq!(s("chained_three"), "(assign (a b c) 1)");
+    assert_eq!(
+        stmt(F, "chained_three"),
+        assign(
+            vec![store(name("a")), store(name("b")), store(name("c"))],
+            int(1)
+        )
+    );
 }
 
 #[test]
 fn parse_assignment_augmented_add() {
-    assert_eq!(s("augmented_add"), "(augassign x += 1)");
+    assert_eq!(
+        stmt(F, "augmented_add"),
+        aug_assign(store(name("x")), PyBinaryOp::Add, int(1))
+    );
 }
 
 #[test]
 fn parse_assignment_augmented_mul() {
-    assert_eq!(s("augmented_mul"), "(augassign x *= 2)");
+    assert_eq!(
+        stmt(F, "augmented_mul"),
+        aug_assign(store(name("x")), PyBinaryOp::Mul, int(2))
+    );
 }
 
 #[test]
 fn parse_assignment_annotated() {
-    assert_eq!(s("annotated"), "(annassign x int 1)");
+    assert_eq!(
+        stmt(F, "annotated"),
+        ann_assign(name("x"), name("int"), Some(int(1)))
+    );
 }
 
 #[test]
 fn parse_assignment_annotation_only() {
-    assert_eq!(s("annotation_only"), "(annassign x int -)");
+    assert_eq!(
+        stmt(F, "annotation_only"),
+        ann_assign(name("x"), name("int"), None)
+    );
 }
 
 #[test]
 fn parse_assignment_attribute_target() {
-    assert_eq!(s("attribute_target"), "(assign ((attr obj field)) 1)");
+    assert_eq!(
+        stmt(F, "attribute_target"),
+        assign(vec![store(attribute(name("obj"), "field"))], int(1))
+    );
 }
 
 #[test]
 fn parse_assignment_subscript_target() {
-    assert_eq!(s("subscript_target"), "(assign ((subscript items 0)) 1)");
+    assert_eq!(
+        stmt(F, "subscript_target"),
+        assign(vec![store(subscript(name("items"), int(0)))], int(1))
+    );
 }
 
 #[test]
 fn parse_assignment_starred_target() {
-    assert_eq!(s("starred_target"), "(assign ((tuple a (star rest))) items)");
+    assert_eq!(
+        stmt(F, "starred_target"),
+        assign(
+            vec![store(tuple(vec![name("a"), starred(name("rest"))]))],
+            name("items")
+        )
+    );
 }
 
 #[test]
 fn parse_assignment_walrus() {
-    assert_eq!(s("walrus"), "(:= n 10)");
+    assert_eq!(expr(F, "walrus"), named_expr(name("n"), int(10)));
 }
 
 #[test]
 fn parse_assignment_value_is_a_tuple() {
-    assert_eq!(s("value_is_a_tuple"), "(assign (x) (tuple 1 2))");
+    assert_eq!(
+        stmt(F, "value_is_a_tuple"),
+        assign(vec![store(name("x"))], tuple(vec![int(1), int(2)]))
+    );
 }
 
 #[test]
@@ -136,5 +189,8 @@ fn parse_assignment_assign_to_literal() {
 
 #[test]
 fn parse_assignment_equality_is_not_assignment() {
-    assert_eq!(s("equality_is_not_assignment"), "(compare x == 1)");
+    assert_eq!(
+        expr(F, "equality_is_not_assignment"),
+        compare(name("x"), vec![PyComparisonOp::Eq], vec![int(1)])
+    );
 }

@@ -20,5 +20,8 @@ fn deep_nesting_does_not_blow_the_stack() {
 fn a_stray_layout_token_is_never_a_statement() {
     // Whatever the lexer emits, the parser must not accept a bare Dedent or
     // Newline as an expression.
-    assert!(matches!(parse_outcome("if a:\n    b\n  c\n"), Outcome::Err(_)));
+    assert!(matches!(
+        parse_outcome("if a:\n    b\n  c\n"),
+        Outcome::Err(_)
+    ));
 }

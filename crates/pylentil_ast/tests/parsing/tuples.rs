@@ -3,83 +3,140 @@ const F: &str = "parser/tuples.py";
 
 #[test]
 fn parse_tuples_bare_pair() {
-    assert_eq!(e(F, "bare_pair"), "(tuple a b)");
+    assert_eq!(expr(F, "bare_pair"), tuple(vec![name("a"), name("b")]));
 }
 
 #[test]
 fn parse_tuples_bare_triple() {
     // Commas are one flat sequence, not nested pairs.
-    assert_eq!(e(F, "bare_triple"), "(tuple a b c)");
+    assert_eq!(
+        expr(F, "bare_triple"),
+        tuple(vec![name("a"), name("b"), name("c")])
+    );
 }
 
 #[test]
 fn parse_tuples_bare_four() {
-    assert_eq!(e(F, "bare_four"), "(tuple a b c d)");
+    assert_eq!(
+        expr(F, "bare_four"),
+        tuple(vec![name("a"), name("b"), name("c"), name("d")])
+    );
 }
 
 #[test]
 fn parse_tuples_trailing_comma() {
-    assert_eq!(e(F, "trailing_comma"), "(tuple a)");
+    assert_eq!(expr(F, "trailing_comma"), tuple(vec![name("a")]));
 }
 
 #[test]
 fn parse_tuples_parenthesized_pair() {
-    assert_eq!(e(F, "parenthesized_pair"), "(ptuple a b)");
+    assert_eq!(
+        expr(F, "parenthesized_pair"),
+        parenthesized_tuple(vec![name("a"), name("b")])
+    );
 }
 
 #[test]
 fn parse_tuples_parenthesized_single_is_not_a_tuple() {
-    assert_eq!(e(F, "parenthesized_single_is_not_a_tuple"), "a");
+    assert_eq!(expr(F, "parenthesized_single_is_not_a_tuple"), name("a"));
 }
 
 #[test]
 fn parse_tuples_single_element_tuple() {
-    assert_eq!(e(F, "single_element_tuple"), "(ptuple a)");
+    assert_eq!(
+        expr(F, "single_element_tuple"),
+        parenthesized_tuple(vec![name("a")])
+    );
 }
 
 #[test]
 fn parse_tuples_empty_tuple() {
-    assert_eq!(e(F, "empty_tuple"), "(ptuple )");
+    assert_eq!(expr(F, "empty_tuple"), parenthesized_tuple(vec![]));
 }
 
 #[test]
 fn parse_tuples_nested_on_the_left() {
-    assert_eq!(e(F, "nested_on_the_left"), "(tuple (ptuple a b) c)");
+    assert_eq!(
+        expr(F, "nested_on_the_left"),
+        tuple(vec![
+            parenthesized_tuple(vec![name("a"), name("b")]),
+            name("c")
+        ])
+    );
 }
 
 #[test]
 fn parse_tuples_nested_on_the_right() {
-    assert_eq!(e(F, "nested_on_the_right"), "(tuple a (ptuple b c))");
+    assert_eq!(
+        expr(F, "nested_on_the_right"),
+        tuple(vec![
+            name("a"),
+            parenthesized_tuple(vec![name("b"), name("c")])
+        ])
+    );
 }
 
 #[test]
 fn parse_tuples_nested_both_sides() {
-    assert_eq!(e(F, "nested_both_sides"), "(tuple (ptuple a b) (ptuple c d))");
+    assert_eq!(
+        expr(F, "nested_both_sides"),
+        tuple(vec![
+            parenthesized_tuple(vec![name("a"), name("b")]),
+            parenthesized_tuple(vec![name("c"), name("d")])
+        ])
+    );
 }
 
 #[test]
 fn parse_tuples_deeply_nested() {
-    assert_eq!(e(F, "deeply_nested"), "(ptuple (ptuple a b) (ptuple c (ptuple d e)))");
+    assert_eq!(
+        expr(F, "deeply_nested"),
+        parenthesized_tuple(vec![
+            parenthesized_tuple(vec![name("a"), name("b")]),
+            parenthesized_tuple(vec![
+                name("c"),
+                parenthesized_tuple(vec![name("d"), name("e")])
+            ])
+        ])
+    );
 }
 
 #[test]
 fn parse_tuples_tuple_of_expressions() {
-    assert_eq!(e(F, "tuple_of_expressions"), "(tuple (+ 1 2) (* 3 4))");
+    assert_eq!(
+        expr(F, "tuple_of_expressions"),
+        tuple(vec![
+            bin_op(int(1), PyBinaryOp::Add, int(2)),
+            bin_op(int(3), PyBinaryOp::Mul, int(4))
+        ])
+    );
 }
 
 #[test]
 fn parse_tuples_tuple_of_literals() {
-    assert_eq!(e(F, "tuple_of_literals"), "(tuple 1 str(two) True None)");
+    assert_eq!(
+        expr(F, "tuple_of_literals"),
+        tuple(vec![int(1), string("two"), boolean(true), none()])
+    );
 }
 
 #[test]
 fn parse_tuples_tuple_with_comparison() {
-    assert_eq!(e(F, "tuple_with_comparison"), "(tuple (compare a < b) c)");
+    assert_eq!(
+        expr(F, "tuple_with_comparison"),
+        tuple(vec![
+            compare(name("a"), vec![PyComparisonOp::Lt], vec![name("b")]),
+            name("c")
+        ])
+    );
 }
 
 #[test]
 fn parse_tuples_redundant_parentheses() {
-    assert_eq!(e(F, "redundant_parentheses"), "(ptuple a b)");
+    assert_eq!(
+        expr(F, "redundant_parentheses"),
+        parenthesized_tuple(vec![name("a"), name("b")])
+    );
 }
 
 #[test]

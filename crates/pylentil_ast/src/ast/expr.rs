@@ -5,7 +5,7 @@ use super::shared::{PyArguments, PyComprehension, PyKeyword};
 
 pub type PyExprBox = Box<PyExpr>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum PyExpr {
     BoolOp {
         op: PyBoolOp,

@@ -1,128 +1,284 @@
 use super::*;
 const F: &str = "parser/if_statements.py";
 
-fn s(name: &str) -> String {
-    let code = case(F, name);
-    match parse_outcome(&code) {
-        Outcome::Ok(body) => body.join(" "),
-        Outcome::Err(err) => format!("<rejected: {err:?}>"),
-        Outcome::Panic(m) => format!("<panic: {m}>"),
-    }
-}
-
 #[test]
 fn parse_if_statements_simple() {
-    assert_eq!(s("simple"), "(if a (b) ())");
+    assert_eq!(
+        stmt(F, "simple"),
+        if_stmt(name("a"), vec![expr_stmt(name("b"))], vec![])
+    );
 }
 
 #[test]
 fn parse_if_statements_multi_statement_body() {
-    assert_eq!(s("multi_statement_body"), "(if a (b c) ())");
+    assert_eq!(
+        stmt(F, "multi_statement_body"),
+        if_stmt(
+            name("a"),
+            vec![expr_stmt(name("b")), expr_stmt(name("c"))],
+            vec![]
+        )
+    );
 }
 
 #[test]
 fn parse_if_statements_assignment_in_body() {
-    assert_eq!(s("assignment_in_body"), "(if a ((assign (x) 1)) ())");
+    assert_eq!(
+        stmt(F, "assignment_in_body"),
+        if_stmt(
+            name("a"),
+            vec![assign(vec![store(name("x"))], int(1))],
+            vec![]
+        )
+    );
 }
 
 #[test]
 fn parse_if_statements_two_assignments_in_body() {
-    assert_eq!(s("two_assignments_in_body"), "(if a ((assign (x) 1) (assign (y) 2)) ())");
+    assert_eq!(
+        stmt(F, "two_assignments_in_body"),
+        if_stmt(
+            name("a"),
+            vec![
+                assign(vec![store(name("x"))], int(1)),
+                assign(vec![store(name("y"))], int(2))
+            ],
+            vec![]
+        )
+    );
 }
 
 #[test]
 fn parse_if_statements_assignment_then_expression() {
-    assert_eq!(s("assignment_then_expression"), "(if a ((assign (x) 1) y) ())");
+    assert_eq!(
+        stmt(F, "assignment_then_expression"),
+        if_stmt(
+            name("a"),
+            vec![assign(vec![store(name("x"))], int(1)), expr_stmt(name("y"))],
+            vec![]
+        )
+    );
 }
 
 #[test]
 fn parse_if_statements_expression_then_assignment() {
-    assert_eq!(s("expression_then_assignment"), "(if a (y (assign (x) 1)) ())");
+    assert_eq!(
+        stmt(F, "expression_then_assignment"),
+        if_stmt(
+            name("a"),
+            vec![expr_stmt(name("y")), assign(vec![store(name("x"))], int(1))],
+            vec![]
+        )
+    );
 }
 
 #[test]
 fn parse_if_statements_with_else() {
-    assert_eq!(s("with_else"), "(if a (b) (c))");
+    assert_eq!(
+        stmt(F, "with_else"),
+        if_stmt(
+            name("a"),
+            vec![expr_stmt(name("b"))],
+            vec![expr_stmt(name("c"))]
+        )
+    );
 }
 
 #[test]
 fn parse_if_statements_else_with_assignment() {
-    assert_eq!(s("else_with_assignment"), "(if a ((assign (x) 1)) ((assign (x) 2)))");
+    assert_eq!(
+        stmt(F, "else_with_assignment"),
+        if_stmt(
+            name("a"),
+            vec![assign(vec![store(name("x"))], int(1))],
+            vec![assign(vec![store(name("x"))], int(2))]
+        )
+    );
 }
 
 #[test]
 fn parse_if_statements_elif() {
-    assert_eq!(s("elif"), "(if a (b) ((if c (d) ())))");
+    assert_eq!(
+        stmt(F, "elif"),
+        if_stmt(
+            name("a"),
+            vec![expr_stmt(name("b"))],
+            vec![if_stmt(name("c"), vec![expr_stmt(name("d"))], vec![])]
+        )
+    );
 }
 
 #[test]
 fn parse_if_statements_elif_else() {
-    assert_eq!(s("elif_else"), "(if a (b) ((if c (d) (e))))");
+    assert_eq!(
+        stmt(F, "elif_else"),
+        if_stmt(
+            name("a"),
+            vec![expr_stmt(name("b"))],
+            vec![if_stmt(
+                name("c"),
+                vec![expr_stmt(name("d"))],
+                vec![expr_stmt(name("e"))]
+            )]
+        )
+    );
 }
 
 #[test]
 fn parse_if_statements_two_elifs() {
-    assert_eq!(s("two_elifs"), "(if a (b) ((if c (d) ((if e (f) ())))))");
+    assert_eq!(
+        stmt(F, "two_elifs"),
+        if_stmt(
+            name("a"),
+            vec![expr_stmt(name("b"))],
+            vec![if_stmt(
+                name("c"),
+                vec![expr_stmt(name("d"))],
+                vec![if_stmt(name("e"), vec![expr_stmt(name("f"))], vec![])]
+            )]
+        )
+    );
 }
 
 #[test]
 fn parse_if_statements_nested() {
-    assert_eq!(s("nested"), "(if a ((if b (c) ())) ())");
+    assert_eq!(
+        stmt(F, "nested"),
+        if_stmt(
+            name("a"),
+            vec![if_stmt(name("b"), vec![expr_stmt(name("c"))], vec![])],
+            vec![]
+        )
+    );
 }
 
 #[test]
 fn parse_if_statements_nested_with_else() {
-    assert_eq!(s("nested_with_else"), "(if a ((if b (c) (d))) ())");
+    assert_eq!(
+        stmt(F, "nested_with_else"),
+        if_stmt(
+            name("a"),
+            vec![if_stmt(
+                name("b"),
+                vec![expr_stmt(name("c"))],
+                vec![expr_stmt(name("d"))]
+            )],
+            vec![]
+        )
+    );
 }
 
 #[test]
 fn parse_if_statements_nested_then_sibling_statement() {
-    assert_eq!(s("nested_then_sibling_statement"), "(if a ((if b (c) ()) d) ())");
+    assert_eq!(
+        stmt(F, "nested_then_sibling_statement"),
+        if_stmt(
+            name("a"),
+            vec![
+                if_stmt(name("b"), vec![expr_stmt(name("c"))], vec![]),
+                expr_stmt(name("d"))
+            ],
+            vec![]
+        )
+    );
 }
 
 #[test]
 fn parse_if_statements_comparison_condition() {
-    assert_eq!(s("comparison_condition"), "(if (compare x < 10) ((assign (y) 1)) ())");
+    assert_eq!(
+        stmt(F, "comparison_condition"),
+        if_stmt(
+            compare(name("x"), vec![PyComparisonOp::Lt], vec![int(10)]),
+            vec![assign(vec![store(name("y"))], int(1))],
+            vec![]
+        )
+    );
 }
 
 #[test]
 fn parse_if_statements_boolean_condition() {
-    assert_eq!(s("boolean_condition"), "(if (and a b) (c) ())");
+    assert_eq!(
+        stmt(F, "boolean_condition"),
+        if_stmt(
+            bool_op(PyBoolOp::And, vec![name("a"), name("b")]),
+            vec![expr_stmt(name("c"))],
+            vec![]
+        )
+    );
 }
 
 #[test]
 fn parse_if_statements_tuple_condition() {
-    assert_eq!(s("tuple_condition"), "(if (tuple a b) (c) ())");
+    assert_eq!(
+        stmt(F, "tuple_condition"),
+        if_stmt(
+            tuple(vec![name("a"), name("b")]),
+            vec![expr_stmt(name("c"))],
+            vec![]
+        )
+    );
 }
 
 #[test]
 fn parse_if_statements_parenthesized_condition() {
-    assert_eq!(s("parenthesized_condition"), "(if a (b) ())");
+    assert_eq!(
+        stmt(F, "parenthesized_condition"),
+        if_stmt(name("a"), vec![expr_stmt(name("b"))], vec![])
+    );
 }
 
 #[test]
 fn parse_if_statements_inline_body() {
-    assert_eq!(s("inline_body"), "(if a (b) ())");
+    assert_eq!(
+        stmt(F, "inline_body"),
+        if_stmt(name("a"), vec![expr_stmt(name("b"))], vec![])
+    );
 }
 
 #[test]
 fn parse_if_statements_inline_body_with_else() {
-    assert_eq!(s("inline_body_with_else"), "(if a (b) (c))");
+    assert_eq!(
+        stmt(F, "inline_body_with_else"),
+        if_stmt(
+            name("a"),
+            vec![expr_stmt(name("b"))],
+            vec![expr_stmt(name("c"))]
+        )
+    );
 }
 
 #[test]
 fn parse_if_statements_statement_after_block() {
-    assert_eq!(s("statement_after_block"), "(if a (b) ()) c");
+    assert_eq!(
+        body(F, "statement_after_block"),
+        vec![
+            if_stmt(name("a"), vec![expr_stmt(name("b"))], vec![]),
+            expr_stmt(name("c"))
+        ]
+    );
 }
 
 #[test]
 fn parse_if_statements_two_if_statements() {
-    assert_eq!(s("two_if_statements"), "(if a (b) ()) (if c (d) ())");
+    assert_eq!(
+        body(F, "two_if_statements"),
+        vec![
+            if_stmt(name("a"), vec![expr_stmt(name("b"))], vec![]),
+            if_stmt(name("c"), vec![expr_stmt(name("d"))], vec![])
+        ]
+    );
 }
 
 #[test]
 fn parse_if_statements_blank_line_before_else() {
-    assert_eq!(s("blank_line_before_else"), "(if a (b) (c))");
+    assert_eq!(
+        stmt(F, "blank_line_before_else"),
+        if_stmt(
+            name("a"),
+            vec![expr_stmt(name("b"))],
+            vec![expr_stmt(name("c"))]
+        )
+    );
 }
 
 #[test]

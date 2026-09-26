@@ -3,13 +3,13 @@ use super::pattern::PyPatternBox;
 use super::stmt::PyStatement;
 
 /// Keyword argument in a call (`arg=value` or `**value` when `arg` is `None`).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct PyKeyword {
     pub arg: Option<String>,
     pub value: PyExprBox,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct PyComprehension {
     pub target: PyExprBox,
     pub iter: PyExprBox,
@@ -17,20 +17,20 @@ pub struct PyComprehension {
     pub is_async: bool,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct PyAlias {
     pub name: String,
     pub asname: Option<String>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct PyArg {
     pub arg: PyExprBox,
     pub annotation: Option<PyExprBox>,
     pub type_comment: Option<String>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct PyArguments {
     pub posonlyargs: Vec<PyArg>,
     pub args: Vec<PyArg>,
@@ -41,33 +41,33 @@ pub struct PyArguments {
     pub defaults: Vec<Option<PyExpr>>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct PyWithItem {
     pub context_expr: PyExprBox,
     pub optional_vars: Option<PyExprBox>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct PyExceptHandler {
     pub type_: Option<PyExprBox>,
     pub name: Option<String>,
     pub body: Vec<PyStatement>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct PyMatchCase {
     pub pattern: PyPatternBox,
     pub guard: Option<PyExprBox>,
     pub body: Vec<PyStatement>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct PyTypeIgnore {
     pub lineno: i32,
     pub tag: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum PyTypeParam {
     TypeVar {
         name: String,

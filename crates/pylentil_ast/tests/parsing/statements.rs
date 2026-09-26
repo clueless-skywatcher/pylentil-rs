@@ -3,17 +3,17 @@ const F: &str = "parser/statements.py";
 
 #[test]
 fn parse_statements_pass() {
-    assert_eq!(one_stmt(&case(F, "pass")), Ok("pass".into()));
+    assert_eq!(stmt(F, "pass"), PyStatement::Pass);
 }
 
 #[test]
 fn parse_statements_break() {
-    assert_eq!(one_stmt(&case(F, "break")), Ok("break".into()));
+    assert_eq!(stmt(F, "break"), PyStatement::Break);
 }
 
 #[test]
 fn parse_statements_continue() {
-    assert_eq!(one_stmt(&case(F, "continue")), Ok("continue".into()));
+    assert_eq!(stmt(F, "continue"), PyStatement::Continue);
 }
 
 #[test]
@@ -28,7 +28,10 @@ fn parse_statements_return_bare() {
 
 #[test]
 fn parse_statements_while_loop() {
-    assert_eq!(one_stmt(&case(F, "while_loop")), Ok("(while a (b) ())".into()));
+    assert_eq!(
+        stmt(F, "while_loop"),
+        while_stmt(name("a"), vec![expr_stmt(name("b"))], vec![])
+    );
 }
 
 #[test]
@@ -38,7 +41,14 @@ fn parse_statements_while_else() {
 
 #[test]
 fn parse_statements_for_loop() {
-    assert_eq!(one_stmt(&case(F, "for_loop")), Ok("(for i items ((call print i)))".into()));
+    assert_eq!(
+        stmt(F, "for_loop"),
+        for_stmt(
+            store(name("i")),
+            name("items"),
+            vec![expr_stmt(call(name("print"), vec![name("i")], vec![]))]
+        )
+    );
 }
 
 #[test]
@@ -48,12 +58,25 @@ fn parse_statements_for_unpacking() {
 
 #[test]
 fn parse_statements_function_definition() {
-    assert_eq!(one_stmt(&case(F, "function_definition")), Ok("(def f (a b) ((return a)))".into()));
+    assert_eq!(
+        stmt(F, "function_definition"),
+        function_def(
+            "f",
+            PyArguments {
+                args: vec![arg("a"), arg("b")],
+                ..Default::default()
+            },
+            vec![return_stmt(Some(name("a")))]
+        )
+    );
 }
 
 #[test]
 fn parse_statements_function_no_arguments() {
-    assert_eq!(one_stmt(&case(F, "function_no_arguments")), Ok("(def f () (pass))".into()));
+    assert_eq!(
+        stmt(F, "function_no_arguments"),
+        function_def("f", PyArguments::default(), vec![PyStatement::Pass])
+    );
 }
 
 #[test]
@@ -68,7 +91,10 @@ fn parse_statements_function_annotated() {
 
 #[test]
 fn parse_statements_class_definition() {
-    assert_eq!(one_stmt(&case(F, "class_definition")), Ok("(class C (pass))".into()));
+    assert_eq!(
+        stmt(F, "class_definition"),
+        class_def("C", vec![PyStatement::Pass])
+    );
 }
 
 #[test]
@@ -219,8 +245,11 @@ fn parse_statements_match_statement() {
 #[test]
 fn parse_statements_semicolon_separated() {
     assert_eq!(
-        stmts(&case(F, "semicolon_separated")),
-        Ok(vec!["(assign (a) 1)".into(), "(assign (b) 2)".into()])
+        body(F, "semicolon_separated"),
+        vec![
+            assign(vec![store(name("a"))], int(1)),
+            assign(vec![store(name("b"))], int(2))
+        ]
     );
 }
 

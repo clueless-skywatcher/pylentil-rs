@@ -1,4 +1,4 @@
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PyUnaryOp {
     UnarySub,
     UnaryAdd,
@@ -6,7 +6,7 @@ pub enum PyUnaryOp {
     Invert,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PyBinaryOp {
     Add,
     Sub,
@@ -23,13 +23,13 @@ pub enum PyBinaryOp {
     MatMult,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PyBoolOp {
     Or,
     And,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PyComparisonOp {
     Lt,
     Lte,
