@@ -245,6 +245,7 @@ pub(super) fn parse_stmt_funcdef(parser: &mut PyParser) -> Result<PyStatement, P
     let mut kwarg: Option<PyArg> = None;
 
     let mut posonly_marker_seen = false;
+    let mut kwonly_marker_seen = false;
     let vararg_seen = false;
 
     for arg_type in parsed_args {
@@ -305,6 +306,15 @@ pub(super) fn parse_stmt_funcdef(parser: &mut PyParser) -> Result<PyStatement, P
                 }
 
                 posonlyargs.append(&mut args);
+            },
+            PyArgType::KeywordOnlyMarker => {
+                if !kwonly_marker_seen {
+                    kwonly_marker_seen = true;
+                } else {
+                    return Err(PylentilError::InvalidArgumentType);
+                }
+
+                kwonlyargs.append(&mut args);
             }
         }
     }

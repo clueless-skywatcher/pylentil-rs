@@ -22,7 +22,9 @@ pub(crate) enum PyArgType {
         annotation: Option<PyExprBox>,
     },
     /// Only used for function definitions - Marker to indicate end of positional-only-arguments
-    PosOnlyMarker
+    PosOnlyMarker,
+    /// Only used for function definitions - Marker to indicate start of keyword-only-arguments
+    KeywordOnlyMarker,
 }
 
 /// Parses `( arg, arg, ... )` including both parentheses.
@@ -47,7 +49,8 @@ pub(crate) fn parse_parenthesized_args(
             },
             PyArgType::Arg(_) => {},
             PyArgType::Keyword { .. } => kw_phase_started = true,
-            PyArgType::PosOnlyMarker => {}
+            PyArgType::PosOnlyMarker => {},
+            PyArgType::KeywordOnlyMarker => {},
         }
 
         entries.push(entry);
@@ -87,6 +90,10 @@ pub(crate) fn parse_arg(
     if parser.peek()?.kind == PyTokenType::Slash {
         parser.consume()?;
         return Ok(PyArgType::PosOnlyMarker);
+    }
+    if parser.peek()?.kind == PyTokenType::Star {
+        parser.consume()?;
+        return Ok(PyArgType::KeywordOnlyMarker);
     }
 
     let arg = parse_expr(parser, PyBindingPower::Comma)?;

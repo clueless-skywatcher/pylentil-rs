@@ -581,7 +581,13 @@ pub(super) fn parse_function_call(
                     expected: "either an argument or a keyword".into(),
                     found: "a positional-only marker".into(),
                 });
-            }
+            },
+            PyArgType::KeywordOnlyMarker => {
+                return Err(PylentilError::UnexpectedToken {
+                    expected: "either an argument or a keyword".into(),
+                    found: "a keyword-only marker".into(),
+                });
+            },
         }
     }
 
