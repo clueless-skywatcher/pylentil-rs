@@ -3,7 +3,7 @@ const F: &str = "parser/comparisons.py";
 
 #[test]
 fn parse_comparisons_equal() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "equal"),
         compare(name("a"), vec![PyComparisonOp::Eq], vec![name("b")])
     );
@@ -11,7 +11,7 @@ fn parse_comparisons_equal() {
 
 #[test]
 fn parse_comparisons_not_equal() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "not_equal"),
         compare(name("a"), vec![PyComparisonOp::NotEq], vec![name("b")])
     );
@@ -19,7 +19,7 @@ fn parse_comparisons_not_equal() {
 
 #[test]
 fn parse_comparisons_less_than() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "less_than"),
         compare(name("a"), vec![PyComparisonOp::Lt], vec![name("b")])
     );
@@ -27,7 +27,7 @@ fn parse_comparisons_less_than() {
 
 #[test]
 fn parse_comparisons_greater_or_equal() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "greater_or_equal"),
         compare(name("a"), vec![PyComparisonOp::Gte], vec![name("b")])
     );
@@ -36,7 +36,7 @@ fn parse_comparisons_greater_or_equal() {
 #[test]
 fn parse_comparisons_chained() {
     // Python folds a < b < c into a single Compare, not nested ones.
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "chained"),
         compare(
             name("a"),
@@ -48,7 +48,7 @@ fn parse_comparisons_chained() {
 
 #[test]
 fn parse_comparisons_chained_mixed_operators() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "chained_mixed_operators"),
         compare(
             name("a"),
@@ -60,7 +60,7 @@ fn parse_comparisons_chained_mixed_operators() {
 
 #[test]
 fn parse_comparisons_chained_three_operators() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "chained_three_operators"),
         compare(
             name("a"),
@@ -72,7 +72,7 @@ fn parse_comparisons_chained_three_operators() {
 
 #[test]
 fn parse_comparisons_comparison_binds_looser_than_addition() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "comparison_binds_looser_than_addition"),
         compare(
             bin_op(name("a"), PyBinaryOp::Add, int(1)),
@@ -84,7 +84,7 @@ fn parse_comparisons_comparison_binds_looser_than_addition() {
 
 #[test]
 fn parse_comparisons_comparison_on_both_sides() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "comparison_on_both_sides"),
         compare(
             bin_op(name("a"), PyBinaryOp::Add, int(1)),
@@ -96,7 +96,7 @@ fn parse_comparisons_comparison_on_both_sides() {
 
 #[test]
 fn parse_comparisons_chained_with_arithmetic() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "chained_with_arithmetic"),
         compare(
             int(1),
@@ -108,7 +108,7 @@ fn parse_comparisons_chained_with_arithmetic() {
 
 #[test]
 fn parse_comparisons_is_operator() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "is_operator"),
         compare(name("a"), vec![PyComparisonOp::Is], vec![name("b")])
     );
@@ -116,7 +116,7 @@ fn parse_comparisons_is_operator() {
 
 #[test]
 fn parse_comparisons_is_not_operator() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "is_not_operator"),
         compare(name("a"), vec![PyComparisonOp::IsNot], vec![name("b")])
     );
@@ -124,7 +124,7 @@ fn parse_comparisons_is_not_operator() {
 
 #[test]
 fn parse_comparisons_in_operator() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "in_operator"),
         compare(name("a"), vec![PyComparisonOp::In], vec![name("b")])
     );
@@ -132,7 +132,7 @@ fn parse_comparisons_in_operator() {
 
 #[test]
 fn parse_comparisons_not_in_operator() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "not_in_operator"),
         compare(name("a"), vec![PyComparisonOp::NotIn], vec![name("b")])
     );
@@ -140,12 +140,12 @@ fn parse_comparisons_not_in_operator() {
 
 #[test]
 fn parse_comparisons_not_operator() {
-    assert_eq!(expr(F, "not_operator"), unary_op(PyUnaryOp::Not, name("a")));
+    p_assert_eq!(expr(F, "not_operator"), unary_op(PyUnaryOp::Not, name("a")));
 }
 
 #[test]
 fn parse_comparisons_not_with_comparison() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "not_with_comparison"),
         unary_op(
             PyUnaryOp::Not,
@@ -156,7 +156,7 @@ fn parse_comparisons_not_with_comparison() {
 
 #[test]
 fn parse_comparisons_parenthesized_comparison() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "parenthesized_comparison"),
         compare(
             compare(name("a"), vec![PyComparisonOp::Lt], vec![name("b")]),

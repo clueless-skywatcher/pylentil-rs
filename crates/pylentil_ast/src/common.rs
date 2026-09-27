@@ -4,7 +4,7 @@ use pylentil_common::errors::PylentilError;
 
 use crate::{
     PyTokenType,
-    ast::{PyArg, PyExpr, PyExprBox, PyKeyword},
+    ast::{PyArg, PyExpr, PyExprBox, PyKeyword, PyRefContext},
     parser::PyParser,
 };
 
@@ -29,7 +29,8 @@ pub(crate) enum PyArgType {
 
 /// Parses `( arg, arg, ... )` including both parentheses.
 ///
-/// Rejects a positional entry after a keyword entry. A trailing comma is
+/// Entries are returned in source order; ordering rules differ between calls
+/// and definitions, so each caller checks its own. A trailing comma is
 /// allowed. `optionally_detect_annotations` is passed through to [`parse_arg`].
 pub(crate) fn parse_parenthesized_args(
     parser: &mut PyParser,
@@ -38,22 +39,9 @@ pub(crate) fn parse_parenthesized_args(
     parser.expect_type(vec![PyTokenType::LParen])?;
 
     let mut entries: Vec<PyArgType> = vec![];
-    let mut kw_phase_started = false;
 
     while parser.peek()?.kind != PyTokenType::RParen {
-        let entry = parse_arg(parser, optionally_detect_annotations)?;
-
-        match entry {
-            PyArgType::Arg(_) if kw_phase_started => {
-                return Err(PylentilError::PositionalArgumentAfterKeyword);
-            },
-            PyArgType::Arg(_) => {},
-            PyArgType::Keyword { .. } => kw_phase_started = true,
-            PyArgType::PosOnlyMarker => {},
-            PyArgType::KeywordOnlyMarker => {},
-        }
-
-        entries.push(entry);
+        entries.push(parse_arg(parser, optionally_detect_annotations)?);
 
         if parser.peek()?.kind == PyTokenType::RParen {
             break;
@@ -91,12 +79,20 @@ pub(crate) fn parse_arg(
         parser.consume()?;
         return Ok(PyArgType::PosOnlyMarker);
     }
-    if parser.peek()?.kind == PyTokenType::Star {
+    // A bare `*` is followed directly by `,` or `)`; otherwise it starts `*args`.
+    // The starred value is parsed at `Comma` so `*args, b` stays two entries.
+    let arg = if parser.peek()?.kind == PyTokenType::Star {
         parser.consume()?;
-        return Ok(PyArgType::KeywordOnlyMarker);
-    }
-
-    let arg = parse_expr(parser, PyBindingPower::Comma)?;
+        if matches!(parser.peek()?.kind, PyTokenType::Comma | PyTokenType::RParen) {
+            return Ok(PyArgType::KeywordOnlyMarker);
+        }
+        PyExpr::Starred {
+            value: Box::new(parse_expr(parser, PyBindingPower::Comma)?),
+            ctx: PyRefContext::Load,
+        }
+    } else {
+        parse_expr(parser, PyBindingPower::Comma)?
+    };
 
     if parser.peek()?.kind == PyTokenType::For {
         let generators = parse_generators(parser)?;
@@ -111,15 +107,13 @@ pub(crate) fn parse_arg(
         }));
     }
 
-    let annotation = if optionally_detect_annotations
-        && matches!(arg, PyExpr::Name { .. })
-        && parser.peek()?.kind == PyTokenType::Colon
-    {
-        parser.consume()?;
-        Some(Box::new(parse_expr(parser, PyBindingPower::Comma)?))
-    } else {
-        None
+    let is_parameter_name = match &arg {
+        PyExpr::Name { .. } => true,
+        PyExpr::Starred { value, .. } => matches!(value.as_ref(), PyExpr::Name { .. }),
+        _ => false,
     };
+    let annotation =
+        parse_optional_annotation(parser, optionally_detect_annotations && is_parameter_name)?;
 
     if parser.peek()?.kind == PyTokenType::Assign {
         parser.consume()?;
@@ -145,6 +139,19 @@ pub(crate) fn parse_arg(
         annotation,
         type_comment: None,
     }))
+}
+
+/// Parses `: annotation` if `allowed` and the next token is `:`.
+fn parse_optional_annotation(
+    parser: &mut PyParser,
+    allowed: bool,
+) -> Result<Option<PyExprBox>, PylentilError> {
+    if allowed && parser.peek()?.kind == PyTokenType::Colon {
+        parser.consume()?;
+        Ok(Some(Box::new(parse_expr(parser, PyBindingPower::Comma)?)))
+    } else {
+        Ok(None)
+    }
 }
 
 /// Consumes an identifier token and returns its text.

@@ -7,48 +7,48 @@ fn layout(name: &str) -> (Result<usize, PylentilError>, Result<usize, PylentilEr
 
 #[test]
 fn lex_indentation_single_level() {
-    assert_eq!(layout("single_level"), (Ok(1), Ok(1)));
+    p_assert_eq!(layout("single_level"), (Ok(1), Ok(1)));
 }
 
 #[test]
 fn lex_indentation_two_levels() {
-    assert_eq!(layout("two_levels"), (Ok(2), Ok(2)));
+    p_assert_eq!(layout("two_levels"), (Ok(2), Ok(2)));
 }
 
 #[test]
 fn lex_indentation_dedent_one_level() {
-    assert_eq!(layout("dedent_one_level"), (Ok(2), Ok(2)));
+    p_assert_eq!(layout("dedent_one_level"), (Ok(2), Ok(2)));
 }
 
 #[test]
 fn lex_indentation_dedent_to_module_level() {
-    assert_eq!(layout("dedent_to_module_level"), (Ok(2), Ok(2)));
+    p_assert_eq!(layout("dedent_to_module_level"), (Ok(2), Ok(2)));
 }
 
 #[test]
 fn lex_indentation_tab_indent() {
-    assert_eq!(layout("tab_indent"), (Ok(1), Ok(1)));
+    p_assert_eq!(layout("tab_indent"), (Ok(1), Ok(1)));
 }
 
 #[test]
 fn lex_indentation_eight_space_indent() {
-    assert_eq!(layout("eight_space_indent"), (Ok(1), Ok(1)));
+    p_assert_eq!(layout("eight_space_indent"), (Ok(1), Ok(1)));
 }
 
 #[test]
 fn lex_indentation_blank_line_inside_block() {
-    assert_eq!(layout("blank_line_inside_block"), (Ok(1), Ok(1)));
+    p_assert_eq!(layout("blank_line_inside_block"), (Ok(1), Ok(1)));
 }
 
 #[test]
 fn lex_indentation_blank_line_between_blocks() {
-    assert_eq!(layout("blank_line_between_blocks"), (Ok(2), Ok(2)));
+    p_assert_eq!(layout("blank_line_between_blocks"), (Ok(2), Ok(2)));
 }
 
 #[test]
 fn lex_indentation_indented_blank_line_inside_block() {
     let (indents, dedents) = layout("indented_blank_line_inside_block");
-    assert_eq!(indents, dedents, "layout tokens must balance");
+    p_assert_eq!(indents, dedents, "layout tokens must balance");
 }
 
 #[test]
@@ -81,15 +81,15 @@ fn lex_indentation_dedent_to_unknown_level() {
 
 #[test]
 fn lex_indentation_reindent_after_dedent() {
-    assert_eq!(layout("reindent_after_dedent"), (Ok(2), Ok(2)));
+    p_assert_eq!(layout("reindent_after_dedent"), (Ok(2), Ok(2)));
 }
 
 #[test]
 fn lex_indentation_block_at_eof() {
-    assert_eq!(layout("block_at_eof"), (Ok(1), Ok(1)));
+    p_assert_eq!(layout("block_at_eof"), (Ok(1), Ok(1)));
 }
 
 #[test]
 fn lex_indentation_deep_nesting() {
-    assert_eq!(layout("deep_nesting"), (Ok(4), Ok(4)));
+    p_assert_eq!(layout("deep_nesting"), (Ok(4), Ok(4)));
 }

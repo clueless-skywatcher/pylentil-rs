@@ -9,3 +9,6 @@ pylentil_common = { workspace = true }
 [lib]
 path = "src/lib.rs"
 
+[dev-dependencies]
+pretty_assertions = "1.4.1"
+

@@ -1,6 +1,12 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+// `assert_eq!` from `pretty_assertions`, for every test module: failures print a
+// coloured line diff of the pretty-printed (`{:#?}`) values instead of two long lines.
+macro_rules! p_assert_eq {
+    ($($t:tt)*) => { pretty_assertions::assert_eq!($($t)*) };
+}
+
 use common::build::*;
 use common::{Outcome, case, parse_module, parse_outcome};
 use pylentil_ast::ast::{
@@ -18,7 +24,7 @@ fn parse_body(code: &str) -> Vec<PyStatement> {
 /// The single statement `code` parses to.
 fn parse_stmt(code: &str) -> PyStatement {
     let mut body = parse_body(code);
-    assert_eq!(
+    p_assert_eq!(
         body.len(),
         1,
         "expected one statement in `{}`, got {body:#?}",

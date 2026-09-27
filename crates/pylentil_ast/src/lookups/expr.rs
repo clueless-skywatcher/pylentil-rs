@@ -574,6 +574,9 @@ pub(super) fn parse_function_call(
 
     for entry in parse_parenthesized_args(parser, false)? {
         match entry {
+            PyArgType::Arg(_) if !keywords.is_empty() => {
+                return Err(PylentilError::PositionalArgumentAfterKeyword);
+            }
             PyArgType::Arg(arg) => args.push(arg.arg),
             PyArgType::Keyword { keyword, .. } => keywords.push(keyword),
             PyArgType::PosOnlyMarker => {

@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use pylentil_common::errors::PylentilError;
 
 use crate::{
@@ -240,32 +242,44 @@ pub(super) fn parse_stmt_funcdef(parser: &mut PyParser) -> Result<PyStatement, P
     let mut args: Vec<PyArg> = vec![];
     let mut vararg: Option<PyArg> = None;
     let mut kwonlyargs: Vec<PyArg> = vec![];
-    let kw_defaults: Vec<Option<PyExpr>> = vec![];
+    let mut kw_defaults: Vec<Option<PyExpr>> = vec![];
     let mut defaults: Vec<Option<PyExpr>> = vec![];
     let mut kwarg: Option<PyArg> = None;
 
     let mut posonly_marker_seen = false;
-    let mut kwonly_marker_seen = false;
-    let vararg_seen = false;
+    // Set by `*args` or a bare `*`; every parameter after it is keyword-only.
+    let mut star_seen = false;
+    let mut bare_star_seen = false;
+    let mut names: HashSet<String> = HashSet::new();
 
     for arg_type in parsed_args {
+        // `**kwargs` must be the last parameter.
+        if kwarg.is_some() {
+            return Err(PylentilError::InvalidArgumentType);
+        }
+
         match arg_type {
-            PyArgType::Arg(arg) => match arg.arg.as_ref() {
-                PyExpr::Starred { .. } => {
-                    vararg = Some(arg);
-                }
-                PyExpr::Name { .. } => {
-                    if vararg_seen {
-                        kwonlyargs.push(arg);
-                        defaults.push(None);
-                    } else {
-                        args.push(arg);
+            PyArgType::Arg(arg) => {
+                declare_parameter(&mut names, &arg)?;
+
+                if matches!(arg.arg.as_ref(), PyExpr::Starred { .. }) {
+                    if star_seen {
+                        return Err(PylentilError::InvalidArgumentType);
                     }
+                    star_seen = true;
+                    vararg = Some(arg);
+                } else if star_seen {
+                    kwonlyargs.push(arg);
+                    kw_defaults.push(None);
+                } else {
+                    // A positional parameter without a default cannot follow
+                    // one with a default.
+                    if !defaults.is_empty() {
+                        return Err(PylentilError::InvalidArgumentType);
+                    }
+                    args.push(arg);
                 }
-                _ => {
-                    return Err(PylentilError::InvalidArgumentType);
-                }
-            },
+            }
             PyArgType::Keyword {
                 keyword:
                     PyKeyword {
@@ -274,15 +288,23 @@ pub(super) fn parse_stmt_funcdef(parser: &mut PyParser) -> Result<PyStatement, P
                     },
                 annotation,
             } => {
-                kwonlyargs.push(PyArg {
+                let arg = PyArg {
                     arg: Box::new(PyExpr::Name {
                         id: kw_arg,
-                        ctx: PyRefContext::Unspecified,
+                        ctx: PyRefContext::Load,
                     }),
                     annotation,
                     type_comment: None,
-                });
-                defaults.push(Some(*kw_value));
+                };
+                declare_parameter(&mut names, &arg)?;
+
+                if star_seen {
+                    kwonlyargs.push(arg);
+                    kw_defaults.push(Some(*kw_value));
+                } else {
+                    args.push(arg);
+                    defaults.push(Some(*kw_value));
+                }
             }
             PyArgType::Keyword {
                 keyword:
@@ -290,33 +312,35 @@ pub(super) fn parse_stmt_funcdef(parser: &mut PyParser) -> Result<PyStatement, P
                         arg: None,
                         value: kw_name,
                     },
-                ..
+                annotation,
             } => {
-                kwarg = Some(PyArg {
+                let arg = PyArg {
                     arg: kw_name,
-                    annotation: None,
+                    annotation,
                     type_comment: None,
-                });
+                };
+                declare_parameter(&mut names, &arg)?;
+                kwarg = Some(arg);
             }
             PyArgType::PosOnlyMarker => {
-                if !posonly_marker_seen {
-                    posonly_marker_seen = true;
-                } else {
+                if posonly_marker_seen || star_seen || args.is_empty() {
                     return Err(PylentilError::InvalidArgumentType);
                 }
-
+                posonly_marker_seen = true;
                 posonlyargs.append(&mut args);
-            },
+            }
             PyArgType::KeywordOnlyMarker => {
-                if !kwonly_marker_seen {
-                    kwonly_marker_seen = true;
-                } else {
+                if star_seen {
                     return Err(PylentilError::InvalidArgumentType);
                 }
-
-                kwonlyargs.append(&mut args);
+                star_seen = true;
+                bare_star_seen = true;
             }
         }
+    }
+
+    if bare_star_seen && kwonlyargs.is_empty() {
+        return Err(PylentilError::InvalidArgumentType);
     }
 
     Ok(PyStatement::FunctionDef {
@@ -337,6 +361,25 @@ pub(super) fn parse_stmt_funcdef(parser: &mut PyParser) -> Result<PyStatement, P
         type_params: vec![],
         is_async: false
     })
+}
+
+/// Records a parameter's name, rejecting anything that is not a name, `*name`
+/// or `**name`, and any name already used in the same parameter list.
+fn declare_parameter(names: &mut HashSet<String>, arg: &PyArg) -> Result<(), PylentilError> {
+    let name = match arg.arg.as_ref() {
+        PyExpr::Name { id, .. } => id,
+        PyExpr::Starred { value, .. } => match value.as_ref() {
+            PyExpr::Name { id, .. } => id,
+            _ => return Err(PylentilError::InvalidArgumentType),
+        },
+        _ => return Err(PylentilError::InvalidArgumentType),
+    };
+
+    if !names.insert(name.clone()) {
+        return Err(PylentilError::InvalidArgumentType);
+    }
+
+    Ok(())
 }
 
 pub(super) fn parse_stmt_async(parser: &mut PyParser) -> Result<PyStatement, PylentilError> {

@@ -6,88 +6,88 @@ fn tokens(name: &str) -> Result<Vec<String>, PylentilError> {
 
 #[test]
 fn lex_strings_double_quoted() {
-    assert_eq!(tokens("double_quoted"), Ok(vec!["String(hello)".into()]));
+    p_assert_eq!(tokens("double_quoted"), Ok(vec!["String(hello)".into()]));
 }
 
 #[test]
 fn lex_strings_single_quoted() {
-    assert_eq!(tokens("single_quoted"), Ok(vec!["String(hello)".into()]));
+    p_assert_eq!(tokens("single_quoted"), Ok(vec!["String(hello)".into()]));
 }
 
 #[test]
 fn lex_strings_empty() {
-    assert_eq!(tokens("empty"), Ok(vec!["String()".into()]));
+    p_assert_eq!(tokens("empty"), Ok(vec!["String()".into()]));
 }
 
 #[test]
 fn lex_strings_escaped_quote() {
-    assert_eq!(tokens("escaped_quote").map(|t| t.len()), Ok(1));
+    p_assert_eq!(tokens("escaped_quote").map(|t| t.len()), Ok(1));
 }
 
 #[test]
 fn lex_strings_escaped_backslash() {
-    assert_eq!(tokens("escaped_backslash").map(|t| t.len()), Ok(1));
+    p_assert_eq!(tokens("escaped_backslash").map(|t| t.len()), Ok(1));
 }
 
 #[test]
 fn lex_strings_escape_newline() {
-    assert_eq!(tokens("escape_newline").map(|t| t.len()), Ok(1));
+    p_assert_eq!(tokens("escape_newline").map(|t| t.len()), Ok(1));
 }
 
 #[test]
 fn lex_strings_other_quote_inside() {
-    assert_eq!(tokens("other_quote_inside"), Ok(vec!["String(it's fine)".into()]));
+    p_assert_eq!(tokens("other_quote_inside"), Ok(vec!["String(it's fine)".into()]));
 }
 
 #[test]
 fn lex_strings_triple_double() {
-    assert_eq!(tokens("triple_double"), Ok(vec!["String(triple quoted)".into()]));
+    p_assert_eq!(tokens("triple_double"), Ok(vec!["String(triple quoted)".into()]));
 }
 
 #[test]
 fn lex_strings_triple_single() {
-    assert_eq!(tokens("triple_single"), Ok(vec!["String(triple quoted)".into()]));
+    p_assert_eq!(tokens("triple_single"), Ok(vec!["String(triple quoted)".into()]));
 }
 
 #[test]
 fn lex_strings_triple_spanning_lines() {
-    assert_eq!(tokens("triple_spanning_lines").map(|t| t.len()), Ok(1));
+    p_assert_eq!(tokens("triple_spanning_lines").map(|t| t.len()), Ok(1));
 }
 
 #[test]
 fn lex_strings_f_string() {
     // f/r/b are part of the token, not a separate identifier.
-    assert_eq!(tokens("f_string").map(|t| t.len()), Ok(1));
+    p_assert_eq!(tokens("f_string").map(|t| t.len()), Ok(1));
 }
 
 #[test]
 fn lex_strings_raw_string() {
-    assert_eq!(tokens("raw_string").map(|t| t.len()), Ok(1));
+    p_assert_eq!(tokens("raw_string").map(|t| t.len()), Ok(1));
 }
 
 #[test]
 fn lex_strings_bytes_literal() {
-    assert_eq!(tokens("bytes_literal").map(|t| t.len()), Ok(1));
+    p_assert_eq!(tokens("bytes_literal").map(|t| t.len()), Ok(1));
 }
 
 #[test]
 fn lex_strings_non_ascii_contents() {
-    assert_eq!(tokens("non_ascii_contents"), Ok(vec!["String(héllo wörld)".into()]));
+    p_assert_eq!(tokens("non_ascii_contents"), Ok(vec!["String(héllo wörld)".into()]));
 }
 
 #[test]
 fn lex_strings_emoji_contents() {
-    assert_eq!(tokens("emoji_contents"), Ok(vec!["String(shipped 🚀)".into()]));
+    p_assert_eq!(tokens("emoji_contents"), Ok(vec!["String(shipped 🚀)".into()]));
 }
 
 #[test]
 fn lex_strings_adjacent_concatenation() {
-    assert_eq!(tokens("adjacent_concatenation").map(|t| t.len()), Ok(2));
+    p_assert_eq!(tokens("adjacent_concatenation").map(|t| t.len()), Ok(2));
 }
 
 #[test]
 fn lex_strings_hash_inside_string() {
-    assert_eq!(tokens("hash_inside_string"), Ok(vec!["String(# not a comment)".into()]));
+    p_assert_eq!(tokens("hash_inside_string"), Ok(vec!["String(# not a comment)".into()]));
 }
 
 #[test]

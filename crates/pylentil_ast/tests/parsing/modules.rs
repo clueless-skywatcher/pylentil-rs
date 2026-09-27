@@ -3,12 +3,12 @@ const F: &str = "parser/modules.py";
 
 #[test]
 fn parse_modules_single_statement() {
-    assert_eq!(body(F, "single_statement"), vec![expr_stmt(name("a"))]);
+    p_assert_eq!(body(F, "single_statement"), vec![expr_stmt(name("a"))]);
 }
 
 #[test]
 fn parse_modules_two_statements() {
-    assert_eq!(
+    p_assert_eq!(
         body(F, "two_statements"),
         vec![expr_stmt(name("a")), expr_stmt(name("b"))]
     );
@@ -16,7 +16,7 @@ fn parse_modules_two_statements() {
 
 #[test]
 fn parse_modules_three_statements() {
-    assert_eq!(
+    p_assert_eq!(
         body(F, "three_statements"),
         vec![
             expr_stmt(name("a")),
@@ -28,7 +28,7 @@ fn parse_modules_three_statements() {
 
 #[test]
 fn parse_modules_statements_with_blank_lines() {
-    assert_eq!(
+    p_assert_eq!(
         body(F, "statements_with_blank_lines"),
         vec![expr_stmt(name("a")), expr_stmt(name("b"))]
     );
@@ -36,12 +36,12 @@ fn parse_modules_statements_with_blank_lines() {
 
 #[test]
 fn parse_modules_leading_blank_lines() {
-    assert_eq!(body(F, "leading_blank_lines"), vec![expr_stmt(name("a"))]);
+    p_assert_eq!(body(F, "leading_blank_lines"), vec![expr_stmt(name("a"))]);
 }
 
 #[test]
 fn parse_modules_assignment_then_expression() {
-    assert_eq!(
+    p_assert_eq!(
         body(F, "assignment_then_expression"),
         vec![assign(vec![store(name("x"))], int(1)), expr_stmt(name("x"))]
     );
@@ -49,7 +49,7 @@ fn parse_modules_assignment_then_expression() {
 
 #[test]
 fn parse_modules_expression_then_assignment() {
-    assert_eq!(
+    p_assert_eq!(
         body(F, "expression_then_assignment"),
         vec![expr_stmt(name("x")), assign(vec![store(name("x"))], int(1))]
     );
@@ -57,7 +57,7 @@ fn parse_modules_expression_then_assignment() {
 
 #[test]
 fn parse_modules_two_assignments() {
-    assert_eq!(
+    p_assert_eq!(
         body(F, "two_assignments"),
         vec![
             assign(vec![store(name("x"))], int(1)),
@@ -68,7 +68,7 @@ fn parse_modules_two_assignments() {
 
 #[test]
 fn parse_modules_statement_block_statement() {
-    assert_eq!(
+    p_assert_eq!(
         body(F, "statement_block_statement"),
         vec![
             expr_stmt(name("a")),
@@ -80,7 +80,7 @@ fn parse_modules_statement_block_statement() {
 
 #[test]
 fn parse_modules_block_then_block() {
-    assert_eq!(
+    p_assert_eq!(
         body(F, "block_then_block"),
         vec![
             if_stmt(name("a"), vec![expr_stmt(name("b"))], vec![]),
@@ -91,7 +91,7 @@ fn parse_modules_block_then_block() {
 
 #[test]
 fn parse_modules_block_last() {
-    assert_eq!(
+    p_assert_eq!(
         body(F, "block_last"),
         vec![
             expr_stmt(name("a")),
@@ -102,7 +102,7 @@ fn parse_modules_block_last() {
 
 #[test]
 fn parse_modules_consecutive_blank_lines() {
-    assert_eq!(
+    p_assert_eq!(
         body(F, "consecutive_blank_lines"),
         vec![expr_stmt(name("a")), expr_stmt(name("b"))]
     );
@@ -110,7 +110,7 @@ fn parse_modules_consecutive_blank_lines() {
 
 #[test]
 fn parse_modules_many_statements() {
-    assert_eq!(body(F, "many_statements").len(), 5);
+    p_assert_eq!(body(F, "many_statements").len(), 5);
 }
 
 // ------------------------------------------------ inline snippets --
@@ -118,7 +118,7 @@ fn parse_modules_many_statements() {
 
 #[test]
 fn a_module_without_a_trailing_newline() {
-    assert_eq!(
+    p_assert_eq!(
         parse_body("a = 1"),
         vec![assign(vec![store(name("a"))], int(1))]
     );

@@ -3,7 +3,7 @@ const F: &str = "parser/boolean.py";
 
 #[test]
 fn parse_boolean_and_expression() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "and_expression"),
         bool_op(PyBoolOp::And, vec![name("a"), name("b")])
     );
@@ -11,7 +11,7 @@ fn parse_boolean_and_expression() {
 
 #[test]
 fn parse_boolean_or_expression() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "or_expression"),
         bool_op(PyBoolOp::Or, vec![name("a"), name("b")])
     );
@@ -19,7 +19,7 @@ fn parse_boolean_or_expression() {
 
 #[test]
 fn parse_boolean_and_binds_tighter_than_or() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "and_binds_tighter_than_or"),
         bool_op(
             PyBoolOp::Or,
@@ -33,7 +33,7 @@ fn parse_boolean_and_binds_tighter_than_or() {
 
 #[test]
 fn parse_boolean_and_on_the_left() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "and_on_the_left"),
         bool_op(
             PyBoolOp::Or,
@@ -47,7 +47,7 @@ fn parse_boolean_and_on_the_left() {
 
 #[test]
 fn parse_boolean_not_binds_tighter_than_and() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "not_binds_tighter_than_and"),
         bool_op(
             PyBoolOp::And,
@@ -59,7 +59,7 @@ fn parse_boolean_not_binds_tighter_than_and() {
 #[test]
 fn parse_boolean_chained_and() {
     // Python flattens a and b and c into a single BoolOp with three values.
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "chained_and"),
         bool_op(PyBoolOp::And, vec![name("a"), name("b"), name("c")])
     );
@@ -67,7 +67,7 @@ fn parse_boolean_chained_and() {
 
 #[test]
 fn parse_boolean_chained_or() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "chained_or"),
         bool_op(PyBoolOp::Or, vec![name("a"), name("b"), name("c")])
     );
@@ -75,7 +75,7 @@ fn parse_boolean_chained_or() {
 
 #[test]
 fn parse_boolean_comparison_in_boolean() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "comparison_in_boolean"),
         bool_op(
             PyBoolOp::And,
@@ -89,7 +89,7 @@ fn parse_boolean_comparison_in_boolean() {
 
 #[test]
 fn parse_boolean_parentheses_override_precedence() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "parentheses_override_precedence"),
         bool_op(
             PyBoolOp::And,
@@ -100,7 +100,7 @@ fn parse_boolean_parentheses_override_precedence() {
 
 #[test]
 fn parse_boolean_double_not() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "double_not"),
         unary_op(PyUnaryOp::Not, unary_op(PyUnaryOp::Not, name("a")))
     );
@@ -108,7 +108,7 @@ fn parse_boolean_double_not() {
 
 #[test]
 fn parse_boolean_not_with_parentheses() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "not_with_parentheses"),
         unary_op(
             PyUnaryOp::Not,
@@ -119,12 +119,12 @@ fn parse_boolean_not_with_parentheses() {
 
 #[test]
 fn parse_boolean_ternary() {
-    assert_eq!(expr(F, "ternary"), if_exp(name("b"), name("a"), name("c")));
+    p_assert_eq!(expr(F, "ternary"), if_exp(name("b"), name("a"), name("c")));
 }
 
 #[test]
 fn parse_boolean_ternary_nested() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "ternary_nested"),
         if_exp(
             name("b"),
@@ -136,7 +136,7 @@ fn parse_boolean_ternary_nested() {
 
 #[test]
 fn parse_boolean_ternary_with_arithmetic() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "ternary_with_arithmetic"),
         if_exp(name("c"), bin_op(int(1), PyBinaryOp::Add, int(2)), int(3))
     );

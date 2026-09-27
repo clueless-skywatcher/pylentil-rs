@@ -3,12 +3,12 @@ const F: &str = "parser/arithmetic.py";
 
 #[test]
 fn parse_arithmetic_addition() {
-    assert_eq!(expr(F, "addition"), bin_op(int(1), PyBinaryOp::Add, int(2)));
+    p_assert_eq!(expr(F, "addition"), bin_op(int(1), PyBinaryOp::Add, int(2)));
 }
 
 #[test]
 fn parse_arithmetic_subtraction_is_left_associative() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "subtraction_is_left_associative"),
         bin_op(
             bin_op(int(1), PyBinaryOp::Sub, int(2)),
@@ -20,7 +20,7 @@ fn parse_arithmetic_subtraction_is_left_associative() {
 
 #[test]
 fn parse_arithmetic_division_is_left_associative() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "division_is_left_associative"),
         bin_op(
             bin_op(int(8), PyBinaryOp::Div, int(4)),
@@ -32,7 +32,7 @@ fn parse_arithmetic_division_is_left_associative() {
 
 #[test]
 fn parse_arithmetic_multiplication_binds_tighter_than_addition() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "multiplication_binds_tighter_than_addition"),
         bin_op(
             int(1),
@@ -44,7 +44,7 @@ fn parse_arithmetic_multiplication_binds_tighter_than_addition() {
 
 #[test]
 fn parse_arithmetic_multiplication_on_the_left() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "multiplication_on_the_left"),
         bin_op(
             bin_op(int(2), PyBinaryOp::Mul, int(3)),
@@ -56,7 +56,7 @@ fn parse_arithmetic_multiplication_on_the_left() {
 
 #[test]
 fn parse_arithmetic_parentheses_override_precedence() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "parentheses_override_precedence"),
         bin_op(
             bin_op(int(1), PyBinaryOp::Add, int(2)),
@@ -68,7 +68,7 @@ fn parse_arithmetic_parentheses_override_precedence() {
 
 #[test]
 fn parse_arithmetic_power_is_right_associative() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "power_is_right_associative"),
         bin_op(
             int(2),
@@ -80,7 +80,7 @@ fn parse_arithmetic_power_is_right_associative() {
 
 #[test]
 fn parse_arithmetic_power_binds_tighter_than_multiplication() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "power_binds_tighter_than_multiplication"),
         bin_op(
             int(2),
@@ -92,7 +92,7 @@ fn parse_arithmetic_power_binds_tighter_than_multiplication() {
 
 #[test]
 fn parse_arithmetic_power_on_the_left() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "power_on_the_left"),
         bin_op(
             bin_op(int(2), PyBinaryOp::Pow, int(3)),
@@ -104,7 +104,7 @@ fn parse_arithmetic_power_on_the_left() {
 
 #[test]
 fn parse_arithmetic_modulo_and_addition() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "modulo_and_addition"),
         bin_op(
             bin_op(int(7), PyBinaryOp::Mod, int(3)),
@@ -116,7 +116,7 @@ fn parse_arithmetic_modulo_and_addition() {
 
 #[test]
 fn parse_arithmetic_modulo_and_multiplication() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "modulo_and_multiplication"),
         bin_op(
             bin_op(int(2), PyBinaryOp::Mul, int(7)),
@@ -128,7 +128,7 @@ fn parse_arithmetic_modulo_and_multiplication() {
 
 #[test]
 fn parse_arithmetic_unary_minus() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "unary_minus"),
         unary_op(PyUnaryOp::UnarySub, int(1))
     );
@@ -136,7 +136,7 @@ fn parse_arithmetic_unary_minus() {
 
 #[test]
 fn parse_arithmetic_unary_minus_on_name() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "unary_minus_on_name"),
         unary_op(PyUnaryOp::UnarySub, name("x"))
     );
@@ -144,12 +144,12 @@ fn parse_arithmetic_unary_minus_on_name() {
 
 #[test]
 fn parse_arithmetic_unary_plus() {
-    assert_eq!(expr(F, "unary_plus"), unary_op(PyUnaryOp::UnaryAdd, int(1)));
+    p_assert_eq!(expr(F, "unary_plus"), unary_op(PyUnaryOp::UnaryAdd, int(1)));
 }
 
 #[test]
 fn parse_arithmetic_double_unary_minus() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "double_unary_minus"),
         unary_op(PyUnaryOp::UnarySub, unary_op(PyUnaryOp::UnarySub, int(1)))
     );
@@ -157,7 +157,7 @@ fn parse_arithmetic_double_unary_minus() {
 
 #[test]
 fn parse_arithmetic_subtract_a_negative() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "subtract_a_negative"),
         bin_op(
             int(1),
@@ -170,7 +170,7 @@ fn parse_arithmetic_subtract_a_negative() {
 #[test]
 fn parse_arithmetic_unary_minus_binds_looser_than_power() {
     // -2 ** 2 is -4, not 4.
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "unary_minus_binds_looser_than_power"),
         unary_op(PyUnaryOp::UnarySub, bin_op(int(2), PyBinaryOp::Pow, int(2)))
     );
@@ -178,7 +178,7 @@ fn parse_arithmetic_unary_minus_binds_looser_than_power() {
 
 #[test]
 fn parse_arithmetic_unary_minus_binds_tighter_than_multiplication() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "unary_minus_binds_tighter_than_multiplication"),
         bin_op(
             unary_op(PyUnaryOp::UnarySub, int(2)),
@@ -190,7 +190,7 @@ fn parse_arithmetic_unary_minus_binds_tighter_than_multiplication() {
 
 #[test]
 fn parse_arithmetic_floor_division() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "floor_division"),
         bin_op(int(7), PyBinaryOp::FloorDiv, int(2))
     );
@@ -198,7 +198,7 @@ fn parse_arithmetic_floor_division() {
 
 #[test]
 fn parse_arithmetic_shift_binds_looser_than_addition() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "shift_binds_looser_than_addition"),
         bin_op(
             int(1),
@@ -210,7 +210,7 @@ fn parse_arithmetic_shift_binds_looser_than_addition() {
 
 #[test]
 fn parse_arithmetic_shift_is_left_associative() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "shift_is_left_associative"),
         bin_op(
             bin_op(int(1), PyBinaryOp::LShift, int(2)),
@@ -222,7 +222,7 @@ fn parse_arithmetic_shift_is_left_associative() {
 
 #[test]
 fn parse_arithmetic_long_chain() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "long_chain"),
         bin_op(
             bin_op(
@@ -238,7 +238,7 @@ fn parse_arithmetic_long_chain() {
 
 #[test]
 fn parse_arithmetic_nested_parentheses() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "nested_parentheses"),
         bin_op(
             bin_op(int(1), PyBinaryOp::Add, int(2)),

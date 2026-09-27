@@ -3,12 +3,12 @@ const F: &str = "parser/collections.py";
 
 #[test]
 fn parse_collections_empty_list() {
-    assert_eq!(expr(F, "empty_list"), list(vec![]));
+    p_assert_eq!(expr(F, "empty_list"), list(vec![]));
 }
 
 #[test]
 fn parse_collections_list_of_literals() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "list_of_literals"),
         list(vec![int(1), int(2), int(3)])
     );
@@ -16,7 +16,7 @@ fn parse_collections_list_of_literals() {
 
 #[test]
 fn parse_collections_list_of_expressions() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "list_of_expressions"),
         list(vec![
             bin_op(int(1), PyBinaryOp::Add, int(2)),
@@ -27,7 +27,7 @@ fn parse_collections_list_of_expressions() {
 
 #[test]
 fn parse_collections_nested_list() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "nested_list"),
         list(vec![list(vec![int(1)]), list(vec![int(2)])])
     );
@@ -35,27 +35,27 @@ fn parse_collections_nested_list() {
 
 #[test]
 fn parse_collections_list_trailing_comma() {
-    assert_eq!(expr(F, "list_trailing_comma"), list(vec![int(1), int(2)]));
+    p_assert_eq!(expr(F, "list_trailing_comma"), list(vec![int(1), int(2)]));
 }
 
 #[test]
 fn parse_collections_single_element_list() {
-    assert_eq!(expr(F, "single_element_list"), list(vec![int(1)]));
+    p_assert_eq!(expr(F, "single_element_list"), list(vec![int(1)]));
 }
 
 #[test]
 fn parse_collections_empty_dict() {
-    assert_eq!(expr(F, "empty_dict"), dict(vec![]));
+    p_assert_eq!(expr(F, "empty_dict"), dict(vec![]));
 }
 
 #[test]
 fn parse_collections_dict_one_entry() {
-    assert_eq!(expr(F, "dict_one_entry"), dict(vec![(string("a"), int(1))]));
+    p_assert_eq!(expr(F, "dict_one_entry"), dict(vec![(string("a"), int(1))]));
 }
 
 #[test]
 fn parse_collections_dict_several_entries() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "dict_several_entries"),
         dict(vec![(string("a"), int(1)), (string("b"), int(2))])
     );
@@ -68,7 +68,7 @@ fn parse_collections_nested_dict() {
 
 #[test]
 fn parse_collections_dict_trailing_comma() {
-    assert_eq!(
+    p_assert_eq!(
         expr(F, "dict_trailing_comma"),
         dict(vec![(string("a"), int(1))])
     );
@@ -76,7 +76,7 @@ fn parse_collections_dict_trailing_comma() {
 
 #[test]
 fn parse_collections_set_literal() {
-    assert_eq!(expr(F, "set_literal"), set(vec![int(1), int(2)]));
+    p_assert_eq!(expr(F, "set_literal"), set(vec![int(1), int(2)]));
 }
 
 #[test]

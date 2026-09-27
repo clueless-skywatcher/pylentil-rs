@@ -3,17 +3,17 @@ const F: &str = "parser/statements.py";
 
 #[test]
 fn parse_statements_pass() {
-    assert_eq!(stmt(F, "pass"), PyStatement::Pass);
+    p_assert_eq!(stmt(F, "pass"), PyStatement::Pass);
 }
 
 #[test]
 fn parse_statements_break() {
-    assert_eq!(stmt(F, "break"), PyStatement::Break);
+    p_assert_eq!(stmt(F, "break"), PyStatement::Break);
 }
 
 #[test]
 fn parse_statements_continue() {
-    assert_eq!(stmt(F, "continue"), PyStatement::Continue);
+    p_assert_eq!(stmt(F, "continue"), PyStatement::Continue);
 }
 
 #[test]
@@ -28,7 +28,7 @@ fn parse_statements_return_bare() {
 
 #[test]
 fn parse_statements_while_loop() {
-    assert_eq!(
+    p_assert_eq!(
         stmt(F, "while_loop"),
         while_stmt(name("a"), vec![expr_stmt(name("b"))], vec![])
     );
@@ -41,7 +41,7 @@ fn parse_statements_while_else() {
 
 #[test]
 fn parse_statements_for_loop() {
-    assert_eq!(
+    p_assert_eq!(
         stmt(F, "for_loop"),
         for_stmt(
             store(name("i")),
@@ -58,7 +58,7 @@ fn parse_statements_for_unpacking() {
 
 #[test]
 fn parse_statements_function_definition() {
-    assert_eq!(
+    p_assert_eq!(
         stmt(F, "function_definition"),
         function_def(
             "f",
@@ -73,7 +73,7 @@ fn parse_statements_function_definition() {
 
 #[test]
 fn parse_statements_function_no_arguments() {
-    assert_eq!(
+    p_assert_eq!(
         stmt(F, "function_no_arguments"),
         function_def("f", PyArguments::default(), vec![PyStatement::Pass])
     );
@@ -91,7 +91,7 @@ fn parse_statements_function_annotated() {
 
 #[test]
 fn parse_statements_class_definition() {
-    assert_eq!(
+    p_assert_eq!(
         stmt(F, "class_definition"),
         class_def("C", vec![PyStatement::Pass])
     );
@@ -244,7 +244,7 @@ fn parse_statements_match_statement() {
 
 #[test]
 fn parse_statements_semicolon_separated() {
-    assert_eq!(
+    p_assert_eq!(
         body(F, "semicolon_separated"),
         vec![
             assign(vec![store(name("a"))], int(1)),

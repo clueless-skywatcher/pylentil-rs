@@ -3,7 +3,7 @@ const F: &str = "parser/functions.py";
 
 #[test]
 fn parse_functions_no_args() {
-    assert_eq!(
+    p_assert_eq!(
         stmt(F, "no_args"),
         function_def("f", PyArguments::default(), vec![PyStatement::Pass])
     );
@@ -11,7 +11,7 @@ fn parse_functions_no_args() {
 
 #[test]
 fn parse_functions_one_arg() {
-    assert_eq!(
+    p_assert_eq!(
         stmt(F, "one_arg"),
         function_def(
             "f",
@@ -26,7 +26,7 @@ fn parse_functions_one_arg() {
 
 #[test]
 fn parse_functions_two_args() {
-    assert_eq!(
+    p_assert_eq!(
         stmt(F, "two_args"),
         function_def(
             "f",
@@ -41,7 +41,7 @@ fn parse_functions_two_args() {
 
 #[test]
 fn parse_functions_trailing_comma() {
-    assert_eq!(
+    p_assert_eq!(
         stmt(F, "trailing_comma"),
         function_def(
             "f",
@@ -56,7 +56,7 @@ fn parse_functions_trailing_comma() {
 
 #[test]
 fn parse_functions_default_arg() {
-    assert_eq!(
+    p_assert_eq!(
         stmt(F, "default_arg"),
         function_def(
             "f",
@@ -72,7 +72,7 @@ fn parse_functions_default_arg() {
 
 #[test]
 fn parse_functions_defaults_mixed() {
-    assert_eq!(
+    p_assert_eq!(
         stmt(F, "defaults_mixed"),
         function_def(
             "f",
@@ -88,7 +88,7 @@ fn parse_functions_defaults_mixed() {
 
 #[test]
 fn parse_functions_default_expression() {
-    assert_eq!(
+    p_assert_eq!(
         stmt(F, "default_expression"),
         function_def(
             "f",
@@ -104,7 +104,7 @@ fn parse_functions_default_expression() {
 
 #[test]
 fn parse_functions_annotated() {
-    assert_eq!(
+    p_assert_eq!(
         stmt(F, "annotated"),
         function_def(
             "f",
@@ -119,7 +119,7 @@ fn parse_functions_annotated() {
 
 #[test]
 fn parse_functions_annotated_default() {
-    assert_eq!(
+    p_assert_eq!(
         stmt(F, "annotated_default"),
         function_def(
             "f",
@@ -135,7 +135,7 @@ fn parse_functions_annotated_default() {
 
 #[test]
 fn parse_functions_annotation_expression() {
-    assert_eq!(
+    p_assert_eq!(
         stmt(F, "annotation_expression"),
         function_def(
             "f",
@@ -150,7 +150,7 @@ fn parse_functions_annotation_expression() {
 
 #[test]
 fn parse_functions_return_annotation() {
-    assert_eq!(
+    p_assert_eq!(
         stmt(F, "return_annotation"),
         PyStatement::FunctionDef {
             name: "f".into(),
@@ -167,7 +167,7 @@ fn parse_functions_return_annotation() {
 
 #[test]
 fn parse_functions_return_annotation_expression() {
-    assert_eq!(
+    p_assert_eq!(
         stmt(F, "return_annotation_expression"),
         PyStatement::FunctionDef {
             name: "f".into(),
@@ -184,7 +184,7 @@ fn parse_functions_return_annotation_expression() {
 
 #[test]
 fn parse_functions_vararg() {
-    assert_eq!(
+    p_assert_eq!(
         stmt(F, "vararg"),
         function_def(
             "f",
@@ -199,7 +199,7 @@ fn parse_functions_vararg() {
 
 #[test]
 fn parse_functions_vararg_annotated() {
-    assert_eq!(
+    p_assert_eq!(
         stmt(F, "vararg_annotated"),
         function_def(
             "f",
@@ -217,7 +217,7 @@ fn parse_functions_vararg_annotated() {
 
 #[test]
 fn parse_functions_kwarg() {
-    assert_eq!(
+    p_assert_eq!(
         stmt(F, "kwarg"),
         function_def(
             "f",
@@ -232,7 +232,7 @@ fn parse_functions_kwarg() {
 
 #[test]
 fn parse_functions_vararg_and_kwarg() {
-    assert_eq!(
+    p_assert_eq!(
         stmt(F, "vararg_and_kwarg"),
         function_def(
             "f",
@@ -249,7 +249,7 @@ fn parse_functions_vararg_and_kwarg() {
 
 #[test]
 fn parse_functions_kwonly() {
-    assert_eq!(
+    p_assert_eq!(
         stmt(F, "kwonly"),
         function_def(
             "f",
@@ -266,7 +266,7 @@ fn parse_functions_kwonly() {
 
 #[test]
 fn parse_functions_kwonly_default() {
-    assert_eq!(
+    p_assert_eq!(
         stmt(F, "kwonly_default"),
         function_def(
             "f",
@@ -282,7 +282,7 @@ fn parse_functions_kwonly_default() {
 
 #[test]
 fn parse_functions_kwonly_after_vararg() {
-    assert_eq!(
+    p_assert_eq!(
         stmt(F, "kwonly_after_vararg"),
         function_def(
             "f",
@@ -299,7 +299,7 @@ fn parse_functions_kwonly_after_vararg() {
 
 #[test]
 fn parse_functions_kwonly_then_kwarg() {
-    assert_eq!(
+    p_assert_eq!(
         stmt(F, "kwonly_then_kwarg"),
         function_def(
             "f",
@@ -316,7 +316,7 @@ fn parse_functions_kwonly_then_kwarg() {
 
 #[test]
 fn parse_functions_posonly() {
-    assert_eq!(
+    p_assert_eq!(
         stmt(F, "posonly"),
         function_def(
             "f",
@@ -332,7 +332,7 @@ fn parse_functions_posonly() {
 
 #[test]
 fn parse_functions_posonly_only() {
-    assert_eq!(
+    p_assert_eq!(
         stmt(F, "posonly_only"),
         function_def(
             "f",
@@ -347,7 +347,7 @@ fn parse_functions_posonly_only() {
 
 #[test]
 fn parse_functions_posonly_with_defaults() {
-    assert_eq!(
+    p_assert_eq!(
         stmt(F, "posonly_with_defaults"),
         function_def(
             "f",
@@ -364,7 +364,7 @@ fn parse_functions_posonly_with_defaults() {
 
 #[test]
 fn parse_functions_everything() {
-    assert_eq!(
+    p_assert_eq!(
         stmt(F, "everything"),
         PyStatement::FunctionDef {
             name: "f".into(),
@@ -405,10 +405,10 @@ fn parse_functions_multi_statement_body() {
 
 #[test]
 fn parse_functions_body_with_return() {
-    // assert_eq!(stmt(F, "inline_body"), function_def("f", PyArguments::default(), vec![PyStatement::Pass]));
-    // assert_eq!(stmt(F, "inline_body_two_statements"), function_def("f", PyArguments::default(), vec![expr_stmt(name("a")), expr_stmt(name("b"))]));
-    // assert_eq!(stmt(F, "multi_statement_body"), function_def("f", PyArguments::default(), vec![expr_stmt(name("a")), expr_stmt(name("b"))]));
-    assert_eq!(
+    // p_assert_eq!(stmt(F, "inline_body"), function_def("f", PyArguments::default(), vec![PyStatement::Pass]));
+    // p_assert_eq!(stmt(F, "inline_body_two_statements"), function_def("f", PyArguments::default(), vec![expr_stmt(name("a")), expr_stmt(name("b"))]));
+    // p_assert_eq!(stmt(F, "multi_statement_body"), function_def("f", PyArguments::default(), vec![expr_stmt(name("a")), expr_stmt(name("b"))]));
+    p_assert_eq!(
         stmt(F, "body_with_return"),
         function_def(
             "f",
@@ -428,7 +428,7 @@ fn parse_functions_docstring_body() {
 
 #[test]
 fn parse_functions_nested_def() {
-    assert_eq!(
+    p_assert_eq!(
         stmt(F, "nested_def"),
         function_def(
             "f",
@@ -444,7 +444,7 @@ fn parse_functions_nested_def() {
 
 #[test]
 fn parse_functions_def_then_statement() {
-    assert_eq!(
+    p_assert_eq!(
         body(F, "def_then_statement"),
         vec![
             function_def("f", PyArguments::default(), vec![PyStatement::Pass]),
@@ -455,7 +455,7 @@ fn parse_functions_def_then_statement() {
 
 #[test]
 fn parse_functions_def_in_if() {
-    assert_eq!(
+    p_assert_eq!(
         stmt(F, "def_in_if"),
         if_stmt(
             name("a"),
@@ -471,7 +471,7 @@ fn parse_functions_def_in_if() {
 
 #[test]
 fn parse_functions_decorated() {
-    assert_eq!(
+    p_assert_eq!(
         stmt(F, "decorated"),
         PyStatement::FunctionDef {
             name: "f".into(),
@@ -488,7 +488,7 @@ fn parse_functions_decorated() {
 
 #[test]
 fn parse_functions_two_decorators() {
-    assert_eq!(
+    p_assert_eq!(
         stmt(F, "two_decorators"),
         PyStatement::FunctionDef {
             name: "f".into(),
@@ -505,7 +505,7 @@ fn parse_functions_two_decorators() {
 
 #[test]
 fn parse_functions_decorator_call() {
-    assert_eq!(
+    p_assert_eq!(
         stmt(F, "decorator_call"),
         PyStatement::FunctionDef {
             name: "f".into(),
@@ -526,7 +526,7 @@ fn parse_functions_decorator_call() {
 
 #[test]
 fn parse_functions_async_def() {
-    assert_eq!(
+    p_assert_eq!(
         stmt(F, "async_def"),
         PyStatement::FunctionDef {
             name: "f".into(),

@@ -1,6 +1,12 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+// `assert_eq!` from `pretty_assertions`, for every test module: failures print a
+// coloured line diff of the pretty-printed (`{:#?}`) values instead of two long lines.
+macro_rules! p_assert_eq {
+    ($($t:tt)*) => { pretty_assertions::assert_eq!($($t)*) };
+}
+
 use common::{case, content, count_kind, kinds, lex_outcome, Outcome};
 use pylentil_ast::PyTokenType::{Assign, Dedent, Ident, Indent, Int, Newline, EOF};
 use pylentil_common::errors::PylentilError;
