@@ -5,6 +5,7 @@ members = [
     "crates/pylentil_ast",
     "crates/pylentil_rules",
     "crates/pylentil_cli",
+    "crates/pylentil_linter"
 ]
 
 [workspace.package]
@@ -15,3 +16,4 @@ edition = "2024"
 pylentil_common = { path = "crates/pylentil_common" }
 pylentil_ast = { path = "crates/pylentil_ast" }
 pylentil_rules = { path = "crates/pylentil_rules" }
+pylentil_linter = { path = "crates/pylentil_linter" }

@@ -1,1 +1,2 @@
-[a for a in range(5) if a % 2 == 0 if a % 3 == 0]
+try:
+    a

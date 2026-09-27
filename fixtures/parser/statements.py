@@ -111,6 +111,14 @@ try:
 except E as err:
     b
 
+# case: try_multi_except
+try:
+    a
+except E as err1:
+    b
+except F as err2:
+    c
+
 # case: try_finally
 try:
     a

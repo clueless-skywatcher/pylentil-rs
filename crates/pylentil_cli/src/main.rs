@@ -11,13 +11,9 @@ fn main() -> Result<(), PylentilError> {
         reason: e.to_string(),
     })?;
 
-    match PyLexer::from_code(&contents) {
-        Ok(lexer) => {
-            let mut parser = PyParser::new(lexer.tokens);
-            println!("{:#?}", parser.parse());
-            Ok(())
-        },
-        Err(e) => Err(e)
-    }
+    let mut parser = PyParser::new(&contents)?;
 
+    println!("{:#?}", parser.parse());
+
+    Ok(())
 }

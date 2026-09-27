@@ -1,0 +1,72 @@
+use pylentil_common::errors::PylentilError;
+
+use crate::ast::PyModule;
+
+pub struct PyCodeMetadataBuilder {
+    raw_lines: Vec<String>
+}
+
+impl PyCodeMetadataBuilder {
+    pub fn new() -> Self {
+        PyCodeMetadataBuilder { raw_lines: vec![] }
+    }
+
+    pub fn add_raw_line(mut self, line: String) -> Self {
+        self.raw_lines.push(line);
+        self
+    }
+
+    pub fn add_raw_lines(mut self, lines: &mut Vec<String>) -> Self {
+        self.raw_lines.append(lines);
+        self
+    }
+
+    pub fn build(self) -> Result<PyCodeMetadata, PylentilError> {
+        if self.raw_lines.len() == 0 {
+            return Err(PylentilError::EmptyFile);
+        }
+
+        Ok(PyCodeMetadata {
+            raw_lines: self.raw_lines
+        })
+    }
+}
+
+#[derive(Debug)]
+pub struct PyCodeMetadata {
+    raw_lines: Vec<String>
+}
+
+pub struct PyCodeBuilder {
+    ast: Option<PyModule>,
+    metadata: Option<PyCodeMetadata>
+}
+
+impl PyCodeBuilder {
+    pub fn new() -> Self {
+        PyCodeBuilder { ast: None, metadata: None }
+    }
+    
+    pub fn with_ast(mut self, ast: PyModule) -> Self {
+        self.ast = Some(ast);
+        self
+    }
+
+    pub fn with_metadata(mut self, metadata: PyCodeMetadata) -> Self {
+        self.metadata = Some(metadata);
+        self
+    }
+
+    pub fn build(self) -> Result<PyCode, PylentilError> {
+        let ast = self.ast.ok_or(PylentilError::MissingAST)?;
+        let metadata = self.metadata.ok_or(PylentilError::MissingMetadata)?;
+
+        Ok(PyCode { ast, metadata })
+    }
+}
+
+#[derive(Debug)]
+pub struct PyCode {
+    pub ast: PyModule,
+    pub metadata: PyCodeMetadata
+}

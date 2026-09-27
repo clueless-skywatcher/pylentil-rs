@@ -3,9 +3,9 @@ use std::collections::HashSet;
 use pylentil_common::errors::PylentilError;
 
 use crate::{
-    PyTokenType,
-    ast::{PyAlias, PyArg, PyArguments, PyExpr, PyKeyword, PyRefContext, PyStatement},
-    parser::PyParser,
+    PyToken, PyTokenType, ast::{
+        PyAlias, PyArg, PyArguments, PyExceptHandler, PyExpr, PyKeyword, PyRefContext, PyStatement,
+    }, parser::PyParser,
 };
 
 use super::{PyBindingPower, parse_expr, parse_statement};
@@ -18,7 +18,7 @@ pub(super) fn parse_stmt_if(parser: &mut PyParser) -> Result<PyStatement, Pylent
 
 /// Parses `<test>: <block> [elif ... | else: <block>]`, i.e. everything after
 /// an `if` or `elif` keyword. An `elif` chain becomes an `If` nested in the
-/// `orelse` of its predecessor, which is how CPython's AST models it.
+/// `orelse` of its predecessor.
 fn parse_if_after_keyword(parser: &mut PyParser) -> Result<PyStatement, PylentilError> {
     let test = parse_expr(parser, PyBindingPower::Default)?;
     parser.expect_type(vec![PyTokenType::Colon])?;
@@ -44,12 +44,7 @@ fn parse_if_after_keyword(parser: &mut PyParser) -> Result<PyStatement, Pylentil
     })
 }
 
-/// Parses the body that follows a compound statement's `:`.
-///
-/// Either an indented block on the following lines, or an inline body of
-/// simple statements on the same line (`if a: b; c`). Trailing newlines after
-/// the block are consumed so the caller sees the next keyword (`elif`, `else`)
-/// or statement directly.
+/// Parses the body that follows a compound statement's `:`
 pub(super) fn parse_block(parser: &mut PyParser) -> Result<Vec<PyStatement>, PylentilError> {
     if parser.peek()?.kind != PyTokenType::Newline {
         return parse_inline_body(parser);
@@ -352,14 +347,14 @@ pub(super) fn parse_stmt_funcdef(parser: &mut PyParser) -> Result<PyStatement, P
             kwonlyargs,
             kw_defaults,
             kwarg,
-            defaults
+            defaults,
         }),
         body: def_block,
         decorator_list: vec![],
         returns: None,
         type_comment: None,
         type_params: vec![],
-        is_async: false
+        is_async: false,
     })
 }
 
@@ -407,19 +402,89 @@ pub(super) fn parse_stmt_async(parser: &mut PyParser) -> Result<PyStatement, Pyl
                 type_params,
                 is_async: true,
             }),
-            _ => Err(PylentilError::NotImplemented)
+            _ => Err(PylentilError::CodePathNotImplemented),
         };
     }
-    Err(PylentilError::NotImplemented)
+    Err(PylentilError::CodePathNotImplemented)
 }
 
 pub fn parse_stmt_return(parser: &mut PyParser) -> Result<PyStatement, PylentilError> {
     parser.expect_type(vec![PyTokenType::Return])?;
-    
+
     if parser.peek()?.kind.is_eof() || parser.peek()?.kind == PyTokenType::Newline {
         return Ok(PyStatement::Return { value: None });
     }
 
     let value = parse_expr(parser, PyBindingPower::Default)?;
-    Ok(PyStatement::Return { value: Some(Box::new(value)) })
+    Ok(PyStatement::Return {
+        value: Some(Box::new(value)),
+    })
+}
+
+pub fn parse_stmt_try(parser: &mut PyParser) -> Result<PyStatement, PylentilError> {
+    parser.expect_type(vec![PyTokenType::Try])?;
+    parser.expect_type(vec![PyTokenType::Colon])?;
+    // parser.skip_statement_separators()?;
+
+    let body = parse_block(parser)?;
+
+    let mut handlers = vec![];
+    let mut orelse = vec![];
+    let mut finalbody = vec![];
+
+    if parser.peek()?.kind == PyTokenType::Except {
+        handlers.append(&mut parse_except_handlers(parser)?);
+    } else if parser.peek()?.kind != PyTokenType::Finally {
+        return Err(PylentilError::InvalidSyntax {error: "Try block must have an except or a finally block".to_string()});
+    }
+    
+    if parser.peek()?.kind == PyTokenType::Else {
+        parser.consume()?; // Consume the else
+        parser.consume()?; // Consume the colon
+        orelse.append(&mut parse_block(parser)?);
+    }
+
+    if parser.peek()?.kind == PyTokenType::Finally {
+        parser.consume()?; // Consume the else
+        parser.consume()?; // Consume the colon
+        finalbody.append(&mut parse_block(parser)?);
+    }
+
+    Ok(PyStatement::Try {
+        body,
+        handlers,
+        orelse,
+        finalbody,
+    })
+}
+
+fn parse_except_handlers(parser: &mut PyParser) -> Result<Vec<PyExceptHandler>, PylentilError> {
+    assert_eq!(parser.peek()?.kind, PyTokenType::Except);
+
+    let mut handlers = vec![];
+
+    loop {
+        if parser.peek()?.kind != PyTokenType::Except {
+            break;
+        }
+        parser.consume()?;
+        let mut name: Option<String> = None;
+        let mut type_: Option<Box<PyExpr>> = None;
+
+        if parser.peek()?.kind != PyTokenType::Colon {
+            let error_alias = parse_alias(parser)?;
+            name = error_alias.asname;
+            type_ = Some(Box::new(PyExpr::Name {
+                id: error_alias.name,
+                ctx: PyRefContext::Load,
+            }))
+        }
+        parser.consume()?; // Consuming the colon
+
+        let body = parse_block(parser)?;
+
+        handlers.push(PyExceptHandler { type_, name, body });
+    }
+
+    Ok(handlers)
 }

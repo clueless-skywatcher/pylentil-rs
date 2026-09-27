@@ -62,13 +62,27 @@ pub enum PylentilError {
     PositionalArgumentAfterKeyword,
     /// Invalid argument type
     InvalidArgumentType,
+    /// Invalid syntax
+    InvalidSyntax { error: String },
 
     // -------------------------------------------------------------- driver --
     /// The source file could not be read.
     IOFailed { path: String, reason: String },
 
     /// The code path has not been implemented yet
-    NotImplemented
+    CodePathNotImplemented,
+
+    /// Missing AST
+    MissingAST,
+
+    /// Missing code metadata
+    MissingMetadata,
+
+    /// Empty file
+    EmptyFile,
+
+    // -------------------------------------------------------------- linting
+    InvalidLintCode { code: String }
 }
 
 impl fmt::Display for PylentilError {
@@ -168,11 +182,28 @@ impl fmt::Display for PylentilError {
             PylentilError::IOFailed { path, reason } => {
                 write!(f, "could not read `{path}`: {reason}")
             },
-            PylentilError::NotImplemented => {
+            PylentilError::CodePathNotImplemented => {
                 write!(f, "Has not been implemented")
             },
             PylentilError::InvalidArgumentType => {
                 write!(f, "Invalid argument type")
+            },
+            PylentilError::InvalidSyntax { error } => {
+                write!(f, "Invalid syntax: {error}")
+            },
+            
+            PylentilError::InvalidLintCode { code } => {
+                write!(f, "Invalid lint code: {code}")
+            },
+
+            PylentilError::MissingAST => {
+                write!(f, "Missing AST")
+            },
+            PylentilError::MissingMetadata => {
+                write!(f, "Missing metadata")
+            },
+            PylentilError::EmptyFile => {
+                write!(f, "Empty file")
             }
         }
     }

@@ -1,8 +1,9 @@
 use pylentil_common::errors::PylentilError;
 
 use crate::{
-    PyToken, PyTokenType,
+    PyLexer, PyToken, PyTokenType,
     ast::{PyModule, PyStatement},
+    code::{PyCode, PyCodeBuilder, PyCodeMetadata, PyCodeMetadataBuilder},
     lookups::parse_statement,
     token::describe_any_of,
 };
@@ -10,14 +11,19 @@ use crate::{
 #[derive(Debug)]
 pub struct PyParser<'a> {
     pub tokens: Vec<PyToken<'a>>,
+    code: &'a str,
     pos: usize,
 }
 
 impl<'a> PyParser<'a> {
-    pub fn new(tokens: Vec<PyToken<'a>>) -> Self {
-        PyParser {
-            tokens: Self::remove_whitespaces(tokens),
-            pos: 0,
+    pub fn new(contents: &'a str) -> Result<Self, PylentilError> {
+        match PyLexer::from_code(&contents) {
+            Ok(lexer) => Ok(PyParser {
+                code: contents,
+                tokens: Self::remove_whitespaces(lexer.tokens),
+                pos: 0usize,
+            }),
+            Err(e) => Err(e),
         }
     }
 
@@ -29,7 +35,9 @@ impl<'a> PyParser<'a> {
             .collect()
     }
 
-    pub fn parse(&mut self) -> Result<PyModule, PylentilError> {
+    pub fn parse(&mut self) -> Result<PyCode, PylentilError> {
+        let metadata = self.extract_metadata()?;
+
         let mut body: Vec<PyStatement> = Vec::new();
 
         while self.has_tokens() {
@@ -40,7 +48,7 @@ impl<'a> PyParser<'a> {
 
             match parse_statement(self) {
                 Ok(stmt) => body.push(stmt),
-                Err(e) => return Err(e)
+                Err(e) => return Err(e),
             };
 
             self.skip_statement_separators()?;
@@ -48,10 +56,15 @@ impl<'a> PyParser<'a> {
 
         self.expect_type(vec![PyTokenType::EOF])?;
 
-        Ok(PyModule {
-            body,
-            type_ignores: Vec::new(),
-        })
+        let code = PyCodeBuilder::new()
+            .with_ast(PyModule {
+                body,
+                type_ignores: vec![],
+            })
+            .with_metadata(metadata)
+            .build()?;
+
+        Ok(code)
     }
 
     pub fn peek(&self) -> Result<PyToken<'a>, PylentilError> {
@@ -67,7 +80,6 @@ impl<'a> PyParser<'a> {
         }
 
         Ok(self.tokens[self.pos + 1].clone())
-
     }
 
     pub fn consume(&mut self) -> Result<PyToken<'a>, PylentilError> {
@@ -89,7 +101,10 @@ impl<'a> PyParser<'a> {
         }
     }
 
-    pub fn expect_type(&mut self, token_type: Vec<PyTokenType>) -> Result<PyToken<'_>, PylentilError> {
+    pub fn expect_type(
+        &mut self,
+        token_type: Vec<PyTokenType>,
+    ) -> Result<PyToken<'_>, PylentilError> {
         let found = self.peek()?;
         match token_type.contains(&found.kind) {
             true => Ok(self.consume()?),
@@ -129,5 +144,18 @@ impl<'a> PyParser<'a> {
         }
 
         Ok(())
+    }
+
+    fn extract_metadata(&self) -> Result<PyCodeMetadata, PylentilError> {
+        let metadata = PyCodeMetadataBuilder::new();
+        let mut code_lines = self
+            .code
+            .split(&['\r', '\n'])
+            .map(|line| line.to_string())
+            .collect::<Vec<String>>();
+
+        Ok(metadata
+            .add_raw_lines(&mut code_lines)
+            .build()?)
     }
 }

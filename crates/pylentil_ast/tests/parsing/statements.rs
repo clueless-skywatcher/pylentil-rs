@@ -178,6 +178,11 @@ fn parse_statements_try_except() {
 }
 
 #[test]
+fn parse_statements_try_multi_except() {
+    assert_parses(F, "try_multi_except");
+}
+
+#[test]
 fn parse_statements_try_except_as() {
     assert_parses(F, "try_except_as");
 }
