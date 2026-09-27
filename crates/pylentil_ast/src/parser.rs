@@ -4,6 +4,7 @@ use crate::{
     PyToken, PyTokenType,
     ast::{PyModule, PyStatement},
     lookups::parse_statement,
+    token::describe_any_of,
 };
 
 #[derive(Debug)]
@@ -41,6 +42,8 @@ impl<'a> PyParser<'a> {
                 Ok(stmt) => body.push(stmt),
                 Err(e) => return Err(e)
             };
+
+            self.skip_statement_separators()?;
         }
 
         self.expect_type(vec![PyTokenType::EOF])?;
@@ -87,9 +90,13 @@ impl<'a> PyParser<'a> {
     }
 
     pub fn expect_type(&mut self, token_type: Vec<PyTokenType>) -> Result<PyToken<'_>, PylentilError> {
-        match token_type.contains(&self.peek()?.kind) {
+        let found = self.peek()?;
+        match token_type.contains(&found.kind) {
             true => Ok(self.consume()?),
-            false => Err(PylentilError::InvalidSyntax),
+            false => Err(PylentilError::UnexpectedToken {
+                expected: describe_any_of(&token_type),
+                found: found.describe(),
+            }),
         }
     }
 
@@ -102,6 +109,18 @@ impl<'a> PyParser<'a> {
 
     pub fn skip_newlines(&mut self) -> Result<(), PylentilError> {
         self.skip_any_number_of(PyTokenType::Newline)
+    }
+
+    /// Skips whatever separates one statement from the next: newlines and
+    /// semicolons, in any combination (`a = 1; b = 2`, `a = 1;`).
+    pub fn skip_statement_separators(&mut self) -> Result<(), PylentilError> {
+        while matches!(
+            self.peek()?.kind,
+            PyTokenType::Newline | PyTokenType::Semicolon
+        ) {
+            self.consume()?;
+        }
+        Ok(())
     }
 
     pub fn optional_skip_one(&mut self, token_type: PyTokenType) -> Result<(), PylentilError> {

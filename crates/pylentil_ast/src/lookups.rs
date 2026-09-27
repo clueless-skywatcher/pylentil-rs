@@ -1,26 +1,79 @@
-use std::collections::HashMap;
+mod expr;
+mod stmt;
 
-use lazy_static::lazy_static;
+pub(crate) use expr::parse_generators;
+
+use std::collections::HashMap;
+use std::sync::LazyLock;
+
 use pylentil_common::errors::PylentilError;
 
 use crate::{
-    PyToken, PyTokenType,
-    ast::{PyBinaryOp, PyComparisonOp, PyConstant, PyExpr, PyRefContext, PyStatement},
+    PyTokenType,
+    ast::{PyExpr, PyStatement},
+    lookups::{
+        expr::{
+            parse_attribute_access, parse_dict_or_set_or_comprehension, parse_function_call,
+            parse_if, parse_list_or_comprehension, parse_star, parse_subscript_access,
+            parse_walrus_tuple_or_expr,
+        },
+        stmt::{
+            parse_stmt_async, parse_stmt_break, parse_stmt_continue, parse_stmt_funcdef,
+            parse_stmt_import, parse_stmt_import_from, parse_stmt_pass, parse_stmt_return,
+        },
+    },
     parser::PyParser,
 };
+
+use expr::{
+    as_target, augmented_op, parse_binary, parse_bool_op, parse_comparison,
+    parse_potentially_comma_separated, parse_terminal, parse_unary,
+};
+use stmt::parse_stmt_if;
 
 #[derive(Debug, Clone, Copy, Ord, PartialEq, PartialOrd, Eq)]
 pub enum PyBindingPower {
     Default = 1,
     Comma,
-    Logical,
-    Relational,
+    Ternary,
+    Or,
+    And,
+    Not,
+    Comparison,
+    BitOr,
+    BitXor,
+    BitAnd,
+    Shift,
     Additive,
     Multiplicative,
-    UnaryOp,
-    FunctionCall,
-    Attribute,
+    Unary,
+    Power,
+    Postfix,
     Terminal,
+}
+
+impl PyBindingPower {
+    fn one_below(self) -> Self {
+        match self {
+            PyBindingPower::Default => PyBindingPower::Default,
+            PyBindingPower::Comma => PyBindingPower::Default,
+            PyBindingPower::Ternary => PyBindingPower::Comma,
+            PyBindingPower::Or => PyBindingPower::Ternary,
+            PyBindingPower::And => PyBindingPower::Or,
+            PyBindingPower::Not => PyBindingPower::And,
+            PyBindingPower::Comparison => PyBindingPower::Not,
+            PyBindingPower::BitOr => PyBindingPower::Comparison,
+            PyBindingPower::BitXor => PyBindingPower::BitOr,
+            PyBindingPower::BitAnd => PyBindingPower::BitXor,
+            PyBindingPower::Shift => PyBindingPower::BitAnd,
+            PyBindingPower::Additive => PyBindingPower::Shift,
+            PyBindingPower::Multiplicative => PyBindingPower::Additive,
+            PyBindingPower::Unary => PyBindingPower::Multiplicative,
+            PyBindingPower::Power => PyBindingPower::Unary,
+            PyBindingPower::Postfix => PyBindingPower::Power,
+            PyBindingPower::Terminal => PyBindingPower::Postfix,
+        }
+    }
 }
 
 pub type PyStatementHandler = for<'a> fn(&mut PyParser<'a>) -> Result<PyStatement, PylentilError>;
@@ -49,265 +102,196 @@ fn stmt(lu: &mut PyStatementLookup, kind: PyTokenType, stmt_handler: PyStatement
     lu.insert(kind, stmt_handler);
 }
 
-lazy_static! {
-    static ref BP_LU: PyBindingPowerLookup = {
-        let mut m = HashMap::new();
+static RIGHT_ASSOC: LazyLock<Vec<PyTokenType>> = LazyLock::new(|| vec![PyTokenType::DoubleStar]);
 
-        // Atoms
-        bp(&mut m, PyTokenType::Int, PyBindingPower::Terminal);
-        bp(&mut m, PyTokenType::Float, PyBindingPower::Terminal);
-        bp(&mut m, PyTokenType::String, PyBindingPower::Terminal);
-        bp(&mut m, PyTokenType::Ident, PyBindingPower::Terminal);
-        bp(&mut m, PyTokenType::True, PyBindingPower::Terminal);
-        bp(&mut m, PyTokenType::False, PyBindingPower::Terminal);
-        bp(&mut m, PyTokenType::None, PyBindingPower::Terminal);
+static BP_LU: LazyLock<PyBindingPowerLookup> = LazyLock::new(|| {
+    let mut m = HashMap::new();
 
-        // Postfix: attr > call/subscript
-        bp(&mut m, PyTokenType::Dot, PyBindingPower::Attribute);
-        bp(&mut m, PyTokenType::LParen, PyBindingPower::FunctionCall);
-        bp(&mut m, PyTokenType::LSquare, PyBindingPower::FunctionCall);
+    // Atoms
+    bp(&mut m, PyTokenType::Int, PyBindingPower::Terminal);
+    bp(&mut m, PyTokenType::Float, PyBindingPower::Terminal);
+    bp(&mut m, PyTokenType::String, PyBindingPower::Terminal);
+    bp(&mut m, PyTokenType::Ident, PyBindingPower::Terminal);
+    bp(&mut m, PyTokenType::True, PyBindingPower::Terminal);
+    bp(&mut m, PyTokenType::False, PyBindingPower::Terminal);
+    bp(&mut m, PyTokenType::None, PyBindingPower::Terminal);
+    bp(&mut m, PyTokenType::Ellipsis, PyBindingPower::Terminal);
 
-        // Unary
-        bp(&mut m, PyTokenType::Tilde, PyBindingPower::UnaryOp);
+    // Postfix: attr, call, subscript
+    bp(&mut m, PyTokenType::Dot, PyBindingPower::Postfix);
+    bp(&mut m, PyTokenType::LParen, PyBindingPower::Postfix);
+    bp(&mut m, PyTokenType::LSquare, PyBindingPower::Postfix);
 
-        // Multiplicative / power
-        bp(&mut m, PyTokenType::Star, PyBindingPower::Multiplicative);
-        bp(&mut m, PyTokenType::Slash, PyBindingPower::Multiplicative);
-        bp(&mut m, PyTokenType::Percent, PyBindingPower::Multiplicative);
-        bp(&mut m, PyTokenType::DoubleStar, PyBindingPower::Multiplicative);
+    // Unary
+    bp(&mut m, PyTokenType::Tilde, PyBindingPower::Unary);
 
-        // Additive / shifts
-        bp(&mut m, PyTokenType::Plus, PyBindingPower::Additive);
-        bp(&mut m, PyTokenType::Minus, PyBindingPower::Additive);
-        bp(&mut m, PyTokenType::LShift, PyBindingPower::Additive);
-        bp(&mut m, PyTokenType::RShift, PyBindingPower::Additive);
+    // Multiplicative
+    bp(&mut m, PyTokenType::Star, PyBindingPower::Multiplicative);
+    bp(&mut m, PyTokenType::Slash, PyBindingPower::Multiplicative);
+    bp(
+        &mut m,
+        PyTokenType::DoubleSlash,
+        PyBindingPower::Multiplicative,
+    );
+    bp(&mut m, PyTokenType::Percent, PyBindingPower::Multiplicative);
+    bp(&mut m, PyTokenType::At, PyBindingPower::Multiplicative);
 
-        // Bitwise
-        bp(&mut m, PyTokenType::Ampersand, PyBindingPower::Logical);
-        bp(&mut m, PyTokenType::Caret, PyBindingPower::Logical);
-        bp(&mut m, PyTokenType::VerticalBar, PyBindingPower::Logical);
+    // Exponents
+    bp(&mut m, PyTokenType::DoubleStar, PyBindingPower::Power);
 
-        // Comparisons
-        bp(&mut m, PyTokenType::DoubleEqual, PyBindingPower::Relational);
-        bp(&mut m, PyTokenType::NotEqual, PyBindingPower::Relational);
-        bp(&mut m, PyTokenType::Less, PyBindingPower::Relational);
-        bp(&mut m, PyTokenType::Greater, PyBindingPower::Relational);
-        bp(&mut m, PyTokenType::LessEqual, PyBindingPower::Relational);
-        bp(&mut m, PyTokenType::GreaterEqual, PyBindingPower::Relational);
+    // Additive / shifts
+    bp(&mut m, PyTokenType::Plus, PyBindingPower::Additive);
+    bp(&mut m, PyTokenType::Minus, PyBindingPower::Additive);
+    bp(&mut m, PyTokenType::LShift, PyBindingPower::Shift);
+    bp(&mut m, PyTokenType::RShift, PyBindingPower::Shift);
 
-        // Assignment / separators
-        bp(&mut m, PyTokenType::Comma, PyBindingPower::Comma);
+    // Bitwise
+    bp(&mut m, PyTokenType::Ampersand, PyBindingPower::BitAnd);
+    bp(&mut m, PyTokenType::Caret, PyBindingPower::BitXor);
+    bp(&mut m, PyTokenType::VerticalBar, PyBindingPower::BitOr);
 
-        m
-    };
-    static ref NUD_LU: PyNUDLookup = {
-        let mut m = HashMap::new();
+    // Boolean
+    bp(&mut m, PyTokenType::Or, PyBindingPower::Or);
+    bp(&mut m, PyTokenType::And, PyBindingPower::And);
 
-        nud(&mut m, PyTokenType::Int, parse_terminal);
-        nud(&mut m, PyTokenType::Float, parse_terminal);
-        nud(&mut m, PyTokenType::True, parse_terminal);
-        nud(&mut m, PyTokenType::False, parse_terminal);
-        nud(&mut m, PyTokenType::String, parse_terminal);
-        nud(&mut m, PyTokenType::Ident, parse_terminal);
-        nud(&mut m, PyTokenType::None, parse_terminal);
-        nud(&mut m, PyTokenType::LParen, parse_tuple_or_expr);
+    // Comparisons
+    bp(&mut m, PyTokenType::DoubleEqual, PyBindingPower::Comparison);
+    bp(&mut m, PyTokenType::NotEqual, PyBindingPower::Comparison);
+    bp(&mut m, PyTokenType::Less, PyBindingPower::Comparison);
+    bp(&mut m, PyTokenType::Greater, PyBindingPower::Comparison);
+    bp(&mut m, PyTokenType::LessEqual, PyBindingPower::Comparison);
+    bp(
+        &mut m,
+        PyTokenType::GreaterEqual,
+        PyBindingPower::Comparison,
+    );
+    bp(&mut m, PyTokenType::Is, PyBindingPower::Comparison);
+    bp(&mut m, PyTokenType::In, PyBindingPower::Comparison);
+    bp(&mut m, PyTokenType::Not, PyBindingPower::Comparison);
 
-        m
-    };
-    static ref LED_LU: PyLEDLookup = {
-        let mut m = HashMap::new();
+    // Assignment / separators
+    bp(&mut m, PyTokenType::Comma, PyBindingPower::Comma);
 
-        // Multiplicative / power
-        led(&mut m, PyTokenType::Star, parse_binary);
-        led(&mut m, PyTokenType::Slash, parse_binary);
-        led(&mut m, PyTokenType::Percent, parse_binary);
-        led(&mut m, PyTokenType::DoubleStar, parse_binary);
+    // Ternary If
+    bp(&mut m, PyTokenType::If, PyBindingPower::Ternary);
 
-        // Additive / shifts
-        led(&mut m, PyTokenType::Plus, parse_binary);
-        led(&mut m, PyTokenType::Minus, parse_binary);
-        led(&mut m, PyTokenType::LShift, parse_binary);
-        led(&mut m, PyTokenType::RShift, parse_binary);
+    m
+});
+static NUD_LU: LazyLock<PyNUDLookup> = LazyLock::new(|| {
+    let mut m = HashMap::new();
 
-        // Bitwise
-        led(&mut m, PyTokenType::Ampersand, parse_binary);
-        led(&mut m, PyTokenType::Caret, parse_binary);
-        led(&mut m, PyTokenType::VerticalBar, parse_binary);
+    nud(&mut m, PyTokenType::Int, parse_terminal);
+    nud(&mut m, PyTokenType::Float, parse_terminal);
+    nud(&mut m, PyTokenType::True, parse_terminal);
+    nud(&mut m, PyTokenType::False, parse_terminal);
+    nud(&mut m, PyTokenType::String, parse_terminal);
+    nud(&mut m, PyTokenType::Ident, parse_terminal);
+    nud(&mut m, PyTokenType::None, parse_terminal);
+    nud(&mut m, PyTokenType::Ellipsis, parse_terminal);
 
-        // Relational
-        led(&mut m, PyTokenType::DoubleEqual, parse_comparison);
-        led(&mut m, PyTokenType::NotEqual, parse_comparison);
-        led(&mut m, PyTokenType::Less, parse_comparison);
-        led(&mut m, PyTokenType::Greater, parse_comparison);
-        led(&mut m, PyTokenType::LessEqual, parse_comparison);
-        led(&mut m, PyTokenType::GreaterEqual, parse_comparison);
+    // Bracket expressions
+    nud(&mut m, PyTokenType::LParen, parse_walrus_tuple_or_expr);
+    nud(
+        &mut m,
+        PyTokenType::LBrace,
+        parse_dict_or_set_or_comprehension,
+    );
+    nud(&mut m, PyTokenType::LSquare, parse_list_or_comprehension);
 
-        // Comma
-        led(&mut m, PyTokenType::Comma, parse_potentially_comma_separated);
+    // Unary
+    nud(&mut m, PyTokenType::Minus, parse_unary);
+    nud(&mut m, PyTokenType::Plus, parse_unary);
+    nud(&mut m, PyTokenType::Tilde, parse_unary);
+    nud(&mut m, PyTokenType::Not, parse_unary);
 
-        m
-    };
-    static ref STMT_LU: PyStatementLookup = {
-        let mut m = HashMap::new();
+    // Star
+    nud(&mut m, PyTokenType::Star, parse_star);
 
-        stmt(&mut m, PyTokenType::If, parse_stmt_if);
+    m
+});
+static LED_LU: LazyLock<PyLEDLookup> = LazyLock::new(|| {
+    let mut m = HashMap::new();
 
-        m
-    };
-}
+    // Multiplicative / power
+    led(&mut m, PyTokenType::Star, parse_binary);
+    led(&mut m, PyTokenType::Slash, parse_binary);
+    led(&mut m, PyTokenType::DoubleSlash, parse_binary);
+    led(&mut m, PyTokenType::Percent, parse_binary);
+    led(&mut m, PyTokenType::At, parse_binary);
+    led(&mut m, PyTokenType::DoubleStar, parse_binary);
 
-fn parse_int(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
-    match parser.consume()? {
-        PyToken {
-            kind: PyTokenType::Int,
-            value: Some(value),
-        } => {
-            let int_value = value
-                .parse::<i64>()
-                .map_err(|_| PylentilError::InvalidSyntax)?;
+    // Additive / shifts
+    led(&mut m, PyTokenType::Plus, parse_binary);
+    led(&mut m, PyTokenType::Minus, parse_binary);
+    led(&mut m, PyTokenType::LShift, parse_binary);
+    led(&mut m, PyTokenType::RShift, parse_binary);
 
-            Ok(PyExpr::Constant {
-                kind: None,
-                value: PyConstant::Integer(int_value),
-            })
-        }
-        _ => Err(PylentilError::InvalidSyntax),
-    }
-}
+    // Bitwise
+    led(&mut m, PyTokenType::Ampersand, parse_binary);
+    led(&mut m, PyTokenType::Caret, parse_binary);
+    led(&mut m, PyTokenType::VerticalBar, parse_binary);
 
-fn parse_float(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
-    match parser.consume()? {
-        PyToken {
-            kind: PyTokenType::Float,
-            value: Some(value),
-        } => {
-            let float_value = value
-                .parse::<f64>()
-                .map_err(|_| PylentilError::InvalidSyntax)?;
+    // Boolean
+    led(&mut m, PyTokenType::Or, parse_bool_op);
+    led(&mut m, PyTokenType::And, parse_bool_op);
 
-            Ok(PyExpr::Constant {
-                kind: None,
-                value: PyConstant::Float(float_value),
-            })
-        }
-        _ => Err(PylentilError::InvalidSyntax),
-    }
-}
+    // Relational
+    led(&mut m, PyTokenType::DoubleEqual, parse_comparison);
+    led(&mut m, PyTokenType::NotEqual, parse_comparison);
+    led(&mut m, PyTokenType::Less, parse_comparison);
+    led(&mut m, PyTokenType::Greater, parse_comparison);
+    led(&mut m, PyTokenType::LessEqual, parse_comparison);
+    led(&mut m, PyTokenType::GreaterEqual, parse_comparison);
+    led(&mut m, PyTokenType::Is, parse_comparison);
+    led(&mut m, PyTokenType::In, parse_comparison);
+    led(&mut m, PyTokenType::Not, parse_comparison);
 
-fn parse_ident(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
-    match parser.consume()? {
-        PyToken {
-            kind: PyTokenType::Ident,
-            value: Some(value),
-        } => Ok({
-            PyExpr::Name {
-                id: value.to_string(),
-                ctx: PyRefContext::Load,
-            }
-        }),
-        _ => Err(PylentilError::InvalidSyntax),
-    }
-}
+    // Comma
+    led(
+        &mut m,
+        PyTokenType::Comma,
+        parse_potentially_comma_separated,
+    );
 
-fn parse_boolean(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
-    let bool_val = match parser.consume()?.kind {
-        PyTokenType::True => true,
-        PyTokenType::False => false,
-        _ => return Err(PylentilError::InvalidSyntax),
-    };
+    // Attribute access
+    led(&mut m, PyTokenType::Dot, parse_attribute_access);
 
-    Ok(PyExpr::Constant {
-        value: PyConstant::Boolean(bool_val),
-        kind: None,
-    })
-}
+    // Subscript access
+    led(&mut m, PyTokenType::LSquare, parse_subscript_access);
 
-fn parse_none(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
-    match parser.consume()?.kind {
-        PyTokenType::None => Ok(PyExpr::Constant {
-            value: PyConstant::None,
-            kind: None,
-        }),
-        _ => Err(PylentilError::InvalidSyntax),
-    }
-}
+    // Function calls
+    led(&mut m, PyTokenType::LParen, parse_function_call);
 
-fn parse_string(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
-    match parser.consume()? {
-        PyToken {
-            kind: PyTokenType::String,
-            value: Some(value),
-        } => Ok({
-            PyExpr::Constant {
-                value: PyConstant::String(value.to_string()),
-                kind: None,
-            }
-        }),
-        _ => Err(PylentilError::InvalidSyntax),
-    }
-}
+    // Ternary if
+    led(&mut m, PyTokenType::If, parse_if);
 
-fn parse_terminal(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
-    let token = parser.peek()?;
-    match token.kind {
-        PyTokenType::Int => parse_int(parser),
-        PyTokenType::Float => parse_float(parser),
-        PyTokenType::True | PyTokenType::False => parse_boolean(parser),
-        PyTokenType::String => parse_string(parser),
-        PyTokenType::Ident => parse_ident(parser),
-        PyTokenType::None => parse_none(parser),
-        _ => Err(PylentilError::NotATerminal),
-    }
-}
+    m
+});
+static STMT_LU: LazyLock<PyStatementLookup> = LazyLock::new(|| {
+    let mut m = HashMap::new();
 
-fn binary_op(kind: PyTokenType) -> Result<PyBinaryOp, PylentilError> {
-    match kind {
-        PyTokenType::Plus => Ok(PyBinaryOp::Add),
-        PyTokenType::Minus => Ok(PyBinaryOp::Sub),
-        PyTokenType::Star => Ok(PyBinaryOp::Mul),
-        PyTokenType::Slash => Ok(PyBinaryOp::Div),
-        PyTokenType::Percent => Ok(PyBinaryOp::Mod),
-        PyTokenType::DoubleStar => Ok(PyBinaryOp::Pow),
-        PyTokenType::LShift => Ok(PyBinaryOp::LShift),
-        PyTokenType::RShift => Ok(PyBinaryOp::RShift),
-        PyTokenType::Ampersand => Ok(PyBinaryOp::BitAnd),
-        PyTokenType::Caret => Ok(PyBinaryOp::BitXor),
-        PyTokenType::VerticalBar => Ok(PyBinaryOp::BitOr),
-        _ => Err(PylentilError::InvalidSyntax),
-    }
-}
+    stmt(&mut m, PyTokenType::If, parse_stmt_if);
+    stmt(&mut m, PyTokenType::Pass, parse_stmt_pass);
+    stmt(&mut m, PyTokenType::Break, parse_stmt_break);
+    stmt(&mut m, PyTokenType::Continue, parse_stmt_continue);
+    stmt(&mut m, PyTokenType::Import, parse_stmt_import);
+    stmt(&mut m, PyTokenType::From, parse_stmt_import_from);
+    stmt(&mut m, PyTokenType::Def, parse_stmt_funcdef);
+    stmt(&mut m, PyTokenType::Async, parse_stmt_async);
+    stmt(&mut m, PyTokenType::Return, parse_stmt_return);
 
-fn comparison_op(kind: PyTokenType) -> Result<PyComparisonOp, PylentilError> {
-    match kind {
-        PyTokenType::DoubleEqual => Ok(PyComparisonOp::Eq),
-        PyTokenType::NotEqual => Ok(PyComparisonOp::NotEq),
-        PyTokenType::Less => Ok(PyComparisonOp::Lt),
-        PyTokenType::Greater => Ok(PyComparisonOp::Gt),
-        PyTokenType::LessEqual => Ok(PyComparisonOp::Lte),
-        PyTokenType::GreaterEqual => Ok(PyComparisonOp::Gte),
-        _ => Err(PylentilError::InvalidSyntax),
-    }
-}
+    m
+});
 
-fn parse_binary(
+pub(crate) fn parse_expr(
     parser: &mut PyParser,
-    left: PyExpr,
     bp: PyBindingPower,
 ) -> Result<PyExpr, PylentilError> {
-    let op = binary_op(parser.consume()?.kind)?;
-
-    let right = parse_expr(parser, bp)?;
-
-    Ok(PyExpr::BinOp {
-        left: Box::new(left),
-        op,
-        right: Box::new(right),
-    })
-}
-
-fn parse_expr(parser: &mut PyParser, bp: PyBindingPower) -> Result<PyExpr, PylentilError> {
-    let Some(nud_fn) = NUD_LU.get(&parser.peek()?.kind) else {
-        return Err(PylentilError::InvalidSyntax);
+    let token = parser.peek()?;
+    let Some(nud_fn) = NUD_LU.get(&token.kind) else {
+        return Err(PylentilError::ExpressionExpected {
+            found: token.describe(),
+        });
     };
 
     let mut left = nud_fn(parser)?;
@@ -318,15 +302,24 @@ fn parse_expr(parser: &mut PyParser, bp: PyBindingPower) -> Result<PyExpr, Pylen
         .unwrap_or(PyBindingPower::Default)
         > bp
     {
-        let token_kind = parser.peek()?.kind;
+        let token = parser.peek()?;
+        let token_kind = token.kind;
         let Some(led_fn) = LED_LU.get(&token_kind) else {
-            return Err(PylentilError::InvalidSyntax);
+            return Err(PylentilError::TokenCannotContinueExpression {
+                found: token.describe(),
+            });
         };
 
         let op_bp = BP_LU
             .get(&token_kind)
             .copied()
             .unwrap_or(PyBindingPower::Default);
+
+        let op_bp = match RIGHT_ASSOC.contains(&token_kind) {
+            true => op_bp.one_below(),
+            false => op_bp,
+        };
+
         left = led_fn(parser, left, op_bp)?;
     }
 
@@ -340,138 +333,105 @@ pub fn parse_statement(parser: &mut PyParser) -> Result<PyStatement, PylentilErr
         Some(stmt_fn) => Ok(stmt_fn(parser)?),
         None => {
             let expr = parse_expr(parser, PyBindingPower::Default)?;
-            parser.skip_newlines()?;
 
             Ok(match parser.peek()?.kind {
-                PyTokenType::Assign => {
-                    parser.consume()?;
-                    let right = parse_expr(parser, PyBindingPower::Default)?;
-                    let targets = match expr {
-                        PyExpr::Tuple { elts, .. } => {
-                            elts
-                        },
-                        _ => vec![expr]
-                    };
+                PyTokenType::Assign => parse_assigns(parser, expr)?,
+                kind if augmented_op(kind).is_some() => {
+                    let token = parser.consume()?;
+                    let op = augmented_op(kind).ok_or(PylentilError::UnsupportedOperator {
+                        found: token.describe(),
+                        context: "an augmented assignment",
+                    })?;
+                    let value = parse_expr(parser, PyBindingPower::Default)?;
 
-                    PyStatement::Assign { targets, value: right, type_comment: None }
+                    PyStatement::AugAssign {
+                        target: Box::new(as_target(expr)?),
+                        op,
+                        value: Box::new(value),
+                    }
+                }
+                PyTokenType::Colon => {
+                    parser.consume()?;
+
+                    if !matches!(expr, PyExpr::Name { .. }) {
+                        return Err(PylentilError::InvalidAnnotationTarget {
+                            found: expr.describe(),
+                        });
+                    }
+
+                    let annotation = parse_expr(parser, PyBindingPower::Default)?;
+
+                    if !matches!(annotation, PyExpr::Name { .. }) {
+                        return Err(PylentilError::InvalidAnnotation {
+                            found: annotation.describe(),
+                        });
+                    }
+
+                    if parser.peek()?.kind == PyTokenType::Assign {
+                        parser.consume()?;
+
+                        let value = parse_expr(parser, PyBindingPower::Default)?;
+
+                        PyStatement::AnnAssign {
+                            target: Box::new(expr),
+                            annotation: Box::new(annotation),
+                            value: Some(Box::new(value)),
+                            simple: false,
+                        }
+                    } else {
+                        PyStatement::AnnAssign {
+                            target: Box::new(expr),
+                            annotation: Box::new(annotation),
+                            value: None,
+                            simple: false,
+                        }
+                    }
+                }
+
+                _ => PyStatement::Expr {
+                    value: Box::new(expr),
                 },
-                _ => PyStatement::Expr { value: expr }
             })
         }
     }
 }
 
-fn parse_stmt_if(parser: &mut PyParser) -> Result<PyStatement, PylentilError> {
-    parser.expect_type(vec![PyTokenType::If])?;
-    let test = parse_expr(parser, PyBindingPower::Default)?;
-    parser.expect_type(vec![PyTokenType::Colon])?;
-    parser.skip_newlines()?;
-    parser.expect_type(vec![PyTokenType::Indent])?;
+fn parse_assigns(parser: &mut PyParser, first: PyExpr) -> Result<PyStatement, PylentilError> {
+    parser.expect_type(vec![PyTokenType::Assign])?;
 
-    let mut body: Vec<PyStatement> = Vec::new();
-    while parser.has_tokens() && parser.peek()?.kind != PyTokenType::Dedent {
-        body.push(parse_statement(parser)?);
-    }
-    parser.expect_type(vec![PyTokenType::Dedent])?;
-    parser.skip_newlines()?;
-
-    let mut orelse: Vec<PyStatement> = Vec::new();
-    if parser.peek()?.kind == PyTokenType::Else {
-        parser.consume()?;
-        parser.expect_type(vec![PyTokenType::Colon])?;
-        parser.skip_newlines()?;
-        parser.expect_type(vec![PyTokenType::Indent])?;
-        while parser.has_tokens() && parser.peek()?.kind != PyTokenType::Dedent {
-            orelse.push(parse_statement(parser)?);
-        }
-
-        parser.expect_type(vec![PyTokenType::Dedent])?;
-        parser.skip_newlines()?;
-    }
-
-    Ok(PyStatement::If { test, body, orelse })
-}
-
-fn is_comparison_op(kind: PyTokenType) -> bool {
-    matches!(
-        kind,
-        PyTokenType::DoubleEqual
-            | PyTokenType::NotEqual
-            | PyTokenType::Less
-            | PyTokenType::Greater
-            | PyTokenType::LessEqual
-            | PyTokenType::GreaterEqual
-    )
-}
-
-fn parse_comparison(
-    parser: &mut PyParser,
-    left: PyExpr,
-    bp: PyBindingPower,
-) -> Result<PyExpr, PylentilError> {
-    let mut ops: Vec<PyComparisonOp> = Vec::new();
-    let mut comparators: Vec<PyExpr> = Vec::new();
+    let mut targets: Vec<PyExpr> = vec![first];
+    let mut value: PyExpr;
 
     loop {
-        ops.push(comparison_op(parser.consume()?.kind)?);
-        comparators.push(parse_expr(parser, bp)?);
+        if !matches!(
+            targets.last().unwrap(),
+            PyExpr::Name { .. }
+                | PyExpr::Tuple { .. }
+                | PyExpr::Attribute { .. }
+                | PyExpr::Subscript { .. }
+        ) {
+            return Err(PylentilError::InvalidAssignmentTarget {
+                found: targets.last().unwrap().describe(),
+            });
+        }
 
-        if !is_comparison_op(parser.peek()?.kind) {
+        value = parse_expr(parser, PyBindingPower::Default)?;
+        if parser.peek()?.kind != PyTokenType::Assign {
             break;
+        } else {
+            parser.consume()?;
+            targets.push(value);
         }
     }
 
-    Ok(PyExpr::Compare {
-        left: Box::new(left),
-        ops,
-        comparators,
+    targets = targets
+        .iter()
+        .map(|expr| as_target(expr.clone()).unwrap())
+        .collect();
+
+    Ok(PyStatement::Assign {
+        targets,
+        value: Box::new(value),
+        type_comment: None,
     })
-}
-
-fn parse_potentially_comma_separated(
-    parser: &mut PyParser,
-    left: PyExpr,
-    bp: PyBindingPower,
-) -> Result<PyExpr, PylentilError> {
-    if parser.peek()?.kind == PyTokenType::Comma {
-        let mut exprs = vec![left];
-        parser.consume()?;
-        let rest_exprs = parse_expr(parser, bp)?;
-        match rest_exprs {
-            PyExpr::Tuple {
-                mut elts,
-                parenthesized: false,
-                ..
-            } => {
-                exprs.append(&mut elts);
-            }
-            _ => exprs.push(rest_exprs),
-        }
-
-        Ok(PyExpr::Tuple {
-            elts: exprs,
-            ctx: PyRefContext::Load,
-            parenthesized: false,
-        })
-    } else {
-        Ok(left)
-    }
-}
-
-fn parse_tuple_or_expr(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
-    assert_eq!(parser.consume()?.kind, PyTokenType::LParen);
-    let exprs = parse_expr(parser, PyBindingPower::Default)?;
-
-    parser.expect_type(vec![PyTokenType::RParen])?;
-
-    Ok(match exprs {
-        PyExpr::Tuple { elts, ctx, parenthesized } => {
-            match parenthesized {
-                true => PyExpr::Tuple { elts, ctx, parenthesized },
-                false => PyExpr::Tuple { elts, ctx, parenthesized: true }
-            }
-        },
-        expr => expr
-    })
-
 }

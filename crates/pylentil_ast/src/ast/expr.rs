@@ -5,7 +5,7 @@ use super::shared::{PyArguments, PyComprehension, PyKeyword};
 
 pub type PyExprBox = Box<PyExpr>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum PyExpr {
     BoolOp {
         op: PyBoolOp,
@@ -25,7 +25,7 @@ pub enum PyExpr {
         operand: PyExprBox,
     },
     Lambda {
-        args: PyArguments,
+        args: Box<PyArguments>,
         body: PyExprBox,
     },
     IfExp {
@@ -73,7 +73,7 @@ pub enum PyExpr {
     },
     Call {
         func: PyExprBox,
-        args: Vec<PyExpr>,
+        args: Vec<PyExprBox>,
         keywords: Vec<PyKeyword>,
     },
     FormattedValue {
@@ -120,4 +120,39 @@ pub enum PyExpr {
         upper: Option<PyExprBox>,
         step: Option<PyExprBox>,
     },
+}
+
+impl PyExpr {
+    /// A noun phrase naming this kind of expression, for error messages.
+    pub fn describe(&self) -> &'static str {
+        match self {
+            PyExpr::BoolOp { .. } => "a boolean operation",
+            PyExpr::NamedExpr { .. } => "a walrus expression",
+            PyExpr::BinOp { .. } => "a binary operation",
+            PyExpr::UnaryOp { .. } => "a unary operation",
+            PyExpr::Lambda { .. } => "a lambda",
+            PyExpr::IfExp { .. } => "a conditional expression",
+            PyExpr::Dict { .. } => "a dict literal",
+            PyExpr::Set { .. } => "a set literal",
+            PyExpr::ListComp { .. } => "a list comprehension",
+            PyExpr::SetComp { .. } => "a set comprehension",
+            PyExpr::DictComp { .. } => "a dict comprehension",
+            PyExpr::GeneratorExp { .. } => "a generator expression",
+            PyExpr::Await { .. } => "an await expression",
+            PyExpr::Yield { .. } => "a yield expression",
+            PyExpr::YieldFrom { .. } => "a yield-from expression",
+            PyExpr::Compare { .. } => "a comparison",
+            PyExpr::Call { .. } => "a function call",
+            PyExpr::FormattedValue { .. } => "a formatted value",
+            PyExpr::JoinedStr { .. } => "an f-string",
+            PyExpr::Constant { .. } => "a literal",
+            PyExpr::Attribute { .. } => "an attribute access",
+            PyExpr::Subscript { .. } => "a subscript",
+            PyExpr::Starred { .. } => "a starred expression",
+            PyExpr::Name { .. } => "a name",
+            PyExpr::List { .. } => "a list",
+            PyExpr::Tuple { .. } => "a tuple",
+            PyExpr::Slice { .. } => "a slice",
+        }
+    }
 }
