@@ -6,7 +6,7 @@ use std::{
 
 use pylentil_common::errors::PylentilError;
 
-use crate::lint::Lint;
+use crate::{lint::Lint, pycodestyle::bare_except::BareExcept};
 
 pub struct LintRegistry {
     registry: HashMap<String, Arc<dyn Lint>>,
@@ -14,9 +14,7 @@ pub struct LintRegistry {
 
 impl LintRegistry {
     fn build() -> Self {
-        let all: Vec<Arc<dyn Lint>> = vec![
-            // Arc::new(BareExcept),
-        ];
+        let all: Vec<Arc<dyn Lint>> = vec![Arc::new(BareExcept)];
 
         let mut registry = HashMap::with_capacity(all.len());
 
