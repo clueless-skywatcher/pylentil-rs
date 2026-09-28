@@ -7,6 +7,7 @@ use crate::ast::PyModule;
 pub struct PyCodeMetadataBuilder {
     raw_lines: Vec<String>,
     path: Option<PathBuf>,
+    line_starts: Vec<usize>
 }
 
 impl PyCodeMetadataBuilder {
@@ -14,6 +15,7 @@ impl PyCodeMetadataBuilder {
         PyCodeMetadataBuilder {
             raw_lines: vec![],
             path: None,
+            line_starts: vec![]
         }
     }
 
@@ -32,6 +34,11 @@ impl PyCodeMetadataBuilder {
         self
     }
 
+    pub fn set_line_starts(mut self, line_starts: Vec<usize>) -> Self {
+        self.line_starts = line_starts;
+        self
+    }
+
     pub fn build(self) -> Result<PyCodeMetadata, PylentilError> {
         if self.path.is_none() {
             return Err(PylentilError::EmptyFile);
@@ -43,6 +50,7 @@ impl PyCodeMetadataBuilder {
         Ok(PyCodeMetadata {
             raw_lines: self.raw_lines,
             path: self.path.unwrap(),
+            line_starts: self.line_starts
         })
     }
 }
@@ -51,6 +59,7 @@ impl PyCodeMetadataBuilder {
 pub struct PyCodeMetadata {
     pub raw_lines: Vec<String>,
     pub path: PathBuf,
+    pub line_starts: Vec<usize>
 }
 
 pub struct PyCodeBuilder {

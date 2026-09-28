@@ -188,10 +188,11 @@ impl Pylentil {
             span
         } in violations
         {
+            let (x, y) = self.get_line_and_byte_offset(code, span.start);
             println!(
-                "{}({}) - {}: {}",
+                "{}(line {}:{}) - {}: {}",
                 path.to_str().unwrap(),
-                span,
+                x, y,
                 check_violated.code(),
                 check_violated.message()
             );
@@ -200,5 +201,18 @@ impl Pylentil {
                 check_violated.possible_fix().unwrap_or("None".to_string())
             );
         }
+    }
+
+    fn get_line_and_byte_offset(&self, code: &PyCode, pos: usize) -> (usize, usize) {
+        let line_starts = code.metadata.line_starts.clone();
+        let mut i = line_starts.len() - 1;
+        while i > 0 {
+            if line_starts[i] <= pos {
+                break;
+            }
+            i -= 1;
+        }
+
+        (i, pos - line_starts[i] + 1)
     }
 }

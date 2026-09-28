@@ -38,7 +38,9 @@ impl Lint for BareExcept {
                             name: None,
                             span,
                             ..
-                        } => self.report(&mut violations, path, span),
+                        } => {
+                            self.report(&mut violations, path, span)
+                        },
                         _ => {}
                     }
                 }

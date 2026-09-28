@@ -179,15 +179,22 @@ impl<'a> PyParser<'a> {
 
     fn extract_metadata(&self) -> Result<PyCodeMetadata, PylentilError> {
         let metadata = PyCodeMetadataBuilder::new();
+        let mut line_starts: Vec<usize> = vec![];
+        let mut pos: usize = 0;
         let mut code_lines = self
             .code
             .split(&['\r', '\n'])
-            .map(|line| line.to_string())
+            .map(|line| {
+                line_starts.push(pos);
+                pos += line.len();
+                line.to_string()
+            })
             .collect::<Vec<String>>();
 
         Ok(metadata
             .add_raw_lines(&mut code_lines)
             .set_path(self.path.clone())
+            .set_line_starts(line_starts)
             .build()?)
     }
 }
