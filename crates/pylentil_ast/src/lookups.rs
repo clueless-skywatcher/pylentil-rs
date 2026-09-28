@@ -9,15 +9,21 @@ use std::sync::LazyLock;
 use pylentil_common::errors::PylentilError;
 
 use crate::{
-    PyTokenType, ast::{PyExpr, PyStatement}, lookups::{
+    PyTokenType,
+    ast::{PyExpr, PyStatement},
+    lookups::{
         expr::{
             parse_attribute_access, parse_dict_or_set_or_comprehension, parse_function_call,
             parse_if, parse_list_or_comprehension, parse_star, parse_subscript_access,
             parse_walrus_tuple_or_expr,
-        }, stmt::{
-            parse_stmt_async, parse_stmt_break, parse_stmt_continue, parse_stmt_funcdef, parse_stmt_import, parse_stmt_import_from, parse_stmt_pass, parse_stmt_return, parse_stmt_try,
         },
-    }, parser::PyParser,
+        stmt::{
+            parse_stmt_async, parse_stmt_break, parse_stmt_continue, parse_stmt_funcdef,
+            parse_stmt_import, parse_stmt_import_from, parse_stmt_pass, parse_stmt_return,
+            parse_stmt_try,
+        },
+    },
+    parser::PyParser,
 };
 
 use expr::{

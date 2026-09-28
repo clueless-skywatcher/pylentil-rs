@@ -436,11 +436,7 @@ fn parse_functions_nested_def() {
         function_def(
             "f",
             PyArguments::default(),
-            vec![function_def(
-                "g",
-                PyArguments::default(),
-                vec![pass()]
-            )]
+            vec![function_def("g", PyArguments::default(), vec![pass()])]
         )
     );
 }
@@ -462,11 +458,7 @@ fn parse_functions_def_in_if() {
         stmt(F, "def_in_if"),
         if_stmt(
             name("a"),
-            vec![function_def(
-                "f",
-                PyArguments::default(),
-                vec![pass()]
-            )],
+            vec![function_def("f", PyArguments::default(), vec![pass()])],
             vec![]
         )
     );

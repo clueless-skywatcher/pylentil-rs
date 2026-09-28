@@ -13,7 +13,11 @@ fn lex_operators_arithmetic() {
 fn lex_operators_power() {
     p_assert_eq!(
         tokens("power"),
-        Ok(vec!["Ident(a)".into(), "DoubleStar".into(), "Ident(b)".into()])
+        Ok(vec![
+            "Ident(a)".into(),
+            "DoubleStar".into(),
+            "Ident(b)".into()
+        ])
     );
 }
 
@@ -52,7 +56,13 @@ fn lex_operators_comparisons() {
 fn lex_operators_relational() {
     p_assert_eq!(
         tokens("relational"),
-        Ok(vec!["Ident(a)".into(), "Less".into(), "Ident(b)".into(), "Greater".into(), "Ident(c)".into()])
+        Ok(vec![
+            "Ident(a)".into(),
+            "Less".into(),
+            "Ident(b)".into(),
+            "Greater".into(),
+            "Ident(c)".into()
+        ])
     );
 }
 
@@ -60,7 +70,13 @@ fn lex_operators_relational() {
 fn lex_operators_relational_or_equal() {
     p_assert_eq!(
         tokens("relational_or_equal"),
-        Ok(vec!["Ident(a)".into(), "LessEqual".into(), "Ident(b)".into(), "GreaterEqual".into(), "Ident(c)".into()])
+        Ok(vec![
+            "Ident(a)".into(),
+            "LessEqual".into(),
+            "Ident(b)".into(),
+            "GreaterEqual".into(),
+            "Ident(c)".into()
+        ])
     );
 }
 
@@ -69,7 +85,12 @@ fn lex_operators_greater_then_less_adjacent() {
     let toks = tokens("greater_then_less_adjacent");
     p_assert_eq!(
         toks,
-        Ok(vec!["Ident(a)".into(), "Greater".into(), "Less".into(), "Ident(b)".into()]),
+        Ok(vec![
+            "Ident(a)".into(),
+            "Greater".into(),
+            "Less".into(),
+            "Ident(b)".into()
+        ]),
         "`><` is two comparison tokens, never a shift"
     );
 }
@@ -78,7 +99,12 @@ fn lex_operators_greater_then_less_adjacent() {
 fn lex_operators_less_then_greater_adjacent() {
     p_assert_eq!(
         tokens("less_then_greater_adjacent"),
-        Ok(vec!["Ident(a)".into(), "Less".into(), "Greater".into(), "Ident(b)".into()]),
+        Ok(vec![
+            "Ident(a)".into(),
+            "Less".into(),
+            "Greater".into(),
+            "Ident(b)".into()
+        ]),
         "`<>` is two comparison tokens"
     );
 }
@@ -90,7 +116,10 @@ fn lex_operators_bitwise() {
 
 #[test]
 fn lex_operators_invert() {
-    p_assert_eq!(tokens("invert"), Ok(vec!["Tilde".into(), "Ident(a)".into()]));
+    p_assert_eq!(
+        tokens("invert"),
+        Ok(vec!["Tilde".into(), "Ident(a)".into()])
+    );
 }
 
 #[test]
@@ -187,7 +216,10 @@ fn lex_operators_semicolon_separated() {
 
 #[test]
 fn lex_operators_lone_bang() {
-    assert!(matches!(lex_outcome(&case("lexer/operators.py", "lone_bang")), Outcome::Err(_)));
+    assert!(matches!(
+        lex_outcome(&case("lexer/operators.py", "lone_bang")),
+        Outcome::Err(_)
+    ));
 }
 
 #[test]

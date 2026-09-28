@@ -94,7 +94,10 @@ pub(crate) fn parse_arg(
     // The starred value is parsed at `Comma` so `*args, b` stays two entries.
     let arg = if parser.peek()?.kind == PyTokenType::Star {
         parser.consume()?;
-        if matches!(parser.peek()?.kind, PyTokenType::Comma | PyTokenType::RParen) {
+        if matches!(
+            parser.peek()?.kind,
+            PyTokenType::Comma | PyTokenType::RParen
+        ) {
             return Ok(PyArgType::KeywordOnlyMarker);
         }
         PyExpr::Starred {

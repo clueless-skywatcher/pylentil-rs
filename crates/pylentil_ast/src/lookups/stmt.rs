@@ -3,9 +3,11 @@ use std::collections::HashSet;
 use pylentil_common::errors::PylentilError;
 
 use crate::{
-    PyToken, PyTokenType, ast::{
+    PyToken, PyTokenType,
+    ast::{
         PyAlias, PyArg, PyArguments, PyExceptHandler, PyExpr, PyKeyword, PyRefContext, PyStatement,
-    }, parser::PyParser,
+    },
+    parser::PyParser,
 };
 
 use super::{PyBindingPower, parse_expr, parse_statement};
@@ -481,9 +483,11 @@ pub fn parse_stmt_try(parser: &mut PyParser) -> Result<PyStatement, PylentilErro
     if parser.peek()?.kind == PyTokenType::Except {
         handlers.append(&mut parse_except_handlers(parser)?);
     } else if parser.peek()?.kind != PyTokenType::Finally {
-        return Err(PylentilError::InvalidSyntax {error: "Try block must have an except or a finally block".to_string()});
+        return Err(PylentilError::InvalidSyntax {
+            error: "Try block must have an except or a finally block".to_string(),
+        });
     }
-    
+
     if parser.peek()?.kind == PyTokenType::Else {
         parser.consume()?; // Consume the else
         parser.consume()?; // Consume the colon

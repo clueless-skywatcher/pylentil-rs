@@ -36,17 +36,26 @@ fn lex_strings_escape_newline() {
 
 #[test]
 fn lex_strings_other_quote_inside() {
-    p_assert_eq!(tokens("other_quote_inside"), Ok(vec!["String(it's fine)".into()]));
+    p_assert_eq!(
+        tokens("other_quote_inside"),
+        Ok(vec!["String(it's fine)".into()])
+    );
 }
 
 #[test]
 fn lex_strings_triple_double() {
-    p_assert_eq!(tokens("triple_double"), Ok(vec!["String(triple quoted)".into()]));
+    p_assert_eq!(
+        tokens("triple_double"),
+        Ok(vec!["String(triple quoted)".into()])
+    );
 }
 
 #[test]
 fn lex_strings_triple_single() {
-    p_assert_eq!(tokens("triple_single"), Ok(vec!["String(triple quoted)".into()]));
+    p_assert_eq!(
+        tokens("triple_single"),
+        Ok(vec!["String(triple quoted)".into()])
+    );
 }
 
 #[test]
@@ -72,12 +81,18 @@ fn lex_strings_bytes_literal() {
 
 #[test]
 fn lex_strings_non_ascii_contents() {
-    p_assert_eq!(tokens("non_ascii_contents"), Ok(vec!["String(héllo wörld)".into()]));
+    p_assert_eq!(
+        tokens("non_ascii_contents"),
+        Ok(vec!["String(héllo wörld)".into()])
+    );
 }
 
 #[test]
 fn lex_strings_emoji_contents() {
-    p_assert_eq!(tokens("emoji_contents"), Ok(vec!["String(shipped 🚀)".into()]));
+    p_assert_eq!(
+        tokens("emoji_contents"),
+        Ok(vec!["String(shipped 🚀)".into()])
+    );
 }
 
 #[test]
@@ -87,7 +102,10 @@ fn lex_strings_adjacent_concatenation() {
 
 #[test]
 fn lex_strings_hash_inside_string() {
-    p_assert_eq!(tokens("hash_inside_string"), Ok(vec!["String(# not a comment)".into()]));
+    p_assert_eq!(
+        tokens("hash_inside_string"),
+        Ok(vec!["String(# not a comment)".into()])
+    );
 }
 
 #[test]
@@ -97,12 +115,18 @@ fn lex_strings_quote_terminated_by_newline() {
 
 #[test]
 fn lex_strings_unterminated_at_eof() {
-    assert!(matches!(lex_outcome(&case("lexer/strings.py", "unterminated_at_eof")), Outcome::Err(_)));
+    assert!(matches!(
+        lex_outcome(&case("lexer/strings.py", "unterminated_at_eof")),
+        Outcome::Err(_)
+    ));
 }
 
 #[test]
 fn lex_strings_trailing_escape_at_eof() {
-    assert!(matches!(lex_outcome(&case("lexer/strings.py", "trailing_escape_at_eof")), Outcome::Err(_)));
+    assert!(matches!(
+        lex_outcome(&case("lexer/strings.py", "trailing_escape_at_eof")),
+        Outcome::Err(_)
+    ));
 }
 
 // ------------------------------------------------ inline snippets --

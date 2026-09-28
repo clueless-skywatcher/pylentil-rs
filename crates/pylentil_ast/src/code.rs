@@ -6,12 +6,15 @@ use crate::ast::PyModule;
 
 pub struct PyCodeMetadataBuilder {
     raw_lines: Vec<String>,
-    path: Option<PathBuf>
+    path: Option<PathBuf>,
 }
 
 impl PyCodeMetadataBuilder {
     pub fn new() -> Self {
-        PyCodeMetadataBuilder { raw_lines: vec![], path: None }
+        PyCodeMetadataBuilder {
+            raw_lines: vec![],
+            path: None,
+        }
     }
 
     pub fn add_raw_line(mut self, line: String) -> Self {
@@ -39,7 +42,7 @@ impl PyCodeMetadataBuilder {
 
         Ok(PyCodeMetadata {
             raw_lines: self.raw_lines,
-            path: self.path.unwrap()
+            path: self.path.unwrap(),
         })
     }
 }
@@ -47,19 +50,22 @@ impl PyCodeMetadataBuilder {
 #[derive(Debug)]
 pub struct PyCodeMetadata {
     pub raw_lines: Vec<String>,
-    pub path: PathBuf
+    pub path: PathBuf,
 }
 
 pub struct PyCodeBuilder {
     ast: Option<PyModule>,
-    metadata: Option<PyCodeMetadata>
+    metadata: Option<PyCodeMetadata>,
 }
 
 impl PyCodeBuilder {
     pub fn new() -> Self {
-        PyCodeBuilder { ast: None, metadata: None }
+        PyCodeBuilder {
+            ast: None,
+            metadata: None,
+        }
     }
-    
+
     pub fn with_ast(mut self, ast: PyModule) -> Self {
         self.ast = Some(ast);
         self
@@ -81,5 +87,5 @@ impl PyCodeBuilder {
 #[derive(Debug)]
 pub struct PyCode {
     pub ast: PyModule,
-    pub metadata: PyCodeMetadata
+    pub metadata: PyCodeMetadata,
 }

@@ -1,4 +1,7 @@
-use std::{hash::{Hash, Hasher}, path::{Path, PathBuf}};
+use std::{
+    hash::{Hash, Hasher},
+    path::{Path, PathBuf},
+};
 
 use pylentil_ast::ast::PyStatement;
 
@@ -12,14 +15,14 @@ pub enum LintCategory {
     Complexity,
     Style,
     Formatting,
-    Restriction
+    Restriction,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum LintSeverity {
     Warning,
     Error,
-    Nitpick
+    Nitpick,
 }
 
 pub trait Lint: Send + Sync {
@@ -36,10 +39,13 @@ pub trait Lint: Send + Sync {
     fn check(&mut self, path: &Path, stmt: &PyStatement) -> Vec<LintViolation>;
 
     fn report(&self, violations: &mut Vec<LintViolation>, path: &Path)
-    where 
-        Self: Sized + Clone + 'static
+    where
+        Self: Sized + Clone + 'static,
     {
-        violations.push(LintViolation { path: path.to_path_buf(), check_violated: Box::new(self.clone()) });
+        violations.push(LintViolation {
+            path: path.to_path_buf(),
+            check_violated: Box::new(self.clone()),
+        });
     }
 }
 
@@ -56,5 +62,3 @@ impl Hash for dyn Lint {
         self.code().hash(state);
     }
 }
-
-

@@ -93,7 +93,7 @@ impl Pylentil {
         match statement {
             PyStatement::FunctionDef { .. } => {
                 violations.append(&mut self.check_funcdef(path, statement));
-            },
+            }
             PyStatement::ClassDef { .. } => {}
             PyStatement::Return { .. } => {}
             PyStatement::Delete { .. } => {}

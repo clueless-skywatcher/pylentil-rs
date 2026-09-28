@@ -30,10 +30,7 @@ impl Lint for BareExcept {
     fn check(&mut self, path: &Path, stmt: &PyStatement) -> Vec<LintViolation> {
         let mut violations = vec![];
         match stmt {
-            PyStatement::Try {
-                handlers,
-                ..
-            } => {
+            PyStatement::Try { handlers, .. } => {
                 for handler in handlers {
                     if matches!(
                         handler,
@@ -43,10 +40,7 @@ impl Lint for BareExcept {
                             ..
                         }
                     ) {
-                        self.report(
-                            &mut violations,
-                            path
-                        )
+                        self.report(&mut violations, path)
                     }
                 }
 

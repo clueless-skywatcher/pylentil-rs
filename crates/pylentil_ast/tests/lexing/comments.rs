@@ -49,7 +49,11 @@ fn lex_comments_coding_declaration() {
 fn lex_comments_hash_in_string_not_comment() {
     p_assert_eq!(
         content(&case("lexer/comments.py", "hash_in_string_not_comment")),
-        Ok(vec!["Ident(x)".into(), "Assign".into(), "String(# not a comment)".into()])
+        Ok(vec![
+            "Ident(x)".into(),
+            "Assign".into(),
+            "String(# not a comment)".into()
+        ])
     );
 }
 

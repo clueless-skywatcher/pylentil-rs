@@ -90,7 +90,10 @@ fn string_token_value_excludes_the_quotes() {
 
 #[test]
 fn number_token_values_are_the_source_text() {
-    p_assert_eq!(content("1 2.5"), Ok(vec!["Int(1)".into(), "Float(2.5)".into()]));
+    p_assert_eq!(
+        content("1 2.5"),
+        Ok(vec!["Int(1)".into(), "Float(2.5)".into()])
+    );
 }
 
 #[test]

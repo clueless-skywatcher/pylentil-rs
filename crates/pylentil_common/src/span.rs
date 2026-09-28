@@ -8,11 +8,17 @@ pub struct PySpan {
 
 impl PySpan {
     pub fn location(pos: usize) -> Self {
-        PySpan { start: pos, end: None }
+        PySpan {
+            start: pos,
+            end: None,
+        }
     }
 
     pub fn span(start: usize, end: usize) -> Self {
-        PySpan { start, end: Some(end) }
+        PySpan {
+            start,
+            end: Some(end),
+        }
     }
 
     /// Where the span stops; a location stops where it starts.

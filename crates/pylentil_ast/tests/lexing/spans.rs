@@ -1,7 +1,7 @@
 //! Token positions. `==` on tokens ignores spans, so these compare offsets.
 
 use super::*;
-use pylentil_ast::PyTokenType::{self, Assign, Dedent, Ident, Indent, Int, EOF};
+use pylentil_ast::PyTokenType::{self, Assign, Dedent, EOF, Ident, Indent, Int};
 
 /// `(kind, start, end)` for every token except whitespace.
 fn spans(code: &str) -> Vec<(PyTokenType, usize, Option<usize>)> {

@@ -42,17 +42,26 @@ fn lex_numbers_float_leading_dot() {
 
 #[test]
 fn lex_numbers_underscore_separated() {
-    p_assert_eq!(tokens("underscore_separated"), Ok(vec!["Int(1_000_000)".into()]));
+    p_assert_eq!(
+        tokens("underscore_separated"),
+        Ok(vec!["Int(1_000_000)".into()])
+    );
 }
 
 #[test]
 fn lex_numbers_hexadecimal() {
-    p_assert_eq!(tokens("hexadecimal"), Ok(vec!["Hexadecimal(deadbeef)".into()]));
+    p_assert_eq!(
+        tokens("hexadecimal"),
+        Ok(vec!["Hexadecimal(deadbeef)".into()])
+    );
 }
 
 #[test]
 fn lex_numbers_hexadecimal_lowercase() {
-    p_assert_eq!(tokens("hexadecimal_lowercase"), Ok(vec!["Hexadecimal(1f)".into()]));
+    p_assert_eq!(
+        tokens("hexadecimal_lowercase"),
+        Ok(vec!["Hexadecimal(1f)".into()])
+    );
 }
 
 #[test]
@@ -72,12 +81,18 @@ fn lex_numbers_exponent() {
 
 #[test]
 fn lex_numbers_exponent_capital() {
-    p_assert_eq!(tokens("exponent_capital"), Ok(vec!["ENotation(1E10)".into()]));
+    p_assert_eq!(
+        tokens("exponent_capital"),
+        Ok(vec!["ENotation(1E10)".into()])
+    );
 }
 
 #[test]
 fn lex_numbers_negative_exponent() {
-    p_assert_eq!(tokens("negative_exponent"), Ok(vec!["ENotation(1.5e-3)".into()]));
+    p_assert_eq!(
+        tokens("negative_exponent"),
+        Ok(vec!["ENotation(1.5e-3)".into()])
+    );
 }
 
 #[test]
@@ -98,5 +113,8 @@ fn lex_numbers_malformed_two_dots() {
 #[test]
 fn lex_numbers_number_touching_identifier() {
     // Python tokenises `1if` as 1 then `if`.
-    p_assert_eq!(tokens("number_touching_identifier"), Ok(vec!["Int(1)".into(), "If".into()]));
+    p_assert_eq!(
+        tokens("number_touching_identifier"),
+        Ok(vec!["Int(1)".into(), "If".into()])
+    );
 }

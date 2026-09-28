@@ -46,7 +46,10 @@ pub fn cases(rel: &str) -> Vec<Case> {
         match line.strip_prefix("# case:") {
             Some(name) => {
                 if let Some((name, body)) = current.take() {
-                    out.push(Case { name, code: trim_blank_edges(&body) });
+                    out.push(Case {
+                        name,
+                        code: trim_blank_edges(&body),
+                    });
                 }
                 current = Some((name.trim().to_string(), String::new()));
             }
@@ -59,10 +62,16 @@ pub fn cases(rel: &str) -> Vec<Case> {
         }
     }
     if let Some((name, body)) = current.take() {
-        out.push(Case { name, code: trim_blank_edges(&body) });
+        out.push(Case {
+            name,
+            code: trim_blank_edges(&body),
+        });
     }
 
-    assert!(!out.is_empty(), "fixture {rel} contains no `# case:` blocks");
+    assert!(
+        !out.is_empty(),
+        "fixture {rel} contains no `# case:` blocks"
+    );
     out
 }
 
@@ -74,7 +83,10 @@ pub fn case(rel: &str, name: &str) -> String {
         Some(c) => c.code.clone(),
         None => panic!(
             "fixture {rel} has no case `{name}`; it has: {}",
-            all.iter().map(|c| c.name.as_str()).collect::<Vec<_>>().join(", ")
+            all.iter()
+                .map(|c| c.name.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
         ),
     }
 }
@@ -82,7 +94,11 @@ pub fn case(rel: &str, name: &str) -> String {
 fn trim_blank_edges(body: &str) -> String {
     let lines: Vec<&str> = body.lines().collect();
     let start = lines.iter().position(|l| !l.trim().is_empty()).unwrap_or(0);
-    let end = lines.iter().rposition(|l| !l.trim().is_empty()).map(|i| i + 1).unwrap_or(0);
+    let end = lines
+        .iter()
+        .rposition(|l| !l.trim().is_empty())
+        .map(|i| i + 1)
+        .unwrap_or(0);
     let mut out = lines[start..end].join("\n");
     out.push('\n');
     out

@@ -7,8 +7,8 @@ macro_rules! p_assert_eq {
     ($($t:tt)*) => { pretty_assertions::assert_eq!($($t)*) };
 }
 
-use common::{case, content, count_kind, kinds, lex_outcome, Outcome};
-use pylentil_ast::PyTokenType::{Assign, Dedent, Ident, Indent, Int, Newline, EOF};
+use common::{Outcome, case, content, count_kind, kinds, lex_outcome};
+use pylentil_ast::PyTokenType::{Assign, Dedent, EOF, Ident, Indent, Int, Newline};
 use pylentil_common::errors::PylentilError;
 
 trait OutcomeExt {
@@ -58,12 +58,12 @@ fn assert_lex_no_panic(fixture: &str, name: &str) {
 }
 
 mod basics;
-mod numbers;
-mod strings;
-mod operators;
-mod identifiers;
 mod comments;
+mod identifiers;
 mod indentation;
-mod whitespace;
+mod numbers;
+mod operators;
 mod robustness;
 mod spans;
+mod strings;
+mod whitespace;

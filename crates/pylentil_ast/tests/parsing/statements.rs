@@ -91,10 +91,7 @@ fn parse_statements_function_annotated() {
 
 #[test]
 fn parse_statements_class_definition() {
-    p_assert_eq!(
-        stmt(F, "class_definition"),
-        class_def("C", vec![pass()])
-    );
+    p_assert_eq!(stmt(F, "class_definition"), class_def("C", vec![pass()]));
 }
 
 #[test]

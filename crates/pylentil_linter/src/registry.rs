@@ -5,7 +5,10 @@ use std::{
 
 use pylentil_common::errors::PylentilError;
 
-use crate::{lint::Lint, rules::{pycodestyle, pylint}};
+use crate::{
+    lint::Lint,
+    rules::{pycodestyle, pylint},
+};
 
 pub struct LintRegistry {
     registry: HashMap<&'static str, Arc<dyn Lint>>,
@@ -16,7 +19,6 @@ impl LintRegistry {
         let all: Vec<Arc<dyn Lint>> = vec![
             // Pycodestyle
             Arc::new(pycodestyle::bare_except::BareExcept),
-
             // Pylint
             Arc::new(pylint::useless_return::UselessReturn),
         ];

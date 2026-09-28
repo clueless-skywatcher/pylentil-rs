@@ -251,7 +251,10 @@ impl<'a> PyLexer<'a> {
     }
 
     fn carries_code(code: &str, pos: usize) -> bool {
-        !matches!(Self::peek(code, pos), Err(_) | Ok(b'\n') | Ok(b'\r') | Ok(b'#'))
+        !matches!(
+            Self::peek(code, pos),
+            Err(_) | Ok(b'\n') | Ok(b'\r') | Ok(b'#')
+        )
     }
 
     fn is_line_break(code: &str, pos: usize) -> bool {

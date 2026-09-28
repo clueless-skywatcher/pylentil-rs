@@ -115,7 +115,7 @@ pub enum PyTokenType {
 pub struct PyToken<'a> {
     pub kind: PyTokenType,
     pub value: Option<Cow<'a, str>>,
-    pub span: PySpan
+    pub span: PySpan,
 }
 
 impl<'a> std::fmt::Display for PyToken<'a> {
