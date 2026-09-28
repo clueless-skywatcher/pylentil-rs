@@ -1,5 +1,4 @@
 use core::fmt;
-use std::{ffi::os_str::Display, fmt::write};
 
 /// Byte offsets into the source. `end` is exclusive, and `None` marks a
 /// zero-width location such as a dedent or the end of the file.

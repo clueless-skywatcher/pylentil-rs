@@ -1,6 +1,6 @@
 use std::{fs, path::PathBuf};
 
-use pylentil_ast::{PyLexer, parser::PyParser};
+use pylentil_ast::{parser::PyParser};
 use pylentil_common::errors::PylentilError;
 use pylentil_linter::lint_config::PylentilBuilder;
 

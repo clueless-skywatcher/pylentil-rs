@@ -1,6 +1,6 @@
 use std::{
     hash::{Hash, Hasher},
-    path::{Path, PathBuf},
+    path::{Path},
 };
 
 use pylentil_ast::ast::PyStatement;

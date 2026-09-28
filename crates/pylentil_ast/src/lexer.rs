@@ -1,5 +1,5 @@
 use std::collections::HashSet;
-use std::{borrow::Cow, ops::Index};
+use std::{borrow::Cow};
 
 use pylentil_common::errors::PylentilError;
 use pylentil_common::span::PySpan;

@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use pylentil_common::errors::PylentilError;
 
 use crate::{
-    PyToken, PyTokenType,
+    PyTokenType,
     ast::{
         PyAlias, PyArg, PyArguments, PyExceptHandler, PyExpr, PyKeyword, PyRefContext, PyStatement,
     },

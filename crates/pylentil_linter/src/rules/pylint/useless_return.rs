@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::{Path};
 
 use pylentil_ast::ast::{PyConstant, PyExpr, PyStatement};
 
@@ -44,7 +44,6 @@ impl Lint for UselessReturn {
                                     **value,
                                     PyExpr::Constant {
                                         value: PyConstant::None,
-                                        span,
                                         ..
                                     }
                                 ) {

@@ -10,7 +10,7 @@ use crate::{
     lint::Lint,
     registry::LintRegistry,
     rules::{pycodestyle::bare_except::BareExcept, pylint::useless_return::UselessReturn},
-    violation::{self, LintViolation},
+    violation::{LintViolation},
 };
 
 pub struct PylentilBuilder {
