@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use pylentil_common::errors::PylentilError;
 
 use crate::{
@@ -12,14 +14,16 @@ use crate::{
 pub struct PyParser<'a> {
     pub tokens: Vec<PyToken<'a>>,
     code: &'a str,
+    path: PathBuf,
     pos: usize,
 }
 
 impl<'a> PyParser<'a> {
-    pub fn new(contents: &'a str) -> Result<Self, PylentilError> {
+    pub fn new(contents: &'a str, path: PathBuf) -> Result<Self, PylentilError> {
         match PyLexer::from_code(&contents) {
             Ok(lexer) => Ok(PyParser {
                 code: contents,
+                path,
                 tokens: Self::remove_whitespaces(lexer.tokens),
                 pos: 0usize,
             }),
@@ -156,6 +160,7 @@ impl<'a> PyParser<'a> {
 
         Ok(metadata
             .add_raw_lines(&mut code_lines)
+            .set_path(self.path.clone())
             .build()?)
     }
 }

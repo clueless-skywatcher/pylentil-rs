@@ -9,6 +9,5 @@ path = "src/main.rs"
 
 [dependencies]
 pylentil_ast = { workspace = true }
-pylentil_rules = { workspace = true }
 pylentil_common = { workspace = true }
 pylentil_linter = { workspace = true }

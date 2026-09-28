@@ -1,7 +1,8 @@
-use std::fs;
+use std::{fs, path::PathBuf};
 
 use pylentil_ast::{PyLexer, parser::PyParser};
 use pylentil_common::errors::PylentilError;
+use pylentil_linter::lint_config::PylentilBuilder;
 
 const SOURCE: &str = "fixtures/somefile.py";
 
@@ -11,9 +12,13 @@ fn main() -> Result<(), PylentilError> {
         reason: e.to_string(),
     })?;
 
-    let mut parser = PyParser::new(&contents)?;
+    let mut parser = PyParser::new(&contents, PathBuf::from(SOURCE))?;
+    let lint = PylentilBuilder::new()
+        .with_lint("PYC-E722".to_string())
+        .with_path(PathBuf::from(SOURCE))
+        .build()?;
 
-    println!("{:#?}", parser.parse());
+    lint.get_violation_report(&parser.parse()?);
 
     Ok(())
 }

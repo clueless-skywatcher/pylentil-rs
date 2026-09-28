@@ -1,12 +1,11 @@
 use std::{
     collections::HashMap,
-    os::linux::raw::stat,
     sync::{Arc, OnceLock},
 };
 
 use pylentil_common::errors::PylentilError;
 
-use crate::{lint::Lint, pycodestyle::bare_except::BareExcept};
+use crate::{lint::Lint, rules::{pycodestyle, pylint}};
 
 pub struct LintRegistry {
     registry: HashMap<String, Arc<dyn Lint>>,
@@ -14,7 +13,13 @@ pub struct LintRegistry {
 
 impl LintRegistry {
     fn build() -> Self {
-        let all: Vec<Arc<dyn Lint>> = vec![Arc::new(BareExcept)];
+        let all: Vec<Arc<dyn Lint>> = vec![
+            // Pycodestyle
+            Arc::new(pycodestyle::bare_except::BareExcept),
+
+            // Pylint
+            Arc::new(pylint::useless_return::UselessReturn),
+        ];
 
         let mut registry = HashMap::with_capacity(all.len());
 
@@ -31,6 +36,10 @@ impl LintRegistry {
             .get(&code)
             .cloned()
             .ok_or_else(|| PylentilError::InvalidLintCode { code })
+    }
+
+    pub fn contains_lint(&self, lint: Arc<dyn Lint>) -> bool {
+        self.registry.values().collect::<Vec<_>>().contains(&&lint)
     }
 
     pub fn get_instance() -> &'static LintRegistry {

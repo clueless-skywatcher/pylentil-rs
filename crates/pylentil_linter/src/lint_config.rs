@@ -3,7 +3,7 @@ use std::{collections::HashSet, fs::File, path::PathBuf, sync::Arc};
 use pylentil_ast::{ast::{PyModule, PyStatement}, code::PyCode};
 use pylentil_common::errors::PylentilError;
 
-use crate::{lint::Lint, registry::LintRegistry, violation::LintViolation};
+use crate::{lint::Lint, registry::LintRegistry, rules::{pycodestyle::bare_except::BareExcept, pylint::useless_return::UselessReturn}, violation::{self, LintViolation}};
 
 pub struct PylentilBuilder {
     paths: HashSet<PathBuf>,
@@ -28,7 +28,7 @@ impl PylentilBuilder {
         self
     }
 
-    pub fn build(self) -> Result<Pylentil, PylentilError> {
+    pub fn build(&self) -> Result<Pylentil, PylentilError> {
         let mut lints: HashSet<Arc<dyn Lint>> = HashSet::new();
         let mut paths: Vec<File> = vec![];
 
@@ -37,7 +37,7 @@ impl PylentilBuilder {
             lints.insert(lint);
         }
 
-        for path in self.paths {
+        for path in self.paths.iter() {
             match File::open(path.clone()) {
                 Ok(file) => paths.push(file),
                 Err(_) => {
@@ -60,106 +60,70 @@ pub struct Pylentil {
 
 impl Pylentil {
     pub fn check(&self, code: &PyCode) -> Vec<LintViolation> {
-        self.check_ast(&code.ast)
+        let mut violations = vec![];
+        violations.append(&mut self.check_ast(&code.metadata.path, &code.ast));
+        violations
     }
 
-    fn check_ast(&self, ast: &PyModule) -> Vec<LintViolation> {
+    fn check_ast(&self, path: &PathBuf, ast: &PyModule) -> Vec<LintViolation> {
+        let mut violations = vec![];
+
         for statement in ast.body.iter() {
             match statement {
-                PyStatement::FunctionDef {
-                    name,
-                    args,
-                    body,
-                    decorator_list,
-                    returns,
-                    type_comment,
-                    type_params,
-                    is_async,
-                } => todo!(),
-                PyStatement::ClassDef {
-                    name,
-                    bases,
-                    keywords,
-                    body,
-                    decorator_list,
-                    type_params,
-                } => todo!(),
-                PyStatement::Return { value } => todo!(),
-                PyStatement::Delete { targets } => todo!(),
-                PyStatement::Assign {
-                    targets,
-                    value,
-                    type_comment,
-                } => todo!(),
-                PyStatement::TypeAlias {
-                    name,
-                    type_params,
-                    value,
-                } => todo!(),
-                PyStatement::AugAssign { target, op, value } => todo!(),
-                PyStatement::AnnAssign {
-                    target,
-                    annotation,
-                    value,
-                    simple,
-                } => todo!(),
-                PyStatement::For {
-                    target,
-                    iter,
-                    body,
-                    orelse,
-                    type_comment,
-                } => todo!(),
-                PyStatement::AsyncFor {
-                    target,
-                    iter,
-                    body,
-                    orelse,
-                    type_comment,
-                } => todo!(),
-                PyStatement::While { test, body, orelse } => todo!(),
-                PyStatement::If { test, body, orelse } => todo!(),
-                PyStatement::With {
-                    items,
-                    body,
-                    type_comment,
-                } => todo!(),
-                PyStatement::AsyncWith {
-                    items,
-                    body,
-                    type_comment,
-                } => todo!(),
-                PyStatement::Match { subject, cases } => todo!(),
-                PyStatement::Raise { exc, cause } => todo!(),
-                PyStatement::Try {
-                    body,
-                    handlers,
-                    orelse,
-                    finalbody,
-                } => {
+                PyStatement::FunctionDef { .. } => {
+                    if self.rule_enabled(&UselessReturn) {
+                        violations.append(&mut UselessReturn.check(path, statement));
+                    }
                 },
-                PyStatement::TryStar {
-                    body,
-                    handlers,
-                    orelse,
-                    finalbody,
-                } => todo!(),
-                PyStatement::Assert { test, msg } => todo!(),
-                PyStatement::Import { names } => todo!(),
-                PyStatement::ImportFrom {
-                    module,
-                    names,
-                    level,
-                } => todo!(),
-                PyStatement::Global { names } => todo!(),
-                PyStatement::Nonlocal { names } => todo!(),
-                PyStatement::Expr { value } => todo!(),
+                PyStatement::ClassDef { .. } => todo!(),
+                PyStatement::Return { .. } => todo!(),
+                PyStatement::Delete { .. } => todo!(),
+                PyStatement::Assign { .. } => todo!(),
+                PyStatement::TypeAlias { .. } => todo!(),
+                PyStatement::AugAssign { .. } => todo!(),
+                PyStatement::AnnAssign { .. } => todo!(),
+                PyStatement::For { .. } => todo!(),
+                PyStatement::AsyncFor { .. } => todo!(),
+                PyStatement::While { .. } => todo!(),
+                PyStatement::If { .. } => todo!(),
+                PyStatement::With { .. } => todo!(),
+                PyStatement::AsyncWith { .. } => todo!(),
+                PyStatement::Match { .. } => todo!(),
+                PyStatement::Raise { .. } => todo!(),
+                PyStatement::Try { .. } => {
+                    if self.rule_enabled(&BareExcept) {
+                        violations.append(&mut BareExcept.check(path, statement));
+                    }
+                },
+                PyStatement::TryStar { .. } => todo!(),
+                PyStatement::Assert { .. } => todo!(),
+                PyStatement::Import { .. } => todo!(),
+                PyStatement::ImportFrom { .. } => todo!(),
+                PyStatement::Global { .. } => todo!(),
+                PyStatement::Nonlocal { .. } => todo!(),
+                PyStatement::Expr { .. } => todo!(),
                 PyStatement::Pass => todo!(),
                 PyStatement::Break => todo!(),
                 PyStatement::Continue => todo!(),
             }
         }
 
-        vec![]
+        violations
     }
+
+    fn rule_enabled(&self, lint: &(dyn Lint + 'static)) -> bool {
+        self.lints.contains(lint)
+    }
+
+    pub fn get_violation_report(&self, code: &PyCode) {
+        println!("--------------------------------------------------------------------");
+        println!("{:^68}", code.metadata.path.display());
+        println!("--------------------------------------------------------------------");
+        let violations = self.check(code);
+        for LintViolation { path, check_violated } in violations {
+            println!("{} - {}: {}", path.to_str().unwrap(), check_violated.code(), check_violated.message());
+            println!("\tPossible fix: {}", check_violated.possible_fix().unwrap_or("None".to_string()));
+        }
+    } 
+
 }

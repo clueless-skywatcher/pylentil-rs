@@ -136,7 +136,7 @@ pub fn count_kind(code: &str, kind: PyTokenType) -> Result<usize, PylentilError>
 // ----------------------------------------------------------------- parsing --
 
 pub fn parse_module(code: &str) -> Result<PyModule, PylentilError> {
-    let mut parser = PyParser::new(code)?;
+    let mut parser = PyParser::new(code, PathBuf::from("<test>"))?;
     Ok(parser.parse()?.ast)
 }
 

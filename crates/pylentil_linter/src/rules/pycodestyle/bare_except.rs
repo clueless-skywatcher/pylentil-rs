@@ -1,10 +1,14 @@
+use std::path::{Path, PathBuf};
+
 use pylentil_ast::ast::{PyExceptHandler, PyStatement};
-use pylentil_linter::{
+
+use crate::{
     lint::{Lint, LintCategory, LintSeverity},
     violation::LintViolation,
 };
 
-pub struct BareExcept {}
+#[derive(Clone)]
+pub struct BareExcept;
 
 impl Lint for BareExcept {
     fn code(&self) -> String {
@@ -19,7 +23,11 @@ impl Lint for BareExcept {
         "Bare except is a catch-all for all exceptions, which can cause problems in debugging and handling special cases.".to_string()
     }
 
-    fn check(&mut self, stmt: PyStatement) -> Vec<LintViolation> {
+    fn possible_fix(&self) -> Option<String> {
+        Some("Specify the type of exception to catch".to_string())
+    }
+
+    fn check(&mut self, path: &Path, stmt: &PyStatement) -> Vec<LintViolation> {
         let mut violations = vec![];
         match stmt {
             PyStatement::Try {
@@ -37,9 +45,7 @@ impl Lint for BareExcept {
                     ) {
                         self.report(
                             &mut violations,
-                            LintViolation {
-                                check_violated: Box::new(Self {}),
-                            },
+                            path
                         )
                     }
                 }

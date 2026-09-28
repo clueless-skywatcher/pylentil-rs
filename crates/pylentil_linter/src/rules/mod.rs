@@ -1,3 +1,2 @@
 pub mod pycodestyle;
-
-pub mod registry;
+pub mod pylint;

@@ -1,14 +1,17 @@
+use std::path::{Path, PathBuf};
+
 use pylentil_common::errors::PylentilError;
 
 use crate::ast::PyModule;
 
 pub struct PyCodeMetadataBuilder {
-    raw_lines: Vec<String>
+    raw_lines: Vec<String>,
+    path: Option<PathBuf>
 }
 
 impl PyCodeMetadataBuilder {
     pub fn new() -> Self {
-        PyCodeMetadataBuilder { raw_lines: vec![] }
+        PyCodeMetadataBuilder { raw_lines: vec![], path: None }
     }
 
     pub fn add_raw_line(mut self, line: String) -> Self {
@@ -21,20 +24,30 @@ impl PyCodeMetadataBuilder {
         self
     }
 
+    pub fn set_path(mut self, path: PathBuf) -> Self {
+        self.path = Some(path);
+        self
+    }
+
     pub fn build(self) -> Result<PyCodeMetadata, PylentilError> {
+        if self.path.is_none() {
+            return Err(PylentilError::EmptyFile);
+        }
         if self.raw_lines.len() == 0 {
             return Err(PylentilError::EmptyFile);
         }
 
         Ok(PyCodeMetadata {
-            raw_lines: self.raw_lines
+            raw_lines: self.raw_lines,
+            path: self.path.unwrap()
         })
     }
 }
 
 #[derive(Debug)]
 pub struct PyCodeMetadata {
-    raw_lines: Vec<String>
+    pub raw_lines: Vec<String>,
+    pub path: PathBuf
 }
 
 pub struct PyCodeBuilder {
