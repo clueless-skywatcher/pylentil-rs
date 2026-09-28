@@ -3,8 +3,5 @@ def x():
     try:
         x
     except:
-        try:
-            y
-        except:
-            z
+        y
     return

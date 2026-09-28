@@ -185,11 +185,13 @@ impl Pylentil {
         for LintViolation {
             path,
             check_violated,
+            span
         } in violations
         {
             println!(
-                "{} - {}: {}",
+                "{}({}) - {}: {}",
                 path.to_str().unwrap(),
+                span,
                 check_violated.code(),
                 check_violated.message()
             );

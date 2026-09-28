@@ -32,15 +32,14 @@ impl Lint for BareExcept {
         match stmt {
             PyStatement::Try { handlers, .. } => {
                 for handler in handlers {
-                    if matches!(
-                        handler,
+                    match handler {
                         PyExceptHandler {
                             type_: None,
                             name: None,
+                            span,
                             ..
-                        }
-                    ) {
-                        self.report(&mut violations, path)
+                        } => self.report(&mut violations, path, span),
+                        _ => {}
                     }
                 }
 

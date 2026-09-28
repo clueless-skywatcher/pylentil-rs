@@ -38,19 +38,20 @@ impl Lint for UselessReturn {
             PyStatement::FunctionDef { body, .. } => {
                 if body.len() > 1 {
                     match body.last().unwrap() {
-                        PyStatement::Return { value, .. } => match value {
+                        PyStatement::Return { value, span, .. } => match value {
                             Some(value) => {
                                 if matches!(
                                     **value,
                                     PyExpr::Constant {
                                         value: PyConstant::None,
+                                        span,
                                         ..
                                     }
                                 ) {
-                                    self.report(&mut violations, path);
+                                    self.report(&mut violations, path, span);
                                 }
                             }
-                            None => self.report(&mut violations, path),
+                            None => self.report(&mut violations, path, span),
                         },
                         _ => {}
                     }

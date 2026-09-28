@@ -4,6 +4,7 @@ use std::{
 };
 
 use pylentil_ast::ast::PyStatement;
+use pylentil_common::span::PySpan;
 
 use crate::violation::LintViolation;
 
@@ -38,13 +39,14 @@ pub trait Lint: Send + Sync {
 
     fn check(&mut self, path: &Path, stmt: &PyStatement) -> Vec<LintViolation>;
 
-    fn report(&self, violations: &mut Vec<LintViolation>, path: &Path)
+    fn report(&self, violations: &mut Vec<LintViolation>, path: &Path, span: &PySpan)
     where
         Self: Sized + Clone + 'static,
     {
         violations.push(LintViolation {
             path: path.to_path_buf(),
             check_violated: Box::new(self.clone()),
+            span: *span
         });
     }
 }

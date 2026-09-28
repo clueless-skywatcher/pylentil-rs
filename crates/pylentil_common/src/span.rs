@@ -1,3 +1,6 @@
+use core::fmt;
+use std::{ffi::os_str::Display, fmt::write};
+
 /// Byte offsets into the source. `end` is exclusive, and `None` marks a
 /// zero-width location such as a dedent or the end of the file.
 #[derive(Debug, Clone, Copy, Default)]
@@ -34,3 +37,12 @@ impl PartialEq for PySpan {
 }
 
 impl Eq for PySpan {}
+
+impl fmt::Display for PySpan {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.end {
+            Some(end) => write!(f, "{}:{}", self.start, end),
+            None => write!(f, "{}", self.start)
+        }
+    }
+}
