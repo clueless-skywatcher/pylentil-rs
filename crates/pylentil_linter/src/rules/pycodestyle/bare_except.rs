@@ -11,8 +11,8 @@ use crate::{
 pub struct BareExcept;
 
 impl Lint for BareExcept {
-    fn code(&self) -> String {
-        "PYC-E722".to_string()
+    fn code(&self) -> &'static str {
+        "PYC-E722"
     }
 
     fn category(&self) -> LintCategory {

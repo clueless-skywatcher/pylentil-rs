@@ -5,7 +5,7 @@ const F: &str = "parser/functions.py";
 fn parse_functions_no_args() {
     p_assert_eq!(
         stmt(F, "no_args"),
-        function_def("f", PyArguments::default(), vec![PyStatement::Pass])
+        function_def("f", PyArguments::default(), vec![pass()])
     );
 }
 
@@ -19,7 +19,7 @@ fn parse_functions_one_arg() {
                 args: vec![arg("a")],
                 ..Default::default()
             },
-            vec![PyStatement::Pass]
+            vec![pass()]
         )
     );
 }
@@ -34,7 +34,7 @@ fn parse_functions_two_args() {
                 args: vec![arg("a"), arg("b")],
                 ..Default::default()
             },
-            vec![PyStatement::Pass]
+            vec![pass()]
         )
     );
 }
@@ -49,7 +49,7 @@ fn parse_functions_trailing_comma() {
                 args: vec![arg("a"), arg("b")],
                 ..Default::default()
             },
-            vec![PyStatement::Pass]
+            vec![pass()]
         )
     );
 }
@@ -65,7 +65,7 @@ fn parse_functions_default_arg() {
                 defaults: vec![Some(int(1))],
                 ..Default::default()
             },
-            vec![PyStatement::Pass]
+            vec![pass()]
         )
     );
 }
@@ -81,7 +81,7 @@ fn parse_functions_defaults_mixed() {
                 defaults: vec![Some(int(1)), Some(int(2))],
                 ..Default::default()
             },
-            vec![PyStatement::Pass]
+            vec![pass()]
         )
     );
 }
@@ -97,7 +97,7 @@ fn parse_functions_default_expression() {
                 defaults: vec![Some(bin_op(int(1), PyBinaryOp::Add, int(2)))],
                 ..Default::default()
             },
-            vec![PyStatement::Pass]
+            vec![pass()]
         )
     );
 }
@@ -112,7 +112,7 @@ fn parse_functions_annotated() {
                 args: vec![annotated_arg("a", name("int"))],
                 ..Default::default()
             },
-            vec![PyStatement::Pass]
+            vec![pass()]
         )
     );
 }
@@ -128,7 +128,7 @@ fn parse_functions_annotated_default() {
                 defaults: vec![Some(int(1))],
                 ..Default::default()
             },
-            vec![PyStatement::Pass]
+            vec![pass()]
         )
     );
 }
@@ -143,7 +143,7 @@ fn parse_functions_annotation_expression() {
                 args: vec![annotated_arg("a", subscript(name("list"), name("int")))],
                 ..Default::default()
             },
-            vec![PyStatement::Pass]
+            vec![pass()]
         )
     );
 }
@@ -155,12 +155,13 @@ fn parse_functions_return_annotation() {
         PyStatement::FunctionDef {
             name: "f".into(),
             args: Box::new(PyArguments::default()),
-            body: vec![PyStatement::Pass],
+            body: vec![pass()],
             decorator_list: vec![],
             returns: Some(Box::new(name("int"))),
             type_comment: None,
             type_params: vec![],
-            is_async: false
+            is_async: false,
+            span: PySpan::default(),
         }
     );
 }
@@ -172,12 +173,13 @@ fn parse_functions_return_annotation_expression() {
         PyStatement::FunctionDef {
             name: "f".into(),
             args: Box::new(PyArguments::default()),
-            body: vec![PyStatement::Pass],
+            body: vec![pass()],
             decorator_list: vec![],
             returns: Some(Box::new(subscript(name("list"), name("int")))),
             type_comment: None,
             type_params: vec![],
-            is_async: false
+            is_async: false,
+            span: PySpan::default(),
         }
     );
 }
@@ -192,7 +194,7 @@ fn parse_functions_vararg() {
                 vararg: Some(vararg("args")),
                 ..Default::default()
             },
-            vec![PyStatement::Pass]
+            vec![pass()]
         )
     );
 }
@@ -210,7 +212,7 @@ fn parse_functions_vararg_annotated() {
                 }),
                 ..Default::default()
             },
-            vec![PyStatement::Pass]
+            vec![pass()]
         )
     );
 }
@@ -225,7 +227,7 @@ fn parse_functions_kwarg() {
                 kwarg: Some(arg("kw")),
                 ..Default::default()
             },
-            vec![PyStatement::Pass]
+            vec![pass()]
         )
     );
 }
@@ -242,7 +244,7 @@ fn parse_functions_vararg_and_kwarg() {
                 kwarg: Some(arg("kw")),
                 ..Default::default()
             },
-            vec![PyStatement::Pass]
+            vec![pass()]
         )
     );
 }
@@ -259,7 +261,7 @@ fn parse_functions_kwonly() {
                 kw_defaults: vec![None],
                 ..Default::default()
             },
-            vec![PyStatement::Pass]
+            vec![pass()]
         )
     );
 }
@@ -275,7 +277,7 @@ fn parse_functions_kwonly_default() {
                 kw_defaults: vec![Some(int(1))],
                 ..Default::default()
             },
-            vec![PyStatement::Pass]
+            vec![pass()]
         )
     );
 }
@@ -292,7 +294,7 @@ fn parse_functions_kwonly_after_vararg() {
                 kw_defaults: vec![None, Some(int(2))],
                 ..Default::default()
             },
-            vec![PyStatement::Pass]
+            vec![pass()]
         )
     );
 }
@@ -309,7 +311,7 @@ fn parse_functions_kwonly_then_kwarg() {
                 kwarg: Some(arg("kw")),
                 ..Default::default()
             },
-            vec![PyStatement::Pass]
+            vec![pass()]
         )
     );
 }
@@ -325,7 +327,7 @@ fn parse_functions_posonly() {
                 args: vec![arg("c")],
                 ..Default::default()
             },
-            vec![PyStatement::Pass]
+            vec![pass()]
         )
     );
 }
@@ -340,7 +342,7 @@ fn parse_functions_posonly_only() {
                 posonlyargs: vec![arg("a")],
                 ..Default::default()
             },
-            vec![PyStatement::Pass]
+            vec![pass()]
         )
     );
 }
@@ -357,7 +359,7 @@ fn parse_functions_posonly_with_defaults() {
                 defaults: vec![Some(int(1)), Some(int(2))],
                 ..Default::default()
             },
-            vec![PyStatement::Pass]
+            vec![pass()]
         )
     );
 }
@@ -383,7 +385,8 @@ fn parse_functions_everything() {
             returns: Some(Box::new(name("int"))),
             type_comment: None,
             type_params: vec![],
-            is_async: false
+            is_async: false,
+            span: PySpan::default(),
         }
     );
 }
@@ -405,7 +408,7 @@ fn parse_functions_multi_statement_body() {
 
 #[test]
 fn parse_functions_body_with_return() {
-    // p_assert_eq!(stmt(F, "inline_body"), function_def("f", PyArguments::default(), vec![PyStatement::Pass]));
+    // p_assert_eq!(stmt(F, "inline_body"), function_def("f", PyArguments::default(), vec![pass()]));
     // p_assert_eq!(stmt(F, "inline_body_two_statements"), function_def("f", PyArguments::default(), vec![expr_stmt(name("a")), expr_stmt(name("b"))]));
     // p_assert_eq!(stmt(F, "multi_statement_body"), function_def("f", PyArguments::default(), vec![expr_stmt(name("a")), expr_stmt(name("b"))]));
     p_assert_eq!(
@@ -436,7 +439,7 @@ fn parse_functions_nested_def() {
             vec![function_def(
                 "g",
                 PyArguments::default(),
-                vec![PyStatement::Pass]
+                vec![pass()]
             )]
         )
     );
@@ -447,7 +450,7 @@ fn parse_functions_def_then_statement() {
     p_assert_eq!(
         body(F, "def_then_statement"),
         vec![
-            function_def("f", PyArguments::default(), vec![PyStatement::Pass]),
+            function_def("f", PyArguments::default(), vec![pass()]),
             expr_stmt(name("x"))
         ]
     );
@@ -462,7 +465,7 @@ fn parse_functions_def_in_if() {
             vec![function_def(
                 "f",
                 PyArguments::default(),
-                vec![PyStatement::Pass]
+                vec![pass()]
             )],
             vec![]
         )
@@ -476,12 +479,13 @@ fn parse_functions_decorated() {
         PyStatement::FunctionDef {
             name: "f".into(),
             args: Box::new(PyArguments::default()),
-            body: vec![PyStatement::Pass],
+            body: vec![pass()],
             decorator_list: vec![name("dec")],
             returns: None,
             type_comment: None,
             type_params: vec![],
-            is_async: false
+            is_async: false,
+            span: PySpan::default(),
         }
     );
 }
@@ -493,12 +497,13 @@ fn parse_functions_two_decorators() {
         PyStatement::FunctionDef {
             name: "f".into(),
             args: Box::new(PyArguments::default()),
-            body: vec![PyStatement::Pass],
+            body: vec![pass()],
             decorator_list: vec![name("a"), name("b")],
             returns: None,
             type_comment: None,
             type_params: vec![],
-            is_async: false
+            is_async: false,
+            span: PySpan::default(),
         }
     );
 }
@@ -510,7 +515,7 @@ fn parse_functions_decorator_call() {
         PyStatement::FunctionDef {
             name: "f".into(),
             args: Box::new(PyArguments::default()),
-            body: vec![PyStatement::Pass],
+            body: vec![pass()],
             decorator_list: vec![call(
                 attribute(name("app"), "route"),
                 vec![string("/")],
@@ -519,7 +524,8 @@ fn parse_functions_decorator_call() {
             returns: None,
             type_comment: None,
             type_params: vec![],
-            is_async: false
+            is_async: false,
+            span: PySpan::default(),
         }
     );
 }
@@ -531,12 +537,13 @@ fn parse_functions_async_def() {
         PyStatement::FunctionDef {
             name: "f".into(),
             args: Box::new(PyArguments::default()),
-            body: vec![PyStatement::Pass],
+            body: vec![pass()],
             decorator_list: vec![],
             returns: None,
             type_comment: None,
             type_params: vec![],
-            is_async: true
+            is_async: true,
+            span: PySpan::default(),
         }
     );
 }

@@ -66,3 +66,4 @@ mod comments;
 mod indentation;
 mod whitespace;
 mod robustness;
+mod spans;

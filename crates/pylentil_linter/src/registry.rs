@@ -8,7 +8,7 @@ use pylentil_common::errors::PylentilError;
 use crate::{lint::Lint, rules::{pycodestyle, pylint}};
 
 pub struct LintRegistry {
-    registry: HashMap<String, Arc<dyn Lint>>,
+    registry: HashMap<&'static str, Arc<dyn Lint>>,
 }
 
 impl LintRegistry {
@@ -33,7 +33,7 @@ impl LintRegistry {
 
     pub fn get_lint(&self, code: String) -> Result<Arc<dyn Lint>, PylentilError> {
         self.registry
-            .get(&code)
+            .get(code.as_str())
             .cloned()
             .ok_or_else(|| PylentilError::InvalidLintCode { code })
     }

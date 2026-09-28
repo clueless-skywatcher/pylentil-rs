@@ -3,17 +3,17 @@ const F: &str = "parser/statements.py";
 
 #[test]
 fn parse_statements_pass() {
-    p_assert_eq!(stmt(F, "pass"), PyStatement::Pass);
+    p_assert_eq!(stmt(F, "pass"), pass());
 }
 
 #[test]
 fn parse_statements_break() {
-    p_assert_eq!(stmt(F, "break"), PyStatement::Break);
+    p_assert_eq!(stmt(F, "break"), break_());
 }
 
 #[test]
 fn parse_statements_continue() {
-    p_assert_eq!(stmt(F, "continue"), PyStatement::Continue);
+    p_assert_eq!(stmt(F, "continue"), continue_());
 }
 
 #[test]
@@ -75,7 +75,7 @@ fn parse_statements_function_definition() {
 fn parse_statements_function_no_arguments() {
     p_assert_eq!(
         stmt(F, "function_no_arguments"),
-        function_def("f", PyArguments::default(), vec![PyStatement::Pass])
+        function_def("f", PyArguments::default(), vec![pass()])
     );
 }
 
@@ -93,7 +93,7 @@ fn parse_statements_function_annotated() {
 fn parse_statements_class_definition() {
     p_assert_eq!(
         stmt(F, "class_definition"),
-        class_def("C", vec![PyStatement::Pass])
+        class_def("C", vec![pass()])
     );
 }
 

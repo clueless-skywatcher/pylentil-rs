@@ -1,9 +1,17 @@
 use std::{collections::HashSet, fs::File, path::PathBuf, sync::Arc};
 
-use pylentil_ast::{ast::{PyModule, PyStatement}, code::PyCode};
+use pylentil_ast::{
+    ast::{PyModule, PyStatement},
+    code::PyCode,
+};
 use pylentil_common::errors::PylentilError;
 
-use crate::{lint::Lint, registry::LintRegistry, rules::{pycodestyle::bare_except::BareExcept, pylint::useless_return::UselessReturn}, violation::{self, LintViolation}};
+use crate::{
+    lint::Lint,
+    registry::LintRegistry,
+    rules::{pycodestyle::bare_except::BareExcept, pylint::useless_return::UselessReturn},
+    violation::{self, LintViolation},
+};
 
 pub struct PylentilBuilder {
     paths: HashSet<PathBuf>,
@@ -69,43 +77,7 @@ impl Pylentil {
         let mut violations = vec![];
 
         for statement in ast.body.iter() {
-            match statement {
-                PyStatement::FunctionDef { .. } => {
-                    if self.rule_enabled(&UselessReturn) {
-                        violations.append(&mut UselessReturn.check(path, statement));
-                    }
-                },
-                PyStatement::ClassDef { .. } => todo!(),
-                PyStatement::Return { .. } => todo!(),
-                PyStatement::Delete { .. } => todo!(),
-                PyStatement::Assign { .. } => todo!(),
-                PyStatement::TypeAlias { .. } => todo!(),
-                PyStatement::AugAssign { .. } => todo!(),
-                PyStatement::AnnAssign { .. } => todo!(),
-                PyStatement::For { .. } => todo!(),
-                PyStatement::AsyncFor { .. } => todo!(),
-                PyStatement::While { .. } => todo!(),
-                PyStatement::If { .. } => todo!(),
-                PyStatement::With { .. } => todo!(),
-                PyStatement::AsyncWith { .. } => todo!(),
-                PyStatement::Match { .. } => todo!(),
-                PyStatement::Raise { .. } => todo!(),
-                PyStatement::Try { .. } => {
-                    if self.rule_enabled(&BareExcept) {
-                        violations.append(&mut BareExcept.check(path, statement));
-                    }
-                },
-                PyStatement::TryStar { .. } => todo!(),
-                PyStatement::Assert { .. } => todo!(),
-                PyStatement::Import { .. } => todo!(),
-                PyStatement::ImportFrom { .. } => todo!(),
-                PyStatement::Global { .. } => todo!(),
-                PyStatement::Nonlocal { .. } => todo!(),
-                PyStatement::Expr { .. } => todo!(),
-                PyStatement::Pass => todo!(),
-                PyStatement::Break => todo!(),
-                PyStatement::Continue => todo!(),
-            }
+            violations.append(&mut self.check_statement(path, statement));
         }
 
         violations
@@ -115,15 +87,116 @@ impl Pylentil {
         self.lints.contains(lint)
     }
 
+    fn check_statement(&self, path: &PathBuf, statement: &PyStatement) -> Vec<LintViolation> {
+        let mut violations = vec![];
+
+        match statement {
+            PyStatement::FunctionDef { .. } => {
+                violations.append(&mut self.check_funcdef(path, statement));
+            },
+            PyStatement::ClassDef { .. } => {}
+            PyStatement::Return { .. } => {}
+            PyStatement::Delete { .. } => {}
+            PyStatement::Assign { .. } => {}
+            PyStatement::TypeAlias { .. } => {}
+            PyStatement::AugAssign { .. } => {}
+            PyStatement::AnnAssign { .. } => {}
+            PyStatement::For { .. } => {}
+            PyStatement::AsyncFor { .. } => {}
+            PyStatement::While { .. } => {}
+            PyStatement::If { .. } => {}
+            PyStatement::With { .. } => {}
+            PyStatement::AsyncWith { .. } => {}
+            PyStatement::Match { .. } => {}
+            PyStatement::Raise { .. } => {}
+            PyStatement::Try { .. } => {
+                violations.append(&mut self.check_try(path, statement));
+            }
+            PyStatement::TryStar { .. } => {}
+            PyStatement::Assert { .. } => {}
+            PyStatement::Import { .. } => {}
+            PyStatement::ImportFrom { .. } => {}
+            PyStatement::Global { .. } => {}
+            PyStatement::Nonlocal { .. } => {}
+            PyStatement::Expr { .. } => {}
+            PyStatement::Pass { .. } => {}
+            PyStatement::Break { .. } => {}
+            PyStatement::Continue { .. } => {}
+        }
+
+        violations
+    }
+
+    fn check_body(&self, path: &PathBuf, body: &[PyStatement]) -> Vec<LintViolation> {
+        let mut violations = vec![];
+
+        for statement in body {
+            violations.append(&mut self.check_statement(path, statement));
+        }
+
+        violations
+    }
+
+    fn check_funcdef(&self, path: &PathBuf, funcdef: &PyStatement) -> Vec<LintViolation> {
+        let mut violations = vec![];
+
+        if self.rule_enabled(&UselessReturn) {
+            violations.append(&mut UselessReturn.check(path, &funcdef));
+        }
+
+        if let PyStatement::FunctionDef { body, .. } = &funcdef {
+            violations.append(&mut self.check_body(path, body));
+        }
+
+        violations
+    }
+
+    fn check_try(&self, path: &PathBuf, try_stmt: &PyStatement) -> Vec<LintViolation> {
+        let mut violations = vec![];
+
+        if self.rule_enabled(&BareExcept) {
+            violations.append(&mut BareExcept.check(path, &try_stmt));
+        }
+
+        if let PyStatement::Try {
+            body,
+            handlers,
+            orelse,
+            finalbody,
+            ..
+        } = &try_stmt
+        {
+            violations.append(&mut self.check_body(path, body));
+            for handler in handlers {
+                violations.append(&mut self.check_body(path, &handler.body));
+            }
+            violations.append(&mut self.check_body(path, orelse));
+            violations.append(&mut self.check_body(path, finalbody));
+        }
+
+        violations
+    }
+
     pub fn get_violation_report(&self, code: &PyCode) {
         println!("--------------------------------------------------------------------");
         println!("{:^68}", code.metadata.path.display());
         println!("--------------------------------------------------------------------");
         let violations = self.check(code);
-        for LintViolation { path, check_violated } in violations {
-            println!("{} - {}: {}", path.to_str().unwrap(), check_violated.code(), check_violated.message());
-            println!("\tPossible fix: {}", check_violated.possible_fix().unwrap_or("None".to_string()));
+        for LintViolation {
+            path,
+            check_violated,
+        } in violations
+        {
+            println!(
+                "{} - {}: {}",
+                path.to_str().unwrap(),
+                check_violated.code(),
+                check_violated.message()
+            );
+            println!(
+                "    Possible fix: {}",
+                check_violated.possible_fix().unwrap_or("None".to_string())
+            );
         }
-    } 
-
+    }
 }

@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use pylentil_common::errors::PylentilError;
+use pylentil_common::{errors::PylentilError, span::PySpan};
 
 use crate::{
     PyLexer, PyToken, PyTokenType,
@@ -90,6 +90,33 @@ impl<'a> PyParser<'a> {
         let token = self.peek()?;
         self.pos += 1;
         Ok(token)
+    }
+
+    /// Where the next token starts, for recording the beginning of a node.
+    pub fn start(&self) -> Result<usize, PylentilError> {
+        Ok(self.peek()?.span.start)
+    }
+
+    /// The span from `start` to the end of the last consumed token. Layout
+    /// tokens (newlines, semicolons, indents, dedents) are passed over, so a
+    /// block ends where its last statement does.
+    pub fn span_from(&self, start: usize) -> PySpan {
+        let end = self.tokens[..self.pos]
+            .iter()
+            .rev()
+            .find(|token| {
+                !matches!(
+                    token.kind,
+                    PyTokenType::Newline
+                        | PyTokenType::Semicolon
+                        | PyTokenType::Indent
+                        | PyTokenType::Dedent
+                        | PyTokenType::EOF
+                )
+            })
+            .map_or(start, |token| token.span.end_or_start());
+
+        PySpan::span(start, end.max(start))
     }
 
     pub fn has_tokens(&self) -> bool {

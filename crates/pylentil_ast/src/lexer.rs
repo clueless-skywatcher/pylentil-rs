@@ -2,6 +2,7 @@ use std::collections::HashSet;
 use std::{borrow::Cow, ops::Index};
 
 use pylentil_common::errors::PylentilError;
+use pylentil_common::span::PySpan;
 
 use crate::token::{PyToken, PyTokenType};
 
@@ -150,6 +151,8 @@ impl<'a> PyLexer<'a> {
                 }
             }
 
+            let start = i;
+
             if at_line_start && (byte == b' ' || byte == b'\t') {
                 let value = Self::consume_while(code, &mut i, |b| b == b' ' || b == b'\t');
 
@@ -161,6 +164,7 @@ impl<'a> PyLexer<'a> {
                     tokens.push(PyToken {
                         kind: PyTokenType::Indent,
                         value: Some(Cow::Borrowed(value)),
+                        span: PySpan::span(start, i),
                     });
                 }
 
@@ -174,6 +178,7 @@ impl<'a> PyLexer<'a> {
                     PyToken {
                         kind: PyTokenType::Whitespace,
                         value: None,
+                        span: PySpan::span(start, i),
                     }
                 }
                 b'\n' | b'\r' => {
@@ -187,6 +192,7 @@ impl<'a> PyLexer<'a> {
                     PyToken {
                         kind: PyTokenType::Newline,
                         value: None,
+                        span: PySpan::span(start, i),
                     }
                 }
                 b'\\' if Self::is_line_break(code, i + 1) => {
@@ -195,7 +201,7 @@ impl<'a> PyLexer<'a> {
                     at_line_start = false;
                     continue;
                 }
-                b'\'' | b'"' => Self::lex_string(code, &mut i)?,
+                b'\'' | b'"' => Self::lex_string(code, start, &mut i)?,
                 b'.' if Self::is_digit(code, i + 1) => Self::lex_number(code, &mut i)?,
                 b if b.is_ascii_digit() => Self::lex_number(code, &mut i)?,
                 b if b.is_ascii_alphabetic() || b == b'_' => {
@@ -203,13 +209,18 @@ impl<'a> PyLexer<'a> {
 
                     if is_string_prefix(word) && matches!(Self::peek(code, i), Ok(b'\'') | Ok(b'"'))
                     {
-                        Self::lex_string(code, &mut i)?
+                        Self::lex_string(code, start, &mut i)?
                     } else if let Some(kind) = keyword_type(word) {
-                        PyToken { kind, value: None }
+                        PyToken {
+                            kind,
+                            value: None,
+                            span: PySpan::span(start, i),
+                        }
                     } else {
                         PyToken {
                             kind: PyTokenType::Ident,
                             value: Some(Cow::Borrowed(word)),
+                            span: PySpan::span(start, i),
                         }
                     }
                 }
@@ -233,6 +244,7 @@ impl<'a> PyLexer<'a> {
         tokens.push(PyToken {
             kind: PyTokenType::EOF,
             value: None,
+            span: PySpan::location(code.len()),
         });
 
         PyLexer { code, tokens }.indent_pass()
@@ -256,6 +268,7 @@ impl<'a> PyLexer<'a> {
     }
 
     fn lex_operator(code: &'a str, pos: &mut usize) -> Result<PyToken<'a>, PylentilError> {
+        let start = *pos;
         let rest = &code[*pos..];
 
         let Some((spelling, kind)) = OPERATORS
@@ -271,10 +284,18 @@ impl<'a> PyLexer<'a> {
         Ok(PyToken {
             kind: *kind,
             value: None,
+            span: PySpan::span(start, *pos),
         })
     }
 
-    fn lex_string(code: &'a str, pos: &mut usize) -> Result<PyToken<'a>, PylentilError> {
+    /// Lexes a string whose opening quote is at `pos`. `token_start` is where
+    /// the token begins, which is earlier than `pos` when there is a prefix
+    /// such as `r` or `f`.
+    fn lex_string(
+        code: &'a str,
+        token_start: usize,
+        pos: &mut usize,
+    ) -> Result<PyToken<'a>, PylentilError> {
         let quote = Self::peek(code, *pos)?;
         let marker = if quote == b'"' { "\"\"\"" } else { "'''" };
         let triple = code[*pos..].starts_with(marker);
@@ -324,6 +345,7 @@ impl<'a> PyLexer<'a> {
         Ok(PyToken {
             kind: PyTokenType::String,
             value: Some(Cow::Borrowed(value)),
+            span: PySpan::span(token_start, *pos),
         })
     }
 
@@ -380,6 +402,7 @@ impl<'a> PyLexer<'a> {
         Ok(PyToken {
             kind,
             value: Some(Cow::Borrowed(&code[start..*pos])),
+            span: PySpan::span(start, *pos),
         })
     }
 
@@ -409,6 +432,7 @@ impl<'a> PyLexer<'a> {
         Ok(PyToken {
             kind,
             value: Some(Cow::Owned(value)),
+            span: PySpan::span(start, *pos),
         })
     }
 
@@ -446,7 +470,7 @@ impl<'a> PyLexer<'a> {
                 PyTokenType::Newline => match next.map(|t| t.kind) {
                     Some(PyTokenType::EOF) => {
                         new_tokens.push(token.clone());
-                        Self::dedent(0, &mut indents, &mut new_tokens)?;
+                        Self::dedent(0, tokens[i].span, &mut indents, &mut new_tokens)?;
                         new_tokens.push(tokens[i].clone());
                         break;
                     }
@@ -455,6 +479,7 @@ impl<'a> PyLexer<'a> {
                         i += 1;
                     }
                     Some(PyTokenType::Indent) => {
+                        let indent_span = tokens[i].span;
                         let indent = get_indent_size(tokens[i].value.as_deref().unwrap())?;
                         if indent > *indents.last().unwrap() {
                             indents.push(indent);
@@ -462,12 +487,14 @@ impl<'a> PyLexer<'a> {
                             new_tokens.push(PyToken {
                                 kind: PyTokenType::Indent,
                                 value: Some(Cow::Owned(indent.to_string())),
+                                span: indent_span,
                             });
                         } else if indent == *indents.last().unwrap() {
                             new_tokens.push(token.clone());
                         } else {
                             new_tokens.push(token.clone());
-                            Self::dedent(indent, &mut indents, &mut new_tokens)?;
+                            let at = PySpan::location(indent_span.end_or_start());
+                            Self::dedent(indent, at, &mut indents, &mut new_tokens)?;
                         }
 
                         i += 1;
@@ -477,11 +504,12 @@ impl<'a> PyLexer<'a> {
                     }
                     _ => {
                         new_tokens.push(token.clone());
-                        Self::dedent(0, &mut indents, &mut new_tokens)?;
+                        let at = next.map_or(token.span, |next| PySpan::location(next.span.start));
+                        Self::dedent(0, at, &mut indents, &mut new_tokens)?;
                     }
                 },
                 PyTokenType::EOF => {
-                    Self::dedent(0, &mut indents, &mut new_tokens)?;
+                    Self::dedent(0, token.span, &mut indents, &mut new_tokens)?;
                     new_tokens.push(token.clone());
                 }
                 _ => {
@@ -503,8 +531,11 @@ impl<'a> PyLexer<'a> {
         }
     }
 
+    /// Pops indentation levels down to `indent`, emitting one `Dedent` per
+    /// level, each located at `at`.
     fn dedent(
         indent: usize,
+        at: PySpan,
         indents: &mut Vec<usize>,
         new_tokens: &mut Vec<PyToken>,
     ) -> Result<(), PylentilError> {
@@ -514,6 +545,7 @@ impl<'a> PyLexer<'a> {
             new_tokens.push(PyToken {
                 kind: PyTokenType::Dedent,
                 value: Some(Cow::Owned(val)),
+                span: at,
             });
         }
 

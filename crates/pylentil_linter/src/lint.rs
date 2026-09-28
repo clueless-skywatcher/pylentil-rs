@@ -23,7 +23,7 @@ pub enum LintSeverity {
 }
 
 pub trait Lint: Send + Sync {
-    fn code(&self) -> String;
+    fn code(&self) -> &'static str;
     fn category(&self) -> LintCategory;
     fn message(&self) -> String;
     fn severity(&self) -> LintSeverity;

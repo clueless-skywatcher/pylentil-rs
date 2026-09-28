@@ -1,5 +1,7 @@
 use std::borrow::Cow;
 
+use pylentil_common::span::PySpan;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PyTokenType {
     Indent,
@@ -113,6 +115,7 @@ pub enum PyTokenType {
 pub struct PyToken<'a> {
     pub kind: PyTokenType,
     pub value: Option<Cow<'a, str>>,
+    pub span: PySpan
 }
 
 impl<'a> std::fmt::Display for PyToken<'a> {

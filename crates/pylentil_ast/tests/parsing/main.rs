@@ -12,6 +12,7 @@ use common::{Outcome, case, parse_module, parse_outcome};
 use pylentil_ast::ast::{
     PyArg, PyArguments, PyBinaryOp, PyBoolOp, PyComparisonOp, PyExpr, PyStatement, PyUnaryOp,
 };
+use pylentil_common::span::PySpan;
 
 /// The statements `code` parses to. Fails the test if it does not parse.
 fn parse_body(code: &str) -> Vec<PyStatement> {
@@ -36,7 +37,7 @@ fn parse_stmt(code: &str) -> PyStatement {
 /// The expression in `code`, which must be a single expression statement.
 fn parse_expr(code: &str) -> PyExpr {
     match parse_stmt(code) {
-        PyStatement::Expr { value } => *value,
+        PyStatement::Expr { value, .. } => *value,
         other => panic!(
             "expected an expression in `{}`, got {other:#?}",
             code.trim()
@@ -100,6 +101,7 @@ mod imports;
 mod literals;
 mod modules;
 mod robustness;
+mod spans;
 mod statements;
 mod subscripts;
 mod tuples;

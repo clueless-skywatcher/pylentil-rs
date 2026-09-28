@@ -328,6 +328,7 @@ pub fn parse_statement(parser: &mut PyParser) -> Result<PyStatement, PylentilErr
     match STMT_LU.get(&token_kind) {
         Some(stmt_fn) => Ok(stmt_fn(parser)?),
         None => {
+            let start = parser.start()?;
             let expr = parse_expr(parser, PyBindingPower::Default)?;
 
             Ok(match parser.peek()?.kind {
@@ -344,6 +345,7 @@ pub fn parse_statement(parser: &mut PyParser) -> Result<PyStatement, PylentilErr
                         target: Box::new(as_target(expr)?),
                         op,
                         value: Box::new(value),
+                        span: parser.span_from(start),
                     }
                 }
                 PyTokenType::Colon => {
@@ -373,6 +375,7 @@ pub fn parse_statement(parser: &mut PyParser) -> Result<PyStatement, PylentilErr
                             annotation: Box::new(annotation),
                             value: Some(Box::new(value)),
                             simple: false,
+                            span: parser.span_from(start),
                         }
                     } else {
                         PyStatement::AnnAssign {
@@ -380,12 +383,14 @@ pub fn parse_statement(parser: &mut PyParser) -> Result<PyStatement, PylentilErr
                             annotation: Box::new(annotation),
                             value: None,
                             simple: false,
+                            span: parser.span_from(start),
                         }
                     }
                 }
 
                 _ => PyStatement::Expr {
                     value: Box::new(expr),
+                    span: parser.span_from(start),
                 },
             })
         }
@@ -393,6 +398,7 @@ pub fn parse_statement(parser: &mut PyParser) -> Result<PyStatement, PylentilErr
 }
 
 fn parse_assigns(parser: &mut PyParser, first: PyExpr) -> Result<PyStatement, PylentilError> {
+    let start = first.span().start;
     parser.expect_type(vec![PyTokenType::Assign])?;
 
     let mut targets: Vec<PyExpr> = vec![first];
@@ -429,5 +435,6 @@ fn parse_assigns(parser: &mut PyParser, first: PyExpr) -> Result<PyStatement, Py
         targets,
         value: Box::new(value),
         type_comment: None,
+        span: parser.span_from(start),
     })
 }

@@ -15,6 +15,7 @@ fn main() -> Result<(), PylentilError> {
     let mut parser = PyParser::new(&contents, PathBuf::from(SOURCE))?;
     let lint = PylentilBuilder::new()
         .with_lint("PYC-E722".to_string())
+        .with_lint("PYL-R1711".to_string())
         .with_path(PathBuf::from(SOURCE))
         .build()?;
 

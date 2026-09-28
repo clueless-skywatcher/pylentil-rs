@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use pylentil_ast::ast::PyStatement;
+use pylentil_ast::ast::{PyConstant, PyExpr, PyStatement};
 
 use crate::{lint::{Lint, LintCategory, LintSeverity}, violation::LintViolation};
 
@@ -8,8 +8,8 @@ use crate::{lint::{Lint, LintCategory, LintSeverity}, violation::LintViolation};
 pub struct UselessReturn;
 
 impl Lint for UselessReturn {
-    fn code(&self) -> String {
-        "PYL-R1711".to_string()
+    fn code(&self) -> &'static str {
+        "PYL-R1711"
     }
 
     fn category(&self) -> crate::lint::LintCategory {
@@ -29,12 +29,28 @@ impl Lint for UselessReturn {
     }
 
     fn check(&mut self, path: &Path, stmt: &PyStatement) -> Vec<LintViolation> {
+        let mut violations: Vec<LintViolation> = vec![];
+        
         match stmt {
-            PyStatement::FunctionDef { body, returns, .. } => {
-                
+            PyStatement::FunctionDef { body, .. } => {
+                if body.len() > 1 {
+                    match body.last().unwrap() {
+                        PyStatement::Return { value, .. } => {
+                            match value {
+                                Some(value) => {
+                                    if matches!(**value, PyExpr::Constant { value: PyConstant::None, .. }) {
+                                        self.report(&mut violations, path);
+                                    }
+                                }
+                                None => self.report(&mut violations, path),
+                            }
+                        }, 
+                        _ => {}
+                    }
+                }
             },
             _ => {}
         }
-        vec![]
+        violations
     }
 }
