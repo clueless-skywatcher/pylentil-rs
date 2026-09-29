@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use pylentil_common::errors::PylentilError;
+use pylentil_common::{errors::PylentilError, span::PySpan};
 
 use crate::{
     PyTokenType,
@@ -552,4 +552,24 @@ fn parse_except_handlers(parser: &mut PyParser) -> Result<Vec<PyExceptHandler>, 
     }
 
     Ok(handlers)
+}
+
+pub(super) fn parse_stmt_raise(parser: &mut PyParser) -> Result<PyStatement, PylentilError> {
+    let start = parser.start()?;
+    parser.expect_type(vec![PyTokenType::Raise])?;
+
+    let error = parse_expr(parser, PyBindingPower::Default)?;
+
+    let mut cause = None;
+
+    if parser.peek()?.kind == PyTokenType::From {
+        parser.consume()?;
+        cause = Some(Box::new(parse_expr(parser, PyBindingPower::Default)?));
+    }
+
+    Ok(PyStatement::Raise {
+        exc: Some(Box::new(error)),
+        cause,
+        span: parser.span_from(start),
+    })
 }

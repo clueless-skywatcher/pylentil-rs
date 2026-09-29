@@ -19,8 +19,8 @@ use crate::{
         },
         stmt::{
             parse_stmt_async, parse_stmt_break, parse_stmt_continue, parse_stmt_funcdef,
-            parse_stmt_import, parse_stmt_import_from, parse_stmt_pass, parse_stmt_return,
-            parse_stmt_try,
+            parse_stmt_import, parse_stmt_import_from, parse_stmt_pass, parse_stmt_raise,
+            parse_stmt_return, parse_stmt_try,
         },
     },
     parser::PyParser,
@@ -281,6 +281,7 @@ static STMT_LU: LazyLock<PyStatementLookup> = LazyLock::new(|| {
     stmt(&mut m, PyTokenType::Async, parse_stmt_async);
     stmt(&mut m, PyTokenType::Return, parse_stmt_return);
     stmt(&mut m, PyTokenType::Try, parse_stmt_try);
+    stmt(&mut m, PyTokenType::Raise, parse_stmt_raise);
 
     m
 });

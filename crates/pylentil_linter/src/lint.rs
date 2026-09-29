@@ -49,11 +49,20 @@ pub trait Lint: Send + Sync {
     fn source(&self) -> LintSource;
 
     // Not every lint has to have a possible fix. Override when necessary
+    /// The possible fix for the issue
     fn possible_fix(&self) -> Option<String> {
         None
     }
 
-    fn check(&mut self, path: &Path, stmt: &PyStatement) -> Vec<LintViolation>;
+    /// Check the entire statement structure to find issues
+    fn check(&mut self, path: &Path, stmt: &PyStatement) -> Vec<LintViolation> {
+        vec![]
+    }
+
+    /// Check the statement block to find issues
+    fn check_block(&mut self, path: &Path, block: &[PyStatement]) -> Vec<LintViolation> {
+        vec![]
+    }
 
     fn report(&self, violations: &mut Vec<LintViolation>, path: &Path, span: &PySpan)
     where

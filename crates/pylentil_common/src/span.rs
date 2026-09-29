@@ -1,4 +1,5 @@
 use core::fmt;
+use core::hash::{Hash, Hasher};
 
 /// Byte offsets into the source. `end` is exclusive, and `None` marks a
 /// zero-width location such as a dedent or the end of the file.
@@ -36,6 +37,10 @@ impl PartialEq for PySpan {
 }
 
 impl Eq for PySpan {}
+
+impl Hash for PySpan {
+    fn hash<H: Hasher>(&self, _state: &mut H) {}
+}
 
 impl fmt::Display for PySpan {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

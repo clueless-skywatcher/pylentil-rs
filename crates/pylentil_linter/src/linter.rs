@@ -6,9 +6,7 @@ use pylentil_ast::{
 };
 
 use crate::{
-    lint::Lint,
-    rules::{pycodestyle::bare_except::BareExcept, pylint::useless_return::UselessReturn},
-    violation::{LintViolation},
+    lint::Lint, rules::{pycodestyle::bare_except::BareExcept, pylint::{unreachable::Unreachable, useless_return::UselessReturn}}, violation::LintViolation,
 };
 
 pub struct Pylentil {
@@ -101,6 +99,10 @@ impl Pylentil {
 
     fn check_body(&self, path: &PathBuf, body: &[PyStatement]) -> Vec<LintViolation> {
         let mut violations = vec![];
+
+        if self.rule_enabled(&Unreachable) {
+            violations.append(&mut Unreachable.check_block(path, body));
+        }
 
         for statement in body {
             violations.append(&mut self.check_statement(path, statement));
