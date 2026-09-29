@@ -28,7 +28,7 @@ pub fn test_rule(rule: &(dyn Lint + 'static)) {
 
     let lint = PylentilBuilder::new()
         .with_lint(rule.code().to_string())
-        .with_path(PathBuf::from(fixture_file_name(rule)))
+        .with_path(fixture_path(&fixture_file_name(rule)))
         .build().unwrap();
 
     let violations = lint.check(&parser_code);
