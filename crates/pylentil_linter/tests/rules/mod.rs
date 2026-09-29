@@ -1,11 +1,11 @@
+mod test_pycodestyle;
+mod test_pylint;
+
 use std::{fs, path::PathBuf};
 
 use pylentil_ast::{code::PyCode, lexer::PyCommentSpan, parser::PyParser};
 use pylentil_common::{errors::PylentilError, span::PySpan};
 use pylentil_linter::{lint::Lint, lint_config::PylentilBuilder};
-
-mod pycodestyle;
-mod pylint;
 
 const CHECK_COMMENT: &str = "# !";
 

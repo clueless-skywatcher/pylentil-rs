@@ -2,7 +2,6 @@ use std::{fs, path::PathBuf};
 
 use pylentil_ast::{parser::PyParser};
 use pylentil_common::errors::PylentilError;
-use pylentil_linter::lint_config::PylentilBuilder;
 
 const SOURCE: &str = "fixtures/rules/pycodestyle/PYC-E722.py";
 

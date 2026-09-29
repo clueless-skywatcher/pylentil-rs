@@ -150,25 +150,17 @@ impl<'a> PyLexer<'a> {
 
             if byte == b'#' {
                 let start = i;
-                while byte != b'\n' {
-                    if i >= code.len() {
-                        return Ok(PyLexer {
-                            tokens,
-                            code,
-                            comments,
-                        });
-                    }
-                    Self::consume(code, &mut i)?;
-                    byte = code.chars().nth(i).unwrap() as u8;
-                    continue;
-                }
+                let comment = Self::consume_while(code, &mut i, |b| b != b'\n' && b != b'\r');
                 comments.push(PyCommentSpan {
-                    comment: &code[start..i],
-                    span: PySpan {
-                        start,
-                        end: Some(i),
-                    },
+                    comment,
+                    span: PySpan::span(start, i),
                 });
+
+                // A comment on the last line leaves nothing more to lex.
+                let Ok(next) = Self::peek(code, i) else {
+                    continue;
+                };
+                byte = next;
             }
 
             let start = i;
