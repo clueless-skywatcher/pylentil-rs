@@ -3,8 +3,7 @@ use std::path::{Path};
 use pylentil_ast::ast::{PyConstant, PyExpr, PyStatement};
 
 use crate::{
-    lint::{Lint, LintCategory, LintSeverity},
-    violation::LintViolation,
+    lint::{Lint, LintCategory, LintSeverity, LintSource}, violation::LintViolation,
 };
 
 #[derive(Clone)]
@@ -59,5 +58,9 @@ impl Lint for UselessReturn {
             _ => {}
         }
         violations
+    }
+    
+    fn source(&self) -> LintSource {
+        LintSource::Pylint
     }
 }

@@ -1,5 +1,5 @@
+use std::borrow::Cow;
 use std::collections::HashSet;
-use std::{borrow::Cow};
 
 use pylentil_common::errors::PylentilError;
 use pylentil_common::span::PySpan;
@@ -99,10 +99,17 @@ fn keyword_type(value: &str) -> Option<PyTokenType> {
     })
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
+pub struct PyCommentSpan<'a> {
+    pub comment: &'a str,
+    pub span: PySpan,
+}
+
+#[derive(Debug, Clone)]
 pub struct PyLexer<'a> {
     pub code: &'a str,
     pub tokens: Vec<PyToken<'a>>,
+    pub comments: Vec<PyCommentSpan<'a>>,
 }
 
 impl<'a> PyLexer<'a> {
@@ -136,19 +143,32 @@ impl<'a> PyLexer<'a> {
         let mut i = if code.starts_with(BOM) { BOM.len() } else { 0 };
         let mut at_line_start = true;
         let mut depth = 0usize;
+        let mut comments: Vec<PyCommentSpan<'a>> = vec![];
 
         while i < code.len() {
             let mut byte = Self::peek(code, i)?;
 
             if byte == b'#' {
+                let start = i;
                 while byte != b'\n' {
                     if i >= code.len() {
-                        return Ok(PyLexer { tokens, code });
+                        return Ok(PyLexer {
+                            tokens,
+                            code,
+                            comments,
+                        });
                     }
                     Self::consume(code, &mut i)?;
                     byte = code.chars().nth(i).unwrap() as u8;
                     continue;
                 }
+                comments.push(PyCommentSpan {
+                    comment: &code[start..i],
+                    span: PySpan {
+                        start,
+                        end: Some(i),
+                    },
+                });
             }
 
             let start = i;
@@ -247,7 +267,12 @@ impl<'a> PyLexer<'a> {
             span: PySpan::location(code.len()),
         });
 
-        PyLexer { code, tokens }.indent_pass()
+        PyLexer {
+            code,
+            tokens,
+            comments,
+        }
+        .indent_pass()
     }
 
     fn carries_code(code: &str, pos: usize) -> bool {
@@ -452,7 +477,7 @@ impl<'a> PyLexer<'a> {
         matches!(Self::peek(code, pos), Ok(b) if b.is_ascii_digit())
     }
 
-    fn indent_pass(&self) -> Result<Self, PylentilError> {
+    fn indent_pass(self) -> Result<Self, PylentilError> {
         if self.tokens[0].kind == PyTokenType::Indent {
             return Err(PylentilError::UnexpectedIndent);
         }
@@ -524,6 +549,7 @@ impl<'a> PyLexer<'a> {
         Ok(PyLexer {
             code: self.code,
             tokens: new_tokens,
+            comments: self.comments,
         })
     }
 
@@ -563,7 +589,7 @@ impl<'a> PyLexer<'a> {
         }
     }
 
-    pub fn spaces_scrapped(&self) -> Self {
+    pub fn spaces_scrapped(self) -> Self {
         let tokens = self
             .tokens
             .iter()
@@ -578,6 +604,7 @@ impl<'a> PyLexer<'a> {
         PyLexer {
             code: self.code,
             tokens,
+            comments: self.comments,
         }
     }
 }

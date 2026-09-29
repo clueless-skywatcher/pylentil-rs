@@ -3,16 +3,13 @@ use std::path::PathBuf;
 use pylentil_common::{errors::PylentilError, span::PySpan};
 
 use crate::{
-    PyLexer, PyToken, PyTokenType,
-    ast::{PyModule, PyStatement},
-    code::{PyCode, PyCodeBuilder, PyCodeMetadata, PyCodeMetadataBuilder},
-    lookups::parse_statement,
-    token::describe_any_of,
+    PyLexer, PyToken, PyTokenType, ast::{PyModule, PyStatement}, code::{PyCode, PyCodeBuilder, PyCodeMetadata, PyCodeMetadataBuilder}, lookups::parse_statement, token::describe_any_of,
 };
 
 #[derive(Debug)]
 pub struct PyParser<'a> {
     pub tokens: Vec<PyToken<'a>>,
+    pub lexer: PyLexer<'a>,
     code: &'a str,
     path: PathBuf,
     pos: usize,
@@ -23,6 +20,7 @@ impl<'a> PyParser<'a> {
         match PyLexer::from_code(&contents) {
             Ok(lexer) => Ok(PyParser {
                 code: contents,
+                lexer: lexer.clone(),
                 path,
                 tokens: Self::remove_whitespaces(lexer.tokens),
                 pos: 0usize,
@@ -39,7 +37,7 @@ impl<'a> PyParser<'a> {
             .collect()
     }
 
-    pub fn parse(&mut self) -> Result<PyCode, PylentilError> {
+    pub fn parse(&mut self) -> Result<PyCode<'a>, PylentilError> {
         let metadata = self.extract_metadata()?;
 
         let mut body: Vec<PyStatement> = Vec::new();
@@ -177,16 +175,16 @@ impl<'a> PyParser<'a> {
         Ok(())
     }
 
-    fn extract_metadata(&self) -> Result<PyCodeMetadata, PylentilError> {
+    fn extract_metadata(&self) -> Result<PyCodeMetadata<'a>, PylentilError> {
         let metadata = PyCodeMetadataBuilder::new();
         let mut line_starts: Vec<usize> = vec![];
         let mut pos: usize = 0;
         let mut code_lines = self
             .code
-            .split(&['\r', '\n'])
+            .split(&['\n'])
             .map(|line| {
                 line_starts.push(pos);
-                pos += line.len();
+                pos += line.len() + 1;
                 line.to_string()
             })
             .collect::<Vec<String>>();
@@ -195,6 +193,7 @@ impl<'a> PyParser<'a> {
             .add_raw_lines(&mut code_lines)
             .set_path(self.path.clone())
             .set_line_starts(line_starts)
+            .set_comments(self.lexer.comments.clone())
             .build()?)
     }
 }

@@ -48,10 +48,10 @@ impl PylentilBuilder {
         for path in self.paths.iter() {
             match File::open(path.clone()) {
                 Ok(file) => paths.push(file),
-                Err(_) => {
+                Err(e) => {
                     return Err(PylentilError::IOFailed {
                         path: path.to_string_lossy().to_string(),
-                        reason: String::from("File open failed"),
+                        reason: e.to_string(),
                     });
                 }
             }
@@ -188,11 +188,11 @@ impl Pylentil {
             span
         } in violations
         {
-            let (x, y) = self.get_line_and_byte_offset(code, span.start);
+            let (line, col) = code.get_line_and_byte_offset(span.start);
             println!(
                 "{}(line {}:{}) - {}: {}",
                 path.to_str().unwrap(),
-                x, y,
+                line, col,
                 check_violated.code(),
                 check_violated.message()
             );
@@ -201,18 +201,5 @@ impl Pylentil {
                 check_violated.possible_fix().unwrap_or("None".to_string())
             );
         }
-    }
-
-    fn get_line_and_byte_offset(&self, code: &PyCode, pos: usize) -> (usize, usize) {
-        let line_starts = code.metadata.line_starts.clone();
-        let mut i = line_starts.len() - 1;
-        while i > 0 {
-            if line_starts[i] <= pos {
-                break;
-            }
-            i -= 1;
-        }
-
-        (i, pos - line_starts[i] + 1)
     }
 }

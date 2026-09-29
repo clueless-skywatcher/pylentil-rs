@@ -1,4 +1,4 @@
-use std::fmt::{self};
+use std::{fmt::{self}, str::Utf8Error};
 
 /// Everything that can go wrong while turning Python source into an AST.
 ///
@@ -110,6 +110,9 @@ pub enum PylentilError {
     IOFailed {
         path: String,
         reason: String,
+    },
+    DecodeFailed {
+        error: Utf8Error
     },
 
     /// The code path has not been implemented yet
@@ -249,6 +252,9 @@ impl fmt::Display for PylentilError {
             PylentilError::EmptyFile => {
                 write!(f, "Empty file")
             }
+            PylentilError::DecodeFailed { error } => {
+                write!(f, "Decode failed: {}", error.to_string())
+            },
         }
     }
 }

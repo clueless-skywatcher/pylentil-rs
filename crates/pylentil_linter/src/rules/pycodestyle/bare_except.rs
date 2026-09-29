@@ -3,8 +3,7 @@ use std::path::{Path};
 use pylentil_ast::ast::{PyExceptHandler, PyStatement};
 
 use crate::{
-    lint::{Lint, LintCategory, LintSeverity},
-    violation::LintViolation,
+    lint::{Lint, LintCategory, LintSeverity, LintSource}, violation::LintViolation,
 };
 
 #[derive(Clone)]
@@ -53,5 +52,9 @@ impl Lint for BareExcept {
 
     fn severity(&self) -> LintSeverity {
         LintSeverity::Warning
+    }
+    
+    fn source(&self) -> LintSource {
+        LintSource::Pycodestyle
     }
 }
