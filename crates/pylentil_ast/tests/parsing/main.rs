@@ -8,7 +8,7 @@ macro_rules! p_assert_eq {
 }
 
 use common::build::*;
-use common::{Outcome, case, parse_module, parse_outcome};
+use common::{case, parse_module, parse_outcome, Outcome};
 use pylentil_ast::ast::{
     PyArg, PyArguments, PyBinaryOp, PyBoolOp, PyComparisonOp, PyExpr, PyStatement, PyUnaryOp,
 };
@@ -93,6 +93,7 @@ mod basics;
 mod bitwise;
 mod boolean;
 mod calls;
+mod classes;
 mod collections;
 mod comparisons;
 mod functions;

@@ -144,6 +144,80 @@ def f():
 def f():
     pass
 
+# case: decorator_dotted
+@a.b
+def f():
+    pass
+
+# case: decorator_dotted_chain
+@a.b.c
+def f():
+    pass
+
+# case: decorator_empty_call
+@dec()
+def f():
+    pass
+
+# case: decorator_call_args
+@dec(1, x)
+def f():
+    pass
+
+# case: decorator_call_keywords
+@dec(1, b=2)
+def f():
+    pass
+
+# case: decorator_dotted_call
+@a.b(1)
+def f():
+    pass
+
+# case: decorator_call_then_attribute
+@f().g
+def h():
+    pass
+
+# case: decorator_star_args
+@dec(*args, **kwargs)
+def f():
+    pass
+
+# case: parenthesized_decorator
+@(dec)
+def f():
+    pass
+
+# case: mixed_decorators
+@dec
+@a.b
+@c(1)
+def f():
+    pass
+
+# case: decorated_async
+@dec
+async def f():
+    pass
+
+# case: decorated_async_stacked
+@a
+@b()
+async def f():
+    pass
+
+# case: decorated_with_args
+@dec
+def f(a, b=1):
+    pass
+
+# case: decorated_nested
+def outer():
+    @dec
+    def inner():
+        pass
+
 # case: async_def
 async def f():
     pass
@@ -198,4 +272,47 @@ def f(a, a):
 
 # case: unclosed_parens
 def f(a:
+    pass
+
+# case: decorator_literal
+@1
+def f():
+    pass
+
+# case: decorator_binop
+@a + b
+def f():
+    pass
+
+# case: decorator_subscript
+@items[0]
+def f():
+    pass
+
+# case: decorator_tuple
+@(a, b)
+def f():
+    pass
+
+# case: decorator_matmul
+@a @ b
+def f():
+    pass
+
+# case: decorator_same_line
+@dec def f():
+    pass
+
+# case: bare_decorator
+@
+def f():
+    pass
+
+# case: decorator_not_on_def
+@dec
+x = 1
+
+# case: unclosed_decorator
+@dec(
+def f():
     pass

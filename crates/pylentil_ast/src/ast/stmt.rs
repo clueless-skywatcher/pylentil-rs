@@ -1,5 +1,8 @@
 use pylentil_common::span::PySpan;
 
+use crate::ast::PyArg;
+use crate::common::PyArgType;
+
 use super::expr::{PyExpr, PyExprBox};
 use super::ops::PyBinaryOp;
 use super::shared::{
@@ -21,7 +24,7 @@ pub enum PyStatement {
     },
     ClassDef {
         name: String,
-        bases: Vec<PyExpr>,
+        bases: Vec<PyArgType>,
         keywords: Vec<PyKeyword>,
         body: Vec<PyStatement>,
         decorator_list: Vec<PyExpr>,

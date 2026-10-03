@@ -10,8 +10,8 @@
 //! match parsed ASTs wherever the parsed code sits.
 
 use pylentil_ast::ast::{
-    PyAlias, PyArg, PyArguments, PyBinaryOp, PyBoolOp, PyComparisonOp, PyConstant, PyExpr,
-    PyKeyword, PyRefContext, PyStatement, PyUnaryOp,
+    PyAlias, PyArg, PyArgType, PyArguments, PyBinaryOp, PyBoolOp, PyComparisonOp, PyConstant,
+    PyExpr, PyKeyword, PyRefContext, PyStatement, PyUnaryOp,
 };
 use pylentil_common::span::PySpan;
 
@@ -395,14 +395,43 @@ pub fn function_def(name: &str, args: PyArguments, body: Vec<PyStatement>) -> Py
 }
 
 pub fn class_def(name: &str, body: Vec<PyStatement>) -> PyStatement {
+    class_def_with(name, vec![], body, vec![])
+}
+
+pub fn class_def_with(
+    name: &str,
+    bases: Vec<PyArgType>,
+    body: Vec<PyStatement>,
+    decorator_list: Vec<PyExpr>,
+) -> PyStatement {
     PyStatement::ClassDef {
         name: name.to_string(),
-        bases: vec![],
+        bases,
         keywords: vec![],
         body,
-        decorator_list: vec![],
+        decorator_list,
         type_params: vec![],
         span: NO_SPAN,
+    }
+}
+
+/// A positional base. Keyword bases stay in `bases` as [`PyArgType::Keyword`];
+/// `ClassDef::keywords` is left empty.
+pub fn class_base(expr: PyExpr) -> PyArgType {
+    PyArgType::Arg(PyArg {
+        arg: Box::new(expr),
+        annotation: None,
+        type_comment: None,
+        span: NO_SPAN,
+    })
+}
+
+pub fn class_keyword(arg_name: Option<&str>, value: PyExpr) -> PyArgType {
+    PyArgType::Keyword {
+        keyword: keyword(arg_name, value),
+        annotation: None,
+        name_span: NO_SPAN,
+        arg_span: NO_SPAN,
     }
 }
 

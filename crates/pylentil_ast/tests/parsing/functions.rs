@@ -523,6 +523,173 @@ fn parse_functions_decorator_call() {
 }
 
 #[test]
+fn parse_functions_decorator_dotted() {
+    p_assert_eq!(
+        stmt(F, "decorator_dotted"),
+        decorated(vec![attribute(name("a"), "b")], false)
+    );
+}
+
+#[test]
+fn parse_functions_decorator_dotted_chain() {
+    p_assert_eq!(
+        stmt(F, "decorator_dotted_chain"),
+        decorated(vec![attribute(attribute(name("a"), "b"), "c")], false)
+    );
+}
+
+#[test]
+fn parse_functions_decorator_empty_call() {
+    p_assert_eq!(
+        stmt(F, "decorator_empty_call"),
+        decorated(vec![call(name("dec"), vec![], vec![])], false)
+    );
+}
+
+#[test]
+fn parse_functions_decorator_call_args() {
+    p_assert_eq!(
+        stmt(F, "decorator_call_args"),
+        decorated(
+            vec![call(name("dec"), vec![int(1), name("x")], vec![])],
+            false
+        )
+    );
+}
+
+#[test]
+fn parse_functions_decorator_call_keywords() {
+    p_assert_eq!(
+        stmt(F, "decorator_call_keywords"),
+        decorated(
+            vec![call(
+                name("dec"),
+                vec![int(1)],
+                vec![keyword(Some("b"), int(2))]
+            )],
+            false
+        )
+    );
+}
+
+#[test]
+fn parse_functions_decorator_dotted_call() {
+    p_assert_eq!(
+        stmt(F, "decorator_dotted_call"),
+        decorated(
+            vec![call(attribute(name("a"), "b"), vec![int(1)], vec![])],
+            false
+        )
+    );
+}
+
+#[test]
+fn parse_functions_decorator_call_then_attribute() {
+    p_assert_eq!(
+        stmt(F, "decorator_call_then_attribute"),
+        PyStatement::FunctionDef {
+            name: "h".into(),
+            args: Box::new(PyArguments::default()),
+            body: vec![pass()],
+            decorator_list: vec![attribute(call(name("f"), vec![], vec![]), "g")],
+            returns: None,
+            type_comment: None,
+            type_params: vec![],
+            is_async: false,
+            span: PySpan::default(),
+        }
+    );
+}
+
+#[test]
+fn parse_functions_decorator_star_args() {
+    p_assert_eq!(
+        stmt(F, "decorator_star_args"),
+        decorated(
+            vec![call(
+                name("dec"),
+                vec![starred(name("args"))],
+                vec![keyword(None, name("kwargs"))]
+            )],
+            false
+        )
+    );
+}
+
+#[test]
+fn parse_functions_parenthesized_decorator() {
+    p_assert_eq!(
+        stmt(F, "parenthesized_decorator"),
+        decorated(vec![name("dec")], false)
+    );
+}
+
+#[test]
+fn parse_functions_mixed_decorators() {
+    p_assert_eq!(
+        stmt(F, "mixed_decorators"),
+        decorated(
+            vec![
+                name("dec"),
+                attribute(name("a"), "b"),
+                call(name("c"), vec![int(1)], vec![])
+            ],
+            false
+        )
+    );
+}
+
+#[test]
+fn parse_functions_decorated_async() {
+    p_assert_eq!(
+        stmt(F, "decorated_async"),
+        decorated(vec![name("dec")], true)
+    );
+}
+
+#[test]
+fn parse_functions_decorated_async_stacked() {
+    p_assert_eq!(
+        stmt(F, "decorated_async_stacked"),
+        decorated(vec![name("a"), call(name("b"), vec![], vec![])], true)
+    );
+}
+
+#[test]
+fn parse_functions_decorated_with_args() {
+    p_assert_eq!(
+        stmt(F, "decorated_with_args"),
+        PyStatement::FunctionDef {
+            name: "f".into(),
+            args: Box::new(PyArguments {
+                args: vec![arg("a"), arg("b")],
+                defaults: vec![Some(int(1))],
+                ..Default::default()
+            }),
+            body: vec![pass()],
+            decorator_list: vec![name("dec")],
+            returns: None,
+            type_comment: None,
+            type_params: vec![],
+            is_async: false,
+            span: PySpan::default(),
+        }
+    );
+}
+
+#[test]
+fn parse_functions_decorated_nested() {
+    p_assert_eq!(
+        stmt(F, "decorated_nested"),
+        function_def(
+            "outer",
+            PyArguments::default(),
+            vec![decorated_named("inner", vec![name("dec")], false)]
+        )
+    );
+}
+
+#[test]
 fn parse_functions_async_def() {
     p_assert_eq!(
         stmt(F, "async_def"),
@@ -603,4 +770,68 @@ fn parse_functions_duplicate_parameter() {
 #[test]
 fn parse_functions_unclosed_parens() {
     assert_rejected(F, "unclosed_parens");
+}
+
+#[test]
+fn parse_functions_decorator_literal() {
+    assert_rejected(F, "decorator_literal");
+}
+
+#[test]
+fn parse_functions_decorator_binop() {
+    assert_rejected(F, "decorator_binop");
+}
+
+#[test]
+fn parse_functions_decorator_subscript() {
+    assert_rejected(F, "decorator_subscript");
+}
+
+#[test]
+fn parse_functions_decorator_tuple() {
+    assert_rejected(F, "decorator_tuple");
+}
+
+#[test]
+fn parse_functions_decorator_matmul() {
+    assert_rejected(F, "decorator_matmul");
+}
+
+#[test]
+fn parse_functions_decorator_same_line() {
+    assert_rejected(F, "decorator_same_line");
+}
+
+#[test]
+fn parse_functions_bare_decorator() {
+    assert_rejected(F, "bare_decorator");
+}
+
+#[test]
+fn parse_functions_decorator_not_on_def() {
+    assert_rejected(F, "decorator_not_on_def");
+}
+
+#[test]
+fn parse_functions_unclosed_decorator() {
+    assert_rejected(F, "unclosed_decorator");
+}
+
+/// A `def f(): pass` carrying `decorator_list`.
+fn decorated(decorator_list: Vec<PyExpr>, is_async: bool) -> PyStatement {
+    decorated_named("f", decorator_list, is_async)
+}
+
+fn decorated_named(name: &str, decorator_list: Vec<PyExpr>, is_async: bool) -> PyStatement {
+    PyStatement::FunctionDef {
+        name: name.into(),
+        args: Box::new(PyArguments::default()),
+        body: vec![pass()],
+        decorator_list,
+        returns: None,
+        type_comment: None,
+        type_params: vec![],
+        is_async,
+        span: PySpan::default(),
+    }
 }

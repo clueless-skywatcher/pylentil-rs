@@ -7,6 +7,7 @@ pub mod pattern;
 pub mod shared;
 pub mod stmt;
 
+pub use crate::common::PyArgType;
 pub use constant::{PyConstant, PyConstantBox};
 pub use context::PyRefContext;
 pub use expr::{PyExpr, PyExprBox};

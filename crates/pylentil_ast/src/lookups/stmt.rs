@@ -253,12 +253,22 @@ fn parse_alias(parser: &mut PyParser) -> Result<PyAlias, PylentilError> {
     })
 }
 
-pub(super) fn parse_stmt_funcdef(parser: &mut PyParser) -> Result<PyStatement, PylentilError> {
-    let start = parser.start()?;
+pub(super) fn parse_stmt_funcdef(parser: &mut PyParser, decorator_list: Vec<PyExpr>) -> Result<PyStatement, PylentilError> {
+    let mut start = parser.start()?;
+    if decorator_list.len() > 0 {
+        start = decorator_list[0].span().start;
+    }
     parser.expect_type(vec![PyTokenType::Def])?;
 
     let name = expect_ident(parser)?;
     let parsed_args: Vec<PyArgType> = parse_parenthesized_args(parser, true)?;
+
+    let returns = if parser.peek()?.kind == PyTokenType::Arrow {
+        parser.consume()?;
+        Some(Box::new(parse_expr(parser, PyBindingPower::Comma)?))
+    } else {
+        None
+    };
 
     parser.expect_type(vec![PyTokenType::Colon])?;
     let def_block = parse_block(parser)?;
@@ -389,8 +399,8 @@ pub(super) fn parse_stmt_funcdef(parser: &mut PyParser) -> Result<PyStatement, P
             defaults,
         }),
         body: def_block,
-        decorator_list: vec![],
-        returns: None,
+        decorator_list,
+        returns,
         type_comment: None,
         type_params: vec![],
         is_async: false,
@@ -417,12 +427,12 @@ fn declare_parameter(names: &mut HashSet<String>, arg: &PyArg) -> Result<(), Pyl
     Ok(())
 }
 
-pub(super) fn parse_stmt_async(parser: &mut PyParser) -> Result<PyStatement, PylentilError> {
+pub(super) fn parse_stmt_async(parser: &mut PyParser, decorator_list: Vec<PyExpr>) -> Result<PyStatement, PylentilError> {
     let start = parser.start()?;
     parser.expect_type(vec![PyTokenType::Async])?;
 
     if parser.peek()?.kind == PyTokenType::Def {
-        let func_def = parse_stmt_funcdef(parser)?;
+        let func_def = parse_stmt_funcdef(parser, decorator_list)?;
         return match func_def {
             PyStatement::FunctionDef {
                 name,
@@ -558,6 +568,14 @@ pub(super) fn parse_stmt_raise(parser: &mut PyParser) -> Result<PyStatement, Pyl
     let start = parser.start()?;
     parser.expect_type(vec![PyTokenType::Raise])?;
 
+    if parser.peek()?.kind.is_eof() || parser.peek()?.kind == PyTokenType::Newline {
+        return Ok(PyStatement::Raise {
+            exc: None,
+            cause: None,
+            span: parser.span_from(start),
+        });
+    }
+
     let error = parse_expr(parser, PyBindingPower::Default)?;
 
     let mut cause = None;
@@ -572,4 +590,91 @@ pub(super) fn parse_stmt_raise(parser: &mut PyParser) -> Result<PyStatement, Pyl
         cause,
         span: parser.span_from(start),
     })
+}
+
+pub(super) fn parse_stmt_decoration(parser: &mut PyParser) -> Result<PyStatement, PylentilError> {
+    let mut decorator_list: Vec<PyExpr> = vec![];
+    loop {
+        if parser.peek()?.kind != PyTokenType::At {
+            break;
+        }
+
+        parser.consume()?;
+        let expr = parse_expr(parser, PyBindingPower::Default)?;
+        if !matches!(expr, PyExpr::Call { .. } | PyExpr::Attribute { .. } | PyExpr::Name { .. }) {
+            return Err(PylentilError::ExpressionExpected { found: expr.describe().to_string() });
+        }
+        parser.expect_type(vec![PyTokenType::Newline])?;
+
+        decorator_list.push(expr);
+    }
+
+    match parser.peek()?.kind {
+        PyTokenType::Def => parse_stmt_funcdef(parser, decorator_list),
+        PyTokenType::Async => parse_stmt_async(parser, decorator_list),
+        PyTokenType::Class => parse_stmt_classdef(parser, decorator_list),
+        _ => Err(PylentilError::UnexpectedToken { expected: "a class or func def".to_string(), found: parser.peek()?.describe() })
+    }
+}
+
+pub(super) fn parse_stmt_classdef(parser: &mut PyParser, decorator_list: Vec<PyExpr>) -> Result<PyStatement, PylentilError> {
+    let mut start = parser.start()?;
+    if decorator_list.len() > 0 {
+        start = decorator_list[0].span().start;
+    }
+    parser.expect_type(vec![PyTokenType::Class])?;
+
+    let name = expect_ident(parser)?;
+
+    let bases = if parser.peek()?.kind == PyTokenType::LParen {
+        let bases = parse_parenthesized_args(parser, false)?;
+        check_class_bases(&bases)?;
+        bases
+    } else {
+        vec![]
+    };
+
+    parser.expect_type(vec![PyTokenType::Colon])?;
+
+    let body = parse_block(parser)?;    
+
+    Ok(PyStatement::ClassDef { 
+        name, 
+        bases, 
+        keywords: vec![], 
+        body, 
+        decorator_list, 
+        type_params: vec![], 
+        span: parser.span_from(start)
+    })
+}
+
+/// Class bases follow call-argument order: a positional base cannot follow a
+/// keyword, and `/` or a bare `*` are not bases.
+fn check_class_bases(bases: &[PyArgType]) -> Result<(), PylentilError> {
+    let mut seen_keyword = false;
+
+    for entry in bases {
+        match entry {
+            PyArgType::Arg(_) if seen_keyword => {
+                return Err(PylentilError::PositionalArgumentAfterKeyword);
+            }
+            PyArgType::Arg(_) => {}
+            PyArgType::Keyword { .. } => seen_keyword = true,
+            PyArgType::PosOnlyMarker => {
+                return Err(PylentilError::UnexpectedToken {
+                    expected: "a base class".into(),
+                    found: "a positional-only marker".into(),
+                });
+            }
+            PyArgType::KeywordOnlyMarker => {
+                return Err(PylentilError::UnexpectedToken {
+                    expected: "a base class".into(),
+                    found: "a keyword-only marker".into(),
+                });
+            }
+        }
+    }
+
+    Ok(())
 }
