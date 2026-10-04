@@ -6,7 +6,7 @@ use pylentil_ast::{
 };
 
 use crate::{
-    lint::Lint, rules::{pycodestyle::bare_except::BareExcept, pylint::{self_assigning_variable::SelfAssigningVariable, unreachable::Unreachable, useless_return::UselessReturn}}, violation::LintViolation,
+    lint::Lint, rules::{pycodestyle::bare_except::BareExcept, pylint::{binary_op_exception::BinaryOpException, self_assigning_variable::SelfAssigningVariable, unreachable::Unreachable, useless_return::UselessReturn, wildcard_import::WildcardImport}}, violation::LintViolation,
 };
 
 pub struct Pylentil {
@@ -159,6 +159,9 @@ impl Pylentil {
         if self.rule_enabled(&BareExcept) {
             violations.append(&mut BareExcept.check(path, &try_stmt));
         }
+        if self.rule_enabled(&BinaryOpException) {
+            violations.append(&mut BinaryOpException.check(path, &try_stmt));
+        }
 
         if let PyStatement::Try {
             body,
@@ -193,8 +196,14 @@ impl Pylentil {
         vec![]
     }
 
-    fn check_import_from(&self, _path: &PathBuf, _import_from: &PyStatement) -> Vec<LintViolation> {
-        vec![]
+    fn check_import_from(&self, path: &PathBuf, import_from: &PyStatement) -> Vec<LintViolation> {
+        let mut violations = vec![];
+
+        if self.rule_enabled(&WildcardImport) {
+            violations.append(&mut WildcardImport.check(path, import_from));
+        }
+
+        violations
     }
 
     fn check_expr(&self, _path: &PathBuf, _expr: &PyStatement) -> Vec<LintViolation> {

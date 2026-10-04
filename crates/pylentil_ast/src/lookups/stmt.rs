@@ -3,10 +3,13 @@ use std::collections::HashSet;
 use pylentil_common::{errors::PylentilError, span::PySpan};
 
 use crate::{
-    PyTokenType, ast::{
+    PyTokenType,
+    ast::{
         PyAlias, PyArg, PyArguments, PyConstant, PyExceptHandler, PyExpr, PyKeyword, PyMatchCase,
         PyPattern, PyRefContext, PyStatement, PyWithItem,
-    }, lookups::as_target, parser::PyParser,
+    },
+    lookups::as_target,
+    parser::PyParser,
 };
 
 use super::{PyBindingPower, parse_expr, parse_statement};
@@ -539,15 +542,7 @@ fn parse_except_handlers(parser: &mut PyParser) -> Result<Vec<PyExceptHandler>, 
         let mut type_: Option<Box<PyExpr>> = None;
 
         if parser.peek()?.kind != PyTokenType::Colon {
-            // `parse_alias` would give no span for the type alone, so read
-            // `Type [as name]` here.
-            let type_start = parser.start()?;
-            let type_name = parse_dotted_name(parser)?;
-            type_ = Some(Box::new(PyExpr::Name {
-                id: type_name,
-                ctx: PyRefContext::Load,
-                span: parser.span_from(type_start),
-            }));
+            type_ = Some(Box::new(parse_expr(parser, PyBindingPower::Default)?));
 
             if parser.peek()?.kind == PyTokenType::As {
                 parser.consume()?;
@@ -700,7 +695,7 @@ pub(super) fn parse_stmt_for(parser: &mut PyParser) -> Result<PyStatement, Pylen
     parser.expect_type(vec![PyTokenType::For])?;
 
     let target = as_target(parse_for_target(parser)?)?;
-    
+
     parser.expect_type(vec![PyTokenType::In])?;
 
     let iter = parse_expr(parser, PyBindingPower::Default)?;
@@ -925,7 +920,10 @@ pub(super) fn is_match_statement(parser: &PyParser) -> bool {
 /// of the name `type`.
 pub(super) fn is_type_alias_statement(parser: &PyParser) -> bool {
     soft_keyword(parser, "type")
-        && matches!(parser.peek_ahead().map(|token| token.kind), Ok(PyTokenType::Ident))
+        && matches!(
+            parser.peek_ahead().map(|token| token.kind),
+            Ok(PyTokenType::Ident)
+        )
 }
 
 fn soft_keyword(parser: &PyParser, name: &str) -> bool {
@@ -977,10 +975,7 @@ fn parse_match_case(parser: &mut PyParser) -> Result<PyMatchCase, PylentilError>
     }
     parser.consume()?;
 
-    let pattern = Box::new(pattern_of(parse_expr(
-        parser,
-        PyBindingPower::Ternary,
-    )?));
+    let pattern = Box::new(pattern_of(parse_expr(parser, PyBindingPower::Ternary)?));
 
     let guard = if soft_keyword(parser, "if") {
         parser.consume()?;

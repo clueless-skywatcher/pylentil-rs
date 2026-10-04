@@ -311,10 +311,7 @@ fn parse_statements_yield_assigned() {
         function_def(
             "f",
             PyArguments::default(),
-            vec![assign(
-                vec![store(name("x"))],
-                yield_expr(Some(int(1)))
-            )]
+            vec![assign(vec![store(name("x"))], yield_expr(Some(int(1))))]
         )
     );
 }
@@ -326,10 +323,7 @@ fn parse_statements_yield_parenthesized() {
         function_def(
             "f",
             PyArguments::default(),
-            vec![assign(
-                vec![store(name("x"))],
-                yield_expr(Some(int(1)))
-            )]
+            vec![assign(vec![store(name("x"))], yield_expr(Some(int(1))))]
         )
     );
 }

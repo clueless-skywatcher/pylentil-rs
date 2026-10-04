@@ -63,6 +63,10 @@ impl Lint for SelfAssigningVariable {
 
         violations
     }
+
+    fn possible_fix(&self) -> Option<String> {
+        Some("Remove the redundant assignment".to_string())
+    }
 }
 
 impl SelfAssigningVariable {

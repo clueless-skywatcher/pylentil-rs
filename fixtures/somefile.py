@@ -1,1 +1,1 @@
-x: int
+from a import *

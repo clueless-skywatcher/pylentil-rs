@@ -11,7 +11,7 @@
 
 use pylentil_ast::ast::{
     PyAlias, PyArg, PyArgType, PyArguments, PyBinaryOp, PyBoolOp, PyComparisonOp, PyConstant,
-    PyExpr, PyKeyword, PyRefContext, PyStatement, PyUnaryOp, PyWithItem,
+    PyExceptHandler, PyExpr, PyKeyword, PyRefContext, PyStatement, PyUnaryOp, PyWithItem,
 };
 use pylentil_common::span::PySpan;
 
@@ -386,6 +386,34 @@ pub fn with_item(context_expr: PyExpr, optional_vars: Option<PyExpr>) -> PyWithI
     PyWithItem {
         context_expr: Box::new(context_expr),
         optional_vars: optional_vars.map(Box::new),
+        span: NO_SPAN,
+    }
+}
+
+pub fn except_handler(
+    type_: Option<PyExpr>,
+    name: Option<&str>,
+    body: Vec<PyStatement>,
+) -> PyExceptHandler {
+    PyExceptHandler {
+        type_: type_.map(Box::new),
+        name: name.map(str::to_string),
+        body,
+        span: NO_SPAN,
+    }
+}
+
+pub fn try_stmt(
+    body: Vec<PyStatement>,
+    handlers: Vec<PyExceptHandler>,
+    orelse: Vec<PyStatement>,
+    finalbody: Vec<PyStatement>,
+) -> PyStatement {
+    PyStatement::Try {
+        body,
+        handlers,
+        orelse,
+        finalbody,
         span: NO_SPAN,
     }
 }
