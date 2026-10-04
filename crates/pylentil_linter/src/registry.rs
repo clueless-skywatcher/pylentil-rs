@@ -22,7 +22,8 @@ impl LintRegistry {
             
             // Pylint
             Arc::new(pylint::useless_return::UselessReturn),
-            Arc::new(pylint::unreachable::Unreachable)
+            Arc::new(pylint::unreachable::Unreachable),
+            Arc::new(pylint::self_assigning_variable::SelfAssigningVariable),
         ];
 
         let mut registry = HashMap::with_capacity(all.len());

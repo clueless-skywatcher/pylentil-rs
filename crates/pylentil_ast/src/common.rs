@@ -11,7 +11,7 @@ use crate::{
 use crate::lookups::{PyBindingPower, parse_expr, parse_generators};
 
 /// One entry of a parenthesised argument list, for both calls and `def`s.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PyArgType {
     /// `value`, `*value`, or `name: annotation` when annotations are detected.
     Arg(PyArg),
