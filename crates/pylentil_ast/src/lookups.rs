@@ -13,9 +13,14 @@ use crate::{
         expr::{
             parse_attribute_access, parse_dict_or_set_or_comprehension, parse_function_call,
             parse_if, parse_list_or_comprehension, parse_star, parse_subscript_access,
-            parse_walrus_tuple_or_expr,
+            parse_walrus_tuple_or_expr, parse_yield,
         }, stmt::{
-            parse_stmt_async, parse_stmt_break, parse_stmt_classdef, parse_stmt_continue, parse_stmt_decoration, parse_stmt_funcdef, parse_stmt_import, parse_stmt_import_from, parse_stmt_pass, parse_stmt_raise, parse_stmt_return, parse_stmt_try,
+            parse_stmt_assert, parse_stmt_async, parse_stmt_break, parse_stmt_classdef,
+            parse_stmt_continue, parse_stmt_decoration, parse_stmt_delete, parse_stmt_for,
+            parse_stmt_funcdef, parse_stmt_global, parse_stmt_import, parse_stmt_import_from,
+            parse_stmt_match, parse_stmt_nonlocal, parse_stmt_pass, parse_stmt_raise,
+            parse_stmt_return, parse_stmt_try, parse_stmt_type_alias, parse_stmt_while,
+            parse_stmt_with, is_match_statement, is_type_alias_statement,
         },
     }, parser::PyParser,
 };
@@ -202,6 +207,9 @@ static NUD_LU: LazyLock<PyNUDLookup> = LazyLock::new(|| {
     // Star
     nud(&mut m, PyTokenType::Star, parse_star);
 
+    // Yield
+    nud(&mut m, PyTokenType::Yield, parse_yield);
+
     m
 });
 static LED_LU: LazyLock<PyLEDLookup> = LazyLock::new(|| {
@@ -283,6 +291,13 @@ static STMT_LU: LazyLock<PyStatementLookup> = LazyLock::new(|| {
     stmt(&mut m, PyTokenType::Class, |parser: &mut PyParser| {
         parse_stmt_classdef(parser, vec![])
     });
+    stmt(&mut m, PyTokenType::For, parse_stmt_for);
+    stmt(&mut m, PyTokenType::While, parse_stmt_while);
+    stmt(&mut m, PyTokenType::With, parse_stmt_with);
+    stmt(&mut m, PyTokenType::Del, parse_stmt_delete);
+    stmt(&mut m, PyTokenType::Assert, parse_stmt_assert);
+    stmt(&mut m, PyTokenType::Global, parse_stmt_global);
+    stmt(&mut m, PyTokenType::Nonlocal, parse_stmt_nonlocal);
 
     stmt(&mut m, PyTokenType::At, parse_stmt_decoration);
 
@@ -338,6 +353,13 @@ pub fn parse_statement(parser: &mut PyParser) -> Result<PyStatement, PylentilErr
     match STMT_LU.get(&token_kind) {
         Some(stmt_fn) => Ok(stmt_fn(parser)?),
         None => {
+            if is_match_statement(parser) {
+                return parse_stmt_match(parser);
+            }
+            if is_type_alias_statement(parser) {
+                return parse_stmt_type_alias(parser);
+            }
+
             let start = parser.start()?;
             let expr = parse_expr(parser, PyBindingPower::Default)?;
 

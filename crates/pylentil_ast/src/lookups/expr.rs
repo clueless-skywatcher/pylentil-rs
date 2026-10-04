@@ -577,6 +577,15 @@ pub(super) fn parse_star(parser: &mut PyParser) -> Result<PyExpr, PylentilError>
     })
 }
 
+pub(super) fn parse_yield(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
+    let start = parser.start()?;
+    parser.expect_type(vec![PyTokenType::Yield])?;
+
+    let expr = parse_expr(parser, PyBindingPower::Default)?;
+
+    Ok(PyExpr::Yield { value: Some(Box::new(expr)), span: parser.span_from(start) })
+}
+
 pub(super) fn parse_attribute_access(
     parser: &mut PyParser,
     left: PyExpr,

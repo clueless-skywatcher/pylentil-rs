@@ -167,6 +167,22 @@ async def f():
 def f():
     yield 1
 
+# case: yield_expression
+def f():
+    yield a + 1
+
+# case: yield_tuple
+def f():
+    yield 1, 2
+
+# case: yield_assigned
+def f():
+    x = yield 1
+
+# case: yield_parenthesized
+def f():
+    x = (yield 1)
+
 # case: yield_from
 def f():
     yield from g()

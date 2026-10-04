@@ -11,7 +11,7 @@
 
 use pylentil_ast::ast::{
     PyAlias, PyArg, PyArgType, PyArguments, PyBinaryOp, PyBoolOp, PyComparisonOp, PyConstant,
-    PyExpr, PyKeyword, PyRefContext, PyStatement, PyUnaryOp,
+    PyExpr, PyKeyword, PyRefContext, PyStatement, PyUnaryOp, PyWithItem,
 };
 use pylentil_common::span::PySpan;
 
@@ -190,6 +190,13 @@ pub fn slice(lower: Option<PyExpr>, upper: Option<PyExpr>, step: Option<PyExpr>)
     }
 }
 
+pub fn yield_expr(value: Option<PyExpr>) -> PyExpr {
+    PyExpr::Yield {
+        value: value.map(Box::new),
+        span: NO_SPAN,
+    }
+}
+
 pub fn starred(value: PyExpr) -> PyExpr {
     PyExpr::Starred {
         value: Box::new(value),
@@ -341,6 +348,52 @@ pub fn for_stmt(target: PyExpr, iter: PyExpr, body: Vec<PyStatement>) -> PyState
         iter: Box::new(iter),
         body,
         orelse: vec![],
+        type_comment: None,
+        span: NO_SPAN,
+    }
+}
+
+pub fn delete(targets: Vec<PyExpr>) -> PyStatement {
+    PyStatement::Delete {
+        targets,
+        span: NO_SPAN,
+    }
+}
+
+pub fn assert_stmt(test: PyExpr, msg: Option<PyExpr>) -> PyStatement {
+    PyStatement::Assert {
+        test: Box::new(test),
+        msg: msg.map(Box::new),
+        span: NO_SPAN,
+    }
+}
+
+pub fn global(names: &[&str]) -> PyStatement {
+    PyStatement::Global {
+        names: names.iter().map(|name| name.to_string()).collect(),
+        span: NO_SPAN,
+    }
+}
+
+pub fn nonlocal(names: &[&str]) -> PyStatement {
+    PyStatement::Nonlocal {
+        names: names.iter().map(|name| name.to_string()).collect(),
+        span: NO_SPAN,
+    }
+}
+
+pub fn with_item(context_expr: PyExpr, optional_vars: Option<PyExpr>) -> PyWithItem {
+    PyWithItem {
+        context_expr: Box::new(context_expr),
+        optional_vars: optional_vars.map(Box::new),
+        span: NO_SPAN,
+    }
+}
+
+pub fn with_stmt(items: Vec<PyWithItem>, body: Vec<PyStatement>) -> PyStatement {
+    PyStatement::With {
+        items,
+        body,
         type_comment: None,
         span: NO_SPAN,
     }
