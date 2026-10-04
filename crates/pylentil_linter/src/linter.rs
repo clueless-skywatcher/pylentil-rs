@@ -6,7 +6,7 @@ use pylentil_ast::{
 };
 
 use crate::{
-    lint::Lint, rules::{pycodestyle::bare_except::BareExcept, pylint::{unreachable::Unreachable, useless_return::UselessReturn}}, violation::LintViolation,
+    lint::Lint, rules::{pycodestyle::bare_except::BareExcept, pylint::{self_assigning_variable::SelfAssigningVariable, unreachable::Unreachable, useless_return::UselessReturn}}, violation::LintViolation,
 };
 
 pub struct Pylentil {
@@ -129,16 +129,28 @@ impl Pylentil {
         vec![]
     }
 
-    fn check_assign(&self, _path: &PathBuf, _assign: &PyStatement) -> Vec<LintViolation> {
-        vec![]
+    fn check_assign(&self, path: &PathBuf, assign: &PyStatement) -> Vec<LintViolation> {
+        let mut violations = vec![];
+
+        if self.rule_enabled(&SelfAssigningVariable) {
+            violations.append(&mut SelfAssigningVariable.check(path, assign));
+        }
+        
+        violations
     }
 
     fn check_aug_assign(&self, _path: &PathBuf, _aug_assign: &PyStatement) -> Vec<LintViolation> {
         vec![]
     }
 
-    fn check_ann_assign(&self, _path: &PathBuf, _ann_assign: &PyStatement) -> Vec<LintViolation> {
-        vec![]
+    fn check_ann_assign(&self, path: &PathBuf, ann_assign: &PyStatement) -> Vec<LintViolation> {
+        let mut violations = vec![];
+
+        if self.rule_enabled(&SelfAssigningVariable) {
+            violations.append(&mut SelfAssigningVariable.check(path, ann_assign));
+        }
+
+        violations
     }
 
     fn check_try(&self, path: &PathBuf, try_stmt: &PyStatement) -> Vec<LintViolation> {

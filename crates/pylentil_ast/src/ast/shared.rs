@@ -6,7 +6,7 @@ use super::stmt::PyStatement;
 
 /// Keyword argument in a call (`arg=value` or `**value` when `arg` is `None`).
 /// The span covers the whole entry, including `**`.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PyKeyword {
     pub arg: Option<String>,
     pub value: PyExprBox,
@@ -14,7 +14,7 @@ pub struct PyKeyword {
 }
 
 /// One `for target in iter [if ...]` clause, from `for` to its last condition.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PyComprehension {
     pub target: PyExprBox,
     pub iter: PyExprBox,
@@ -24,7 +24,7 @@ pub struct PyComprehension {
 }
 
 /// `name [as asname]` in an import. The span covers the `as` part too.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PyAlias {
     pub name: String,
     pub asname: Option<String>,
@@ -33,7 +33,7 @@ pub struct PyAlias {
 
 /// A parameter as written: any `*`, the name and the annotation, but not a
 /// default value.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PyArg {
     pub arg: PyExprBox,
     pub annotation: Option<PyExprBox>,
@@ -41,7 +41,7 @@ pub struct PyArg {
     pub span: PySpan,
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Default, Eq)]
 pub struct PyArguments {
     pub posonlyargs: Vec<PyArg>,
     pub args: Vec<PyArg>,
@@ -52,7 +52,7 @@ pub struct PyArguments {
     pub defaults: Vec<Option<PyExpr>>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PyWithItem {
     pub context_expr: PyExprBox,
     pub optional_vars: Option<PyExprBox>,
@@ -60,7 +60,7 @@ pub struct PyWithItem {
 }
 
 /// An `except` clause, from the keyword to the end of its body.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PyExceptHandler {
     pub type_: Option<PyExprBox>,
     pub name: Option<String>,
@@ -68,7 +68,7 @@ pub struct PyExceptHandler {
     pub span: PySpan,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PyMatchCase {
     pub pattern: PyPatternBox,
     pub guard: Option<PyExprBox>,
@@ -76,13 +76,13 @@ pub struct PyMatchCase {
     pub span: PySpan,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PyTypeIgnore {
     pub lineno: i32,
     pub tag: String,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PyTypeParam {
     TypeVar {
         name: String,
