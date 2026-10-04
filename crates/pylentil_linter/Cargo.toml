@@ -1,0 +1,11 @@
+[package]
+name = "pylentil_linter"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+pylentil_ast = { workspace = true }
+pylentil_common = { workspace = true }

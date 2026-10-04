@@ -111,6 +111,14 @@ try:
 except E as err:
     b
 
+# case: try_multi_except
+try:
+    a
+except E as err1:
+    b
+except F as err2:
+    c
+
 # case: try_finally
 try:
     a
@@ -158,6 +166,22 @@ async def f():
 # case: yield_value
 def f():
     yield 1
+
+# case: yield_expression
+def f():
+    yield a + 1
+
+# case: yield_tuple
+def f():
+    yield 1, 2
+
+# case: yield_assigned
+def f():
+    x = yield 1
+
+# case: yield_parenthesized
+def f():
+    x = (yield 1)
 
 # case: yield_from
 def f():

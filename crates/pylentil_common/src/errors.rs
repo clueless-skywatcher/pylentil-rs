@@ -1,4 +1,4 @@
-use std::fmt::{self};
+use std::{fmt::{self}, str::Utf8Error};
 
 /// Everything that can go wrong while turning Python source into an AST.
 ///
@@ -16,59 +16,121 @@ pub enum PylentilError {
 
     // -------------------------------------------------------------- lexing --
     /// A byte that starts no operator, literal or identifier.
-    UnknownCharacter { character: char },
+    UnknownCharacter {
+        character: char,
+    },
     /// A string literal that runs to the end of the file without its
     /// closing quote.
-    UnterminatedString { quote: String },
+    UnterminatedString {
+        quote: String,
+    },
     /// A single-quoted string interrupted by a line break.
-    UnterminatedStringLine { quote: String },
+    UnterminatedStringLine {
+        quote: String,
+    },
     /// A radix literal such as `0x` or `0b__` with no digits after the prefix.
-    EmptyNumericLiteral { prefix: String, base: &'static str },
+    EmptyNumericLiteral {
+        prefix: String,
+        base: &'static str,
+    },
     /// One indent built from both tabs and spaces.
     MixedSpacesAndTabs,
     /// Something other than a tab or a space at the start of an indented line.
-    InvalidIndentationCharacter { character: char },
+    InvalidIndentationCharacter {
+        character: char,
+    },
     /// The very first line of the file is indented.
     UnexpectedIndent,
     /// A dedent landing between two indentation levels instead of on one that
     /// is still open.
-    InconsistentDedent { found: usize, enclosing: usize },
+    InconsistentDedent {
+        found: usize,
+        enclosing: usize,
+    },
 
     // ------------------------------------------------------------- parsing --
     /// A token of the wrong kind where the grammar allowed only a known set.
-    UnexpectedToken { expected: String, found: String },
+    UnexpectedToken {
+        expected: String,
+        found: String,
+    },
     /// A token that cannot begin an expression.
-    ExpressionExpected { found: String },
+    ExpressionExpected {
+        found: String,
+    },
     /// A token that cannot continue the expression parsed so far.
-    TokenCannotContinueExpression { found: String },
+    TokenCannotContinueExpression {
+        found: String,
+    },
     /// A token routed to the terminal parser that is not a literal or a name.
-    NotATerminal { found: String },
+    NotATerminal {
+        found: String,
+    },
     /// A literal token the lexer left without its text.
-    TokenMissingValue { kind: &'static str },
+    TokenMissingValue {
+        kind: &'static str,
+    },
     /// A token used as an operator in a position that has no such operator.
-    UnsupportedOperator { found: String, context: &'static str },
+    UnsupportedOperator {
+        found: String,
+        context: &'static str,
+    },
     /// The left-hand side of an assignment is not something that can be
     /// assigned to.
-    InvalidAssignmentTarget { found: &'static str },
+    InvalidAssignmentTarget {
+        found: &'static str,
+    },
     /// The left-hand side of an annotated assignment is not a plain name.
-    InvalidAnnotationTarget { found: &'static str },
+    InvalidAnnotationTarget {
+        found: &'static str,
+    },
     /// The annotation itself is not a plain name.
-    InvalidAnnotation { found: &'static str },
+    InvalidAnnotation {
+        found: &'static str,
+    },
     /// The part after a `.` is not a name.
-    InvalidAttributeName { found: &'static str },
+    InvalidAttributeName {
+        found: &'static str,
+    },
     /// The part before the `=` of a keyword argument is not a name.
-    InvalidKeywordArgumentName { found: &'static str },
+    InvalidKeywordArgumentName {
+        found: &'static str,
+    },
     /// A positional argument after a keyword argument in the same call.
     PositionalArgumentAfterKeyword,
     /// Invalid argument type
     InvalidArgumentType,
+    /// Invalid syntax
+    InvalidSyntax {
+        error: String,
+    },
 
     // -------------------------------------------------------------- driver --
     /// The source file could not be read.
-    IOFailed { path: String, reason: String },
+    IOFailed {
+        path: String,
+        reason: String,
+    },
+    DecodeFailed {
+        error: Utf8Error
+    },
 
     /// The code path has not been implemented yet
-    NotImplemented
+    CodePathNotImplemented,
+
+    /// Missing AST
+    MissingAST,
+
+    /// Missing code metadata
+    MissingMetadata,
+
+    /// Empty file
+    EmptyFile,
+
+    // -------------------------------------------------------------- linting
+    InvalidLintCode {
+        code: String,
+    },
 }
 
 impl fmt::Display for PylentilError {
@@ -129,10 +191,9 @@ impl fmt::Display for PylentilError {
                 f,
                 "{found} cannot continue the expression that comes before it"
             ),
-            PylentilError::NotATerminal { found } => write!(
-                f,
-                "expected a literal or a name, found {found}"
-            ),
+            PylentilError::NotATerminal { found } => {
+                write!(f, "expected a literal or a name, found {found}")
+            }
             PylentilError::TokenMissingValue { kind } => write!(
                 f,
                 "the lexer produced {kind} without any text attached to it"
@@ -167,13 +228,33 @@ impl fmt::Display for PylentilError {
 
             PylentilError::IOFailed { path, reason } => {
                 write!(f, "could not read `{path}`: {reason}")
-            },
-            PylentilError::NotImplemented => {
+            }
+            PylentilError::CodePathNotImplemented => {
                 write!(f, "Has not been implemented")
-            },
+            }
             PylentilError::InvalidArgumentType => {
                 write!(f, "Invalid argument type")
             }
+            PylentilError::InvalidSyntax { error } => {
+                write!(f, "Invalid syntax: {error}")
+            }
+
+            PylentilError::InvalidLintCode { code } => {
+                write!(f, "Invalid lint code: {code}")
+            }
+
+            PylentilError::MissingAST => {
+                write!(f, "Missing AST")
+            }
+            PylentilError::MissingMetadata => {
+                write!(f, "Missing metadata")
+            }
+            PylentilError::EmptyFile => {
+                write!(f, "Empty file")
+            }
+            PylentilError::DecodeFailed { error } => {
+                write!(f, "Decode failed: {}", error.to_string())
+            },
         }
     }
 }

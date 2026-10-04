@@ -55,7 +55,10 @@ fn lex_indentation_indented_blank_line_inside_block() {
 fn lex_indentation_first_line_indented() {
     // Python: IndentationError: unexpected indent
     assert!(
-        matches!(lex_outcome(&case("lexer/indentation.py", "first_line_indented")), Outcome::Err(_)),
+        matches!(
+            lex_outcome(&case("lexer/indentation.py", "first_line_indented")),
+            Outcome::Err(_)
+        ),
         "module-level code cannot start indented"
     );
 }

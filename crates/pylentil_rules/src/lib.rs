@@ -1,1 +1,0 @@
-//! Lint rules for pylentil.

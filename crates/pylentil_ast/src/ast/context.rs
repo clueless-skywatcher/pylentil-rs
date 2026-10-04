@@ -3,5 +3,5 @@ pub enum PyRefContext {
     Load,
     Store,
     Delete,
-    Unspecified
+    Unspecified,
 }

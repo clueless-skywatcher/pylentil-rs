@@ -2,7 +2,10 @@ use super::*;
 
 #[test]
 fn a_file_without_a_trailing_newline_is_fine() {
-    p_assert_eq!(content("x = 1"), Ok(vec!["Ident(x)".into(), "Assign".into(), "Int(1)".into()]));
+    p_assert_eq!(
+        content("x = 1"),
+        Ok(vec!["Ident(x)".into(), "Assign".into(), "Int(1)".into()])
+    );
 }
 
 #[test]

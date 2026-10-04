@@ -1,6 +1,6 @@
 //! Helpers shared by the expression and statement parsers.
 
-use pylentil_common::errors::PylentilError;
+use pylentil_common::{errors::PylentilError, span::PySpan};
 
 use crate::{
     PyTokenType,
@@ -11,8 +11,8 @@ use crate::{
 use crate::lookups::{PyBindingPower, parse_expr, parse_generators};
 
 /// One entry of a parenthesised argument list, for both calls and `def`s.
-#[derive(Debug)]
-pub(crate) enum PyArgType {
+#[derive(Debug, Clone, PartialEq)]
+pub enum PyArgType {
     /// `value`, `*value`, or `name: annotation` when annotations are detected.
     Arg(PyArg),
     /// `name=value`, `**value`, or `name: annotation = value` when annotations
@@ -20,6 +20,11 @@ pub(crate) enum PyArgType {
     Keyword {
         keyword: PyKeyword,
         annotation: Option<PyExprBox>,
+        /// Where `name` is in `name=value`; for `**value`, the whole entry.
+        name_span: PySpan,
+        /// `name` plus any annotation, without the default; for `**value`,
+        /// the whole entry.
+        arg_span: PySpan,
     },
     /// Only used for function definitions - Marker to indicate end of positional-only-arguments
     PosOnlyMarker,
@@ -63,15 +68,21 @@ pub(crate) fn parse_arg(
     parser: &mut PyParser,
     optionally_detect_annotations: bool,
 ) -> Result<PyArgType, PylentilError> {
+    let start = parser.start()?;
+
     if parser.peek()?.kind == PyTokenType::DoubleStar {
         parser.consume()?;
         let expr = parse_expr(parser, PyBindingPower::Comma)?;
+        let span = parser.span_from(start);
         return Ok(PyArgType::Keyword {
             keyword: PyKeyword {
                 arg: None,
                 value: Box::new(expr),
+                span,
             },
             annotation: None,
+            name_span: span,
+            arg_span: span,
         });
     }
 
@@ -83,12 +94,16 @@ pub(crate) fn parse_arg(
     // The starred value is parsed at `Comma` so `*args, b` stays two entries.
     let arg = if parser.peek()?.kind == PyTokenType::Star {
         parser.consume()?;
-        if matches!(parser.peek()?.kind, PyTokenType::Comma | PyTokenType::RParen) {
+        if matches!(
+            parser.peek()?.kind,
+            PyTokenType::Comma | PyTokenType::RParen
+        ) {
             return Ok(PyArgType::KeywordOnlyMarker);
         }
         PyExpr::Starred {
             value: Box::new(parse_expr(parser, PyBindingPower::Comma)?),
             ctx: PyRefContext::Load,
+            span: parser.span_from(start),
         }
     } else {
         parse_expr(parser, PyBindingPower::Comma)?
@@ -101,9 +116,11 @@ pub(crate) fn parse_arg(
             arg: Box::new(PyExpr::GeneratorExp {
                 elt: Box::new(arg),
                 generators,
+                span: parser.span_from(start),
             }),
             annotation: None,
             type_comment: None,
+            span: parser.span_from(start),
         }));
     }
 
@@ -114,18 +131,23 @@ pub(crate) fn parse_arg(
     };
     let annotation =
         parse_optional_annotation(parser, optionally_detect_annotations && is_parameter_name)?;
+    // Everything but a default value: `*name: annotation`.
+    let arg_span = parser.span_from(start);
 
     if parser.peek()?.kind == PyTokenType::Assign {
         parser.consume()?;
         return match arg {
-            PyExpr::Name { id, .. } => {
+            PyExpr::Name { id, span, .. } => {
                 let value = parse_expr(parser, PyBindingPower::Comma)?;
                 Ok(PyArgType::Keyword {
                     keyword: PyKeyword {
                         arg: Some(id),
                         value: Box::new(value),
+                        span: parser.span_from(start),
                     },
                     annotation,
+                    name_span: span,
+                    arg_span,
                 })
             }
             other => Err(PylentilError::InvalidKeywordArgumentName {
@@ -138,6 +160,7 @@ pub(crate) fn parse_arg(
         arg: Box::new(arg),
         annotation,
         type_comment: None,
+        span: arg_span,
     }))
 }
 
