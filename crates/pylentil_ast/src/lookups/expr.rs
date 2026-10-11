@@ -1,16 +1,20 @@
 use pylentil_common::{errors::PylentilError, span::PySpan};
 
 use crate::{
-    PyToken, PyTokenType,
     ast::{
-        PyBinaryOp, PyBoolOp, PyComparisonOp, PyComprehension, PyConstant, PyExpr, PyExprBox,
-        PyKeyword, PyRefContext, PyUnaryOp,
+        PyAttributeExpr, PyBinOpExpr, PyBinaryOp, PyBoolOp, PyBoolOpExpr, PyCallExpr,
+        PyCompareExpr, PyComparisonOp, PyComprehension, PyConstant, PyConstantExpr, PyDictCompExpr,
+        PyDictExpr, PyExpr, PyExprBox, PyGeneratorExpExpr, PyIfExpExpr, PyKeyword, PyListCompExpr,
+        PyListExpr, PyNameExpr, PyNamedExprExpr, PyRefContext, PySetCompExpr, PySetExpr,
+        PySliceExpr, PyStarredExpr, PySubscriptExpr, PyTupleExpr, PyUnaryOp, PyUnaryOpExpr,
+        PyYieldExpr,
     },
     parser::PyParser,
+    PyToken, PyTokenType,
 };
 
-use super::{PyBindingPower, parse_expr};
-use crate::common::{PyArgType, parse_parenthesized_args};
+use super::{parse_expr, PyBindingPower};
+use crate::common::{parse_parenthesized_args, PyArgType};
 
 fn parse_int(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
     match parser.consume()? {
@@ -18,11 +22,11 @@ fn parse_int(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
             kind: PyTokenType::Int,
             value: Some(value),
             span,
-        } => Ok(PyExpr::Constant {
+        } => Ok(PyExpr::Constant(PyConstantExpr {
             kind: None,
             value: PyConstant::Integer(value.to_string()),
             span,
-        }),
+        })),
         PyToken {
             kind: PyTokenType::Int,
             value: None,
@@ -49,11 +53,11 @@ fn parse_float(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
                 value.push('0');
             }
 
-            Ok(PyExpr::Constant {
+            Ok(PyExpr::Constant(PyConstantExpr {
                 kind: None,
                 value: PyConstant::Float(value),
                 span,
-            })
+            }))
         }
         PyToken {
             kind: PyTokenType::Float,
@@ -76,11 +80,11 @@ fn parse_ident(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
             value: Some(value),
             span,
         } => Ok({
-            PyExpr::Name {
+            PyExpr::Name(PyNameExpr {
                 id: value.to_string(),
                 ctx: PyRefContext::Load,
                 span,
-            }
+            })
         }),
         PyToken {
             kind: PyTokenType::Ident,
@@ -109,21 +113,21 @@ fn parse_boolean(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
         }
     };
 
-    Ok(PyExpr::Constant {
+    Ok(PyExpr::Constant(PyConstantExpr {
         value: PyConstant::Boolean(bool_val),
         kind: None,
         span: token.span,
-    })
+    }))
 }
 
 fn parse_none(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
     let token = parser.consume()?;
     match token.kind {
-        PyTokenType::None => Ok(PyExpr::Constant {
+        PyTokenType::None => Ok(PyExpr::Constant(PyConstantExpr {
             value: PyConstant::None,
             kind: None,
             span: token.span,
-        }),
+        })),
         _ => Err(PylentilError::UnexpectedToken {
             expected: PyTokenType::None.describe().to_string(),
             found: token.describe(),
@@ -134,11 +138,11 @@ fn parse_none(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
 fn parse_ellipsis(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
     let token = parser.consume()?;
     match token.kind {
-        PyTokenType::Ellipsis => Ok(PyExpr::Constant {
+        PyTokenType::Ellipsis => Ok(PyExpr::Constant(PyConstantExpr {
             value: PyConstant::Ellipsis,
             kind: None,
             span: token.span,
-        }),
+        })),
         _ => Err(PylentilError::UnexpectedToken {
             expected: PyTokenType::Ellipsis.describe().to_string(),
             found: token.describe(),
@@ -153,11 +157,11 @@ fn parse_string(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
             value: Some(value),
             span,
         } => Ok({
-            PyExpr::Constant {
+            PyExpr::Constant(PyConstantExpr {
                 value: PyConstant::String(value.to_string()),
                 kind: None,
                 span,
-            }
+            })
         }),
         PyToken {
             kind: PyTokenType::String,
@@ -238,11 +242,11 @@ pub(super) fn parse_bool_op(
         values.push(parse_expr(parser, bp)?);
     }
 
-    Ok(PyExpr::BoolOp {
+    Ok(PyExpr::BoolOp(PyBoolOpExpr {
         op,
         values,
         span: parser.span_from(start),
-    })
+    }))
 }
 
 fn unary_op(kind: PyTokenType) -> Result<PyUnaryOp, PylentilError> {
@@ -270,11 +274,11 @@ pub(super) fn parse_unary(parser: &mut PyParser) -> Result<PyExpr, PylentilError
 
     let operand = parse_expr(parser, operand_bp)?;
 
-    Ok(PyExpr::UnaryOp {
+    Ok(PyExpr::UnaryOp(PyUnaryOpExpr {
         op,
         operand: Box::new(operand),
         span: parser.span_from(start),
-    })
+    }))
 }
 
 pub(super) fn augmented_op(kind: PyTokenType) -> Option<PyBinaryOp> {
@@ -334,12 +338,12 @@ pub(super) fn parse_binary(
 
     let right = parse_expr(parser, bp)?;
 
-    Ok(PyExpr::BinOp {
+    Ok(PyExpr::BinOp(PyBinOpExpr {
         left: Box::new(left),
         op,
         right: Box::new(right),
         span: parser.span_from(start),
-    })
+    }))
 }
 
 fn is_comparison_op(kind: PyTokenType) -> bool {
@@ -375,27 +379,27 @@ pub(super) fn parse_comparison(
         }
     }
 
-    Ok(PyExpr::Compare {
+    Ok(PyExpr::Compare(PyCompareExpr {
         left: Box::new(left),
         ops,
         comparators,
         span: parser.span_from(start),
-    })
+    }))
 }
 
 pub(super) fn as_target(expr: PyExpr) -> Result<PyExpr, PylentilError> {
     Ok(match expr {
-        PyExpr::Name { id, span, .. } => PyExpr::Name {
+        PyExpr::Name(PyNameExpr { id, span, .. }) => PyExpr::Name(PyNameExpr {
             id,
             ctx: PyRefContext::Store,
             span,
-        },
-        PyExpr::Tuple {
+        }),
+        PyExpr::Tuple(PyTupleExpr {
             elts,
             parenthesized,
             span,
             ..
-        } => PyExpr::Tuple {
+        }) => PyExpr::Tuple(PyTupleExpr {
             elts: elts
                 .into_iter()
                 .map(as_target)
@@ -403,36 +407,36 @@ pub(super) fn as_target(expr: PyExpr) -> Result<PyExpr, PylentilError> {
             ctx: PyRefContext::Store,
             parenthesized,
             span,
-        },
-        PyExpr::List { elts, span, .. } => PyExpr::List {
+        }),
+        PyExpr::List(PyListExpr { elts, span, .. }) => PyExpr::List(PyListExpr {
             elts: elts
                 .into_iter()
                 .map(as_target)
                 .collect::<Result<Vec<_>, _>>()?,
             ctx: PyRefContext::Store,
             span,
-        },
-        PyExpr::Starred { value, span, .. } => PyExpr::Starred {
+        }),
+        PyExpr::Starred(PyStarredExpr { value, span, .. }) => PyExpr::Starred(PyStarredExpr {
             value: Box::new(as_target(*value)?),
             ctx: PyRefContext::Store,
             span,
-        },
-        PyExpr::Attribute {
+        }),
+        PyExpr::Attribute(PyAttributeExpr {
             value, attr, span, ..
-        } => PyExpr::Attribute {
+        }) => PyExpr::Attribute(PyAttributeExpr {
             value,
             attr,
             ctx: PyRefContext::Store,
             span,
-        },
-        PyExpr::Subscript {
+        }),
+        PyExpr::Subscript(PySubscriptExpr {
             value, slice, span, ..
-        } => PyExpr::Subscript {
+        }) => PyExpr::Subscript(PySubscriptExpr {
             value,
             slice,
             ctx: PyRefContext::Store,
             span,
-        },
+        }),
         other => {
             return Err(PylentilError::InvalidAssignmentTarget {
                 found: other.describe(),
@@ -473,12 +477,12 @@ pub(super) fn parse_potentially_comma_separated(
         elts.push(parse_expr(parser, bp)?);
     }
 
-    Ok(PyExpr::Tuple {
+    Ok(PyExpr::Tuple(PyTupleExpr {
         elts,
         ctx: PyRefContext::Load,
         parenthesized: false,
         span: parser.span_from(start),
-    })
+    }))
 }
 
 pub(super) fn parse_walrus_tuple_or_expr(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
@@ -488,12 +492,12 @@ pub(super) fn parse_walrus_tuple_or_expr(parser: &mut PyParser) -> Result<PyExpr
     if parser.peek()?.kind == PyTokenType::RParen {
         parser.consume()?;
 
-        return Ok(PyExpr::Tuple {
+        return Ok(PyExpr::Tuple(PyTupleExpr {
             elts: Vec::new(),
             ctx: PyRefContext::Load,
             parenthesized: true,
             span: parser.span_from(start),
-        });
+        }));
     }
 
     let exprs = parse_expr(parser, PyBindingPower::Default)?;
@@ -502,11 +506,11 @@ pub(super) fn parse_walrus_tuple_or_expr(parser: &mut PyParser) -> Result<PyExpr
         let generators = parse_generators(parser)?;
         parser.expect_type(vec![PyTokenType::RParen])?;
 
-        return Ok(PyExpr::GeneratorExp {
+        return Ok(PyExpr::GeneratorExp(PyGeneratorExpExpr {
             elt: Box::new(exprs),
             generators,
             span: parser.span_from(start),
-        });
+        }));
     }
 
     if parser.peek()?.kind == PyTokenType::Walrus {
@@ -514,10 +518,7 @@ pub(super) fn parse_walrus_tuple_or_expr(parser: &mut PyParser) -> Result<PyExpr
 
         if !matches!(
             exprs,
-            PyExpr::Name { .. }
-                | PyExpr::Tuple { .. }
-                | PyExpr::Attribute { .. }
-                | PyExpr::Subscript { .. }
+            PyExpr::Name(_) | PyExpr::Tuple(_) | PyExpr::Attribute(_) | PyExpr::Subscript(_)
         ) {
             return Err(PylentilError::InvalidAssignmentTarget {
                 found: exprs.describe(),
@@ -530,35 +531,35 @@ pub(super) fn parse_walrus_tuple_or_expr(parser: &mut PyParser) -> Result<PyExpr
         let span = PySpan::span(target_start, value.span().end_or_start());
         parser.expect_type(vec![PyTokenType::RParen])?;
 
-        return Ok(PyExpr::NamedExpr {
+        return Ok(PyExpr::NamedExpr(PyNamedExprExpr {
             target: Box::new(exprs),
             value: Box::new(value),
             span,
-        });
+        }));
     }
 
     parser.expect_type(vec![PyTokenType::RParen])?;
 
     Ok(match exprs {
-        PyExpr::Tuple {
+        PyExpr::Tuple(PyTupleExpr {
             elts,
             ctx,
             parenthesized,
             span,
-        } => match parenthesized {
+        }) => match parenthesized {
             // `((a, b))`: the inner parentheses already belong to the tuple.
-            true => PyExpr::Tuple {
+            true => PyExpr::Tuple(PyTupleExpr {
                 elts,
                 ctx,
                 parenthesized,
                 span,
-            },
-            false => PyExpr::Tuple {
+            }),
+            false => PyExpr::Tuple(PyTupleExpr {
                 elts,
                 ctx,
                 parenthesized: true,
                 span: parser.span_from(start),
-            },
+            }),
         },
         expr => expr,
     })
@@ -570,11 +571,11 @@ pub(super) fn parse_star(parser: &mut PyParser) -> Result<PyExpr, PylentilError>
 
     let expr = parse_expr(parser, PyBindingPower::Default)?;
 
-    Ok(PyExpr::Starred {
+    Ok(PyExpr::Starred(PyStarredExpr {
         value: Box::new(expr),
         ctx: PyRefContext::Load,
         span: parser.span_from(start),
-    })
+    }))
 }
 
 pub(super) fn parse_yield(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
@@ -583,7 +584,10 @@ pub(super) fn parse_yield(parser: &mut PyParser) -> Result<PyExpr, PylentilError
 
     let expr = parse_expr(parser, PyBindingPower::Default)?;
 
-    Ok(PyExpr::Yield { value: Some(Box::new(expr)), span: parser.span_from(start) })
+    Ok(PyExpr::Yield(PyYieldExpr {
+        value: Some(Box::new(expr)),
+        span: parser.span_from(start),
+    }))
 }
 
 pub(super) fn parse_attribute_access(
@@ -597,12 +601,12 @@ pub(super) fn parse_attribute_access(
     let attribute = parse_expr(parser, bp)?;
 
     match attribute {
-        PyExpr::Name { id, ctx, .. } => Ok(PyExpr::Attribute {
+        PyExpr::Name(PyNameExpr { id, ctx, .. }) => Ok(PyExpr::Attribute(PyAttributeExpr {
             value: Box::new(left),
             attr: id,
             ctx,
             span: parser.span_from(start),
-        }),
+        })),
         other => Err(PylentilError::InvalidAttributeName {
             found: other.describe(),
         }),
@@ -621,12 +625,12 @@ pub(super) fn parse_subscript_access(
 
     parser.expect_type(vec![PyTokenType::RSquare])?;
 
-    Ok(PyExpr::Subscript {
+    Ok(PyExpr::Subscript(PySubscriptExpr {
         value: Box::new(left),
         slice: Box::new(slice),
         ctx: PyRefContext::Load,
         span: parser.span_from(start),
-    })
+    }))
 }
 
 pub(super) fn parse_function_call(
@@ -660,12 +664,12 @@ pub(super) fn parse_function_call(
         }
     }
 
-    Ok(PyExpr::Call {
+    Ok(PyExpr::Call(PyCallExpr {
         func: Box::new(left),
         args,
         keywords,
         span: parser.span_from(start),
-    })
+    }))
 }
 
 fn parse_slice(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
@@ -698,12 +702,12 @@ fn parse_slice(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
         step = Some(Box::new(parse_expr(parser, PyBindingPower::Default)?));
     }
 
-    Ok(PyExpr::Slice {
+    Ok(PyExpr::Slice(PySliceExpr {
         lower,
         upper,
         step,
         span: parser.span_from(start),
-    })
+    }))
 }
 
 pub(super) fn parse_if(
@@ -719,12 +723,12 @@ pub(super) fn parse_if(
     parser.expect_type(vec![PyTokenType::Else])?;
     let orelse = parse_expr(parser, PyBindingPower::Default)?;
 
-    Ok(PyExpr::IfExp {
+    Ok(PyExpr::IfExp(PyIfExpExpr {
         test: Box::new(test),
         body: Box::new(left),
         orelse: Box::new(orelse),
         span: parser.span_from(start),
-    })
+    }))
 }
 
 pub(super) fn parse_dict_or_set_or_comprehension(
@@ -735,11 +739,11 @@ pub(super) fn parse_dict_or_set_or_comprehension(
 
     if parser.peek()?.kind == PyTokenType::RBrace {
         parser.consume()?;
-        return Ok(PyExpr::Dict {
+        return Ok(PyExpr::Dict(PyDictExpr {
             keys: vec![],
             values: vec![],
             span: parser.span_from(start),
-        });
+        }));
     }
 
     if parser.peek()?.kind == PyTokenType::DoubleStar {
@@ -758,12 +762,12 @@ pub(super) fn parse_dict_or_set_or_comprehension(
             let generators = parse_generators(parser)?;
             parser.expect_type(vec![PyTokenType::RBrace])?;
 
-            return Ok(PyExpr::DictComp {
+            return Ok(PyExpr::DictComp(PyDictCompExpr {
                 key: Box::new(first),
                 value: Box::new(value),
                 generators,
                 span: parser.span_from(start),
-            });
+            }));
         }
 
         return parse_dict(parser, start, Some(first), value);
@@ -773,11 +777,11 @@ pub(super) fn parse_dict_or_set_or_comprehension(
         let generators = parse_generators(parser)?;
         parser.expect_type(vec![PyTokenType::RBrace])?;
 
-        return Ok(PyExpr::SetComp {
+        return Ok(PyExpr::SetComp(PySetCompExpr {
             elt: Box::new(first),
             generators,
             span: parser.span_from(start),
-        });
+        }));
     }
 
     parse_set(parser, start, first)
@@ -800,11 +804,11 @@ pub(super) fn parse_list_or_comprehension(parser: &mut PyParser) -> Result<PyExp
             let generators = parse_generators(parser)?;
             parser.expect_type(vec![PyTokenType::RSquare])?;
 
-            return Ok(PyExpr::ListComp {
+            return Ok(PyExpr::ListComp(PyListCompExpr {
                 elt: Box::new(expr),
                 generators,
                 span: parser.span_from(start),
-            });
+            }));
         }
 
         elts.push(expr);
@@ -817,11 +821,11 @@ pub(super) fn parse_list_or_comprehension(parser: &mut PyParser) -> Result<PyExp
 
     parser.expect_type(vec![PyTokenType::RSquare])?;
 
-    Ok(PyExpr::List {
+    Ok(PyExpr::List(PyListExpr {
         elts,
         ctx: PyRefContext::Load,
         span: parser.span_from(start),
-    })
+    }))
 }
 
 /// Parses the rest of a dict display; `start` is where its `{` is.
@@ -857,11 +861,11 @@ fn parse_dict(
         }
     }
     parser.expect_type(vec![PyTokenType::RBrace])?;
-    Ok(PyExpr::Dict {
+    Ok(PyExpr::Dict(PyDictExpr {
         keys,
         values,
         span: parser.span_from(start),
-    })
+    }))
 }
 
 /// Parses the rest of a set display; `start` is where its `{` is.
@@ -881,10 +885,10 @@ fn parse_set(parser: &mut PyParser, start: usize, first: PyExpr) -> Result<PyExp
     }
     parser.expect_type(vec![PyTokenType::RBrace])?;
 
-    Ok(PyExpr::Set {
+    Ok(PyExpr::Set(PySetExpr {
         elts,
         span: parser.span_from(start),
-    })
+    }))
 }
 
 /// Parses every `for ... in ... [if ...]` clause of a comprehension, stopping
@@ -943,10 +947,10 @@ fn parse_comprehension_target(parser: &mut PyParser) -> Result<PyExpr, PylentilE
         elts.push(parse_expr(parser, PyBindingPower::Comparison)?);
     }
 
-    Ok(PyExpr::Tuple {
+    Ok(PyExpr::Tuple(PyTupleExpr {
         elts,
         ctx: PyRefContext::Store,
         parenthesized: false,
         span: parser.span_from(start),
-    })
+    }))
 }

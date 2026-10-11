@@ -2,11 +2,7 @@ use std::{collections::HashSet, fs::File, path::PathBuf, sync::Arc};
 
 use pylentil_common::errors::PylentilError;
 
-use crate::{
-    lint::Lint,
-    linter::Pylentil,
-    registry::LintRegistry,
-};
+use crate::{lint::Lint, linter::Pylentil, registry::LintRegistry};
 
 pub struct PylentilBuilder {
     paths: HashSet<PathBuf>,

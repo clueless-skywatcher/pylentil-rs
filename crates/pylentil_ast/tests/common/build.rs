@@ -9,10 +9,7 @@
 //! Every span is `PySpan::default()`. Spans never affect `==`, so these values
 //! match parsed ASTs wherever the parsed code sits.
 
-use pylentil_ast::ast::{
-    PyAlias, PyArg, PyArgType, PyArguments, PyBinaryOp, PyBoolOp, PyComparisonOp, PyConstant,
-    PyExceptHandler, PyExpr, PyKeyword, PyRefContext, PyStatement, PyUnaryOp, PyWithItem,
-};
+use pylentil_ast::ast::*;
 use pylentil_common::span::PySpan;
 
 const NO_SPAN: PySpan = PySpan {
@@ -23,11 +20,11 @@ const NO_SPAN: PySpan = PySpan {
 // --------------------------------------------------------------- literals --
 
 fn constant(value: PyConstant) -> PyExpr {
-    PyExpr::Constant {
+    PyExpr::Constant(PyConstantExpr {
         value,
         kind: None,
         span: NO_SPAN,
-    }
+    })
 }
 
 pub fn int(value: impl ToString) -> PyExpr {
@@ -56,162 +53,162 @@ pub fn ellipsis() -> PyExpr {
 }
 
 pub fn name(id: &str) -> PyExpr {
-    PyExpr::Name {
+    PyExpr::Name(PyNameExpr {
         id: id.to_string(),
         ctx: PyRefContext::Load,
         span: NO_SPAN,
-    }
+    })
 }
 
 // -------------------------------------------------------------- operators --
 
 pub fn bin_op(left: PyExpr, op: PyBinaryOp, right: PyExpr) -> PyExpr {
-    PyExpr::BinOp {
+    PyExpr::BinOp(PyBinOpExpr {
         left: Box::new(left),
         op,
         right: Box::new(right),
         span: NO_SPAN,
-    }
+    })
 }
 
 pub fn unary_op(op: PyUnaryOp, operand: PyExpr) -> PyExpr {
-    PyExpr::UnaryOp {
+    PyExpr::UnaryOp(PyUnaryOpExpr {
         op,
         operand: Box::new(operand),
         span: NO_SPAN,
-    }
+    })
 }
 
 pub fn bool_op(op: PyBoolOp, values: Vec<PyExpr>) -> PyExpr {
-    PyExpr::BoolOp {
+    PyExpr::BoolOp(PyBoolOpExpr {
         op,
         values,
         span: NO_SPAN,
-    }
+    })
 }
 
 pub fn compare(left: PyExpr, ops: Vec<PyComparisonOp>, comparators: Vec<PyExpr>) -> PyExpr {
-    PyExpr::Compare {
+    PyExpr::Compare(PyCompareExpr {
         left: Box::new(left),
         ops,
         comparators,
         span: NO_SPAN,
-    }
+    })
 }
 
 pub fn if_exp(test: PyExpr, body: PyExpr, orelse: PyExpr) -> PyExpr {
-    PyExpr::IfExp {
+    PyExpr::IfExp(PyIfExpExpr {
         test: Box::new(test),
         body: Box::new(body),
         orelse: Box::new(orelse),
         span: NO_SPAN,
-    }
+    })
 }
 
 pub fn named_expr(target: PyExpr, value: PyExpr) -> PyExpr {
-    PyExpr::NamedExpr {
+    PyExpr::NamedExpr(PyNamedExprExpr {
         target: Box::new(target),
         value: Box::new(value),
         span: NO_SPAN,
-    }
+    })
 }
 
 // ------------------------------------------------------------ collections --
 
 pub fn tuple(elts: Vec<PyExpr>) -> PyExpr {
-    PyExpr::Tuple {
+    PyExpr::Tuple(PyTupleExpr {
         elts,
         ctx: PyRefContext::Load,
         parenthesized: false,
         span: NO_SPAN,
-    }
+    })
 }
 
 pub fn parenthesized_tuple(elts: Vec<PyExpr>) -> PyExpr {
-    PyExpr::Tuple {
+    PyExpr::Tuple(PyTupleExpr {
         elts,
         ctx: PyRefContext::Load,
         parenthesized: true,
         span: NO_SPAN,
-    }
+    })
 }
 
 pub fn list(elts: Vec<PyExpr>) -> PyExpr {
-    PyExpr::List {
+    PyExpr::List(PyListExpr {
         elts,
         ctx: PyRefContext::Load,
         span: NO_SPAN,
-    }
+    })
 }
 
 pub fn set(elts: Vec<PyExpr>) -> PyExpr {
-    PyExpr::Set {
+    PyExpr::Set(PySetExpr {
         elts,
         span: NO_SPAN,
-    }
+    })
 }
 
 /// A dict literal from `(key, value)` pairs.
 pub fn dict(entries: Vec<(PyExpr, PyExpr)>) -> PyExpr {
     let (keys, values) = entries.into_iter().map(|(k, v)| (Some(k), v)).unzip();
-    PyExpr::Dict {
+    PyExpr::Dict(PyDictExpr {
         keys,
         values,
         span: NO_SPAN,
-    }
+    })
 }
 
 // ------------------------------------------------------- access and calls --
 
 pub fn attribute(value: PyExpr, attr: &str) -> PyExpr {
-    PyExpr::Attribute {
+    PyExpr::Attribute(PyAttributeExpr {
         value: Box::new(value),
         attr: attr.to_string(),
         ctx: PyRefContext::Load,
         span: NO_SPAN,
-    }
+    })
 }
 
 pub fn subscript(value: PyExpr, slice: PyExpr) -> PyExpr {
-    PyExpr::Subscript {
+    PyExpr::Subscript(PySubscriptExpr {
         value: Box::new(value),
         slice: Box::new(slice),
         ctx: PyRefContext::Load,
         span: NO_SPAN,
-    }
+    })
 }
 
 pub fn slice(lower: Option<PyExpr>, upper: Option<PyExpr>, step: Option<PyExpr>) -> PyExpr {
-    PyExpr::Slice {
+    PyExpr::Slice(PySliceExpr {
         lower: lower.map(Box::new),
         upper: upper.map(Box::new),
         step: step.map(Box::new),
         span: NO_SPAN,
-    }
+    })
 }
 
 pub fn yield_expr(value: Option<PyExpr>) -> PyExpr {
-    PyExpr::Yield {
+    PyExpr::Yield(PyYieldExpr {
         value: value.map(Box::new),
         span: NO_SPAN,
-    }
+    })
 }
 
 pub fn starred(value: PyExpr) -> PyExpr {
-    PyExpr::Starred {
+    PyExpr::Starred(PyStarredExpr {
         value: Box::new(value),
         ctx: PyRefContext::Load,
         span: NO_SPAN,
-    }
+    })
 }
 
 pub fn call(func: PyExpr, args: Vec<PyExpr>, keywords: Vec<PyKeyword>) -> PyExpr {
-    PyExpr::Call {
+    PyExpr::Call(PyCallExpr {
         func: Box::new(func),
         args: args.into_iter().map(Box::new).collect(),
         keywords,
         span: NO_SPAN,
-    }
+    })
 }
 
 /// `arg=value`, or `**value` when `arg` is `None`.
@@ -231,155 +228,167 @@ pub fn keyword(arg: Option<&str>, value: PyExpr) -> PyKeyword {
 pub fn store(target: PyExpr) -> PyExpr {
     let ctx = PyRefContext::Store;
     match target {
-        PyExpr::Name { id, span, .. } => PyExpr::Name { id, ctx, span },
-        PyExpr::Tuple {
+        PyExpr::Name(PyNameExpr { id, span, .. }) => PyExpr::Name(PyNameExpr { id, ctx, span }),
+        PyExpr::Tuple(PyTupleExpr {
             elts,
             parenthesized,
             span,
             ..
-        } => PyExpr::Tuple {
+        }) => PyExpr::Tuple(PyTupleExpr {
             elts: elts.into_iter().map(store).collect(),
             ctx,
             parenthesized,
             span,
-        },
-        PyExpr::List { elts, span, .. } => PyExpr::List {
+        }),
+        PyExpr::List(PyListExpr { elts, span, .. }) => PyExpr::List(PyListExpr {
             elts: elts.into_iter().map(store).collect(),
             ctx,
             span,
-        },
-        PyExpr::Starred { value, span, .. } => PyExpr::Starred {
+        }),
+        PyExpr::Starred(PyStarredExpr { value, span, .. }) => PyExpr::Starred(PyStarredExpr {
             value: Box::new(store(*value)),
             ctx,
             span,
-        },
-        PyExpr::Attribute {
+        }),
+        PyExpr::Attribute(PyAttributeExpr {
             value, attr, span, ..
-        } => PyExpr::Attribute {
+        }) => PyExpr::Attribute(PyAttributeExpr {
             value,
             attr,
             ctx,
             span,
-        },
-        PyExpr::Subscript {
+        }),
+        PyExpr::Subscript(PySubscriptExpr {
             value, slice, span, ..
-        } => PyExpr::Subscript {
+        }) => PyExpr::Subscript(PySubscriptExpr {
             value,
             slice,
             ctx,
             span,
-        },
+        }),
         other => panic!("{} cannot be an assignment target", other.describe()),
     }
 }
 
 // ------------------------------------------------------------- statements --
 
-pub fn pass() -> PyStatement {
-    PyStatement::Pass { span: NO_SPAN }
+fn suite(body: Vec<PyStatement>) -> PyStatement {
+    PyStatement::Block(Box::new(PyBlockStmt::from_statements(body)))
 }
 
-pub fn break_() -> PyStatement {
-    PyStatement::Break { span: NO_SPAN }
-}
-
-pub fn continue_() -> PyStatement {
-    PyStatement::Continue { span: NO_SPAN }
-}
-
-pub fn expr_stmt(value: PyExpr) -> PyStatement {
-    PyStatement::Expr {
-        value: Box::new(value),
-        span: NO_SPAN,
+fn optional_suite(body: Vec<PyStatement>) -> Option<PyStatement> {
+    if body.is_empty() {
+        None
+    } else {
+        Some(suite(body))
     }
 }
 
+pub fn pass() -> PyStatement {
+    PyStatement::Pass(Box::new(PyPassStmt { span: NO_SPAN }))
+}
+
+pub fn break_() -> PyStatement {
+    PyStatement::Break(Box::new(PyBreakStmt { span: NO_SPAN }))
+}
+
+pub fn continue_() -> PyStatement {
+    PyStatement::Continue(Box::new(PyContinueStmt { span: NO_SPAN }))
+}
+
+pub fn expr_stmt(value: PyExpr) -> PyStatement {
+    PyStatement::Expr(Box::new(PyExprStmt {
+        value: Box::new(value),
+        span: NO_SPAN,
+    }))
+}
+
 pub fn assign(targets: Vec<PyExpr>, value: PyExpr) -> PyStatement {
-    PyStatement::Assign {
+    PyStatement::Assign(Box::new(PyAssignStmt {
         targets,
         value: Box::new(value),
         type_comment: None,
         span: NO_SPAN,
-    }
+    }))
 }
 
 pub fn aug_assign(target: PyExpr, op: PyBinaryOp, value: PyExpr) -> PyStatement {
-    PyStatement::AugAssign {
+    PyStatement::AugAssign(Box::new(PyAugAssignStmt {
         target: Box::new(target),
         op,
         value: Box::new(value),
         span: NO_SPAN,
-    }
+    }))
 }
 
 /// `target: annotation [= value]`. The parser leaves the target as a load and
 /// sets `simple` to `false`, so this does too.
 pub fn ann_assign(target: PyExpr, annotation: PyExpr, value: Option<PyExpr>) -> PyStatement {
-    PyStatement::AnnAssign {
+    PyStatement::AnnAssign(Box::new(PyAnnAssignStmt {
         target: Box::new(target),
         annotation: Box::new(annotation),
         value: value.map(Box::new),
         simple: false,
         span: NO_SPAN,
-    }
+    }))
 }
 
 pub fn if_stmt(test: PyExpr, body: Vec<PyStatement>, orelse: Vec<PyStatement>) -> PyStatement {
-    PyStatement::If {
+    PyStatement::If(Box::new(PyIfStmt {
         test: Box::new(test),
-        body,
-        orelse,
+        body: suite(body),
+        orelse: optional_suite(orelse),
         span: NO_SPAN,
-    }
+    }))
 }
 
 pub fn while_stmt(test: PyExpr, body: Vec<PyStatement>, orelse: Vec<PyStatement>) -> PyStatement {
-    PyStatement::While {
+    PyStatement::While(Box::new(PyWhileStmt {
         test: Box::new(test),
-        body,
-        orelse,
+        body: suite(body),
+        orelse: optional_suite(orelse),
         span: NO_SPAN,
-    }
+    }))
 }
 
 pub fn for_stmt(target: PyExpr, iter: PyExpr, body: Vec<PyStatement>) -> PyStatement {
-    PyStatement::For {
+    PyStatement::For(Box::new(PyForStmt {
         target: Box::new(target),
         iter: Box::new(iter),
-        body,
-        orelse: vec![],
+        body: suite(body),
+        orelse: None,
         type_comment: None,
         span: NO_SPAN,
-    }
+    }))
 }
 
 pub fn delete(targets: Vec<PyExpr>) -> PyStatement {
-    PyStatement::Delete {
+    PyStatement::Delete(Box::new(PyDeleteStmt {
         targets,
         span: NO_SPAN,
-    }
+    }))
 }
 
 pub fn assert_stmt(test: PyExpr, msg: Option<PyExpr>) -> PyStatement {
-    PyStatement::Assert {
+    PyStatement::Assert(Box::new(PyAssertStmt {
         test: Box::new(test),
         msg: msg.map(Box::new),
         span: NO_SPAN,
-    }
+    }))
 }
 
 pub fn global(names: &[&str]) -> PyStatement {
-    PyStatement::Global {
+    PyStatement::Global(Box::new(PyGlobalStmt {
         names: names.iter().map(|name| name.to_string()).collect(),
         span: NO_SPAN,
-    }
+    }))
 }
 
 pub fn nonlocal(names: &[&str]) -> PyStatement {
-    PyStatement::Nonlocal {
+    PyStatement::Nonlocal(Box::new(PyNonlocalStmt {
         names: names.iter().map(|name| name.to_string()).collect(),
         span: NO_SPAN,
-    }
+    }))
 }
 
 pub fn with_item(context_expr: PyExpr, optional_vars: Option<PyExpr>) -> PyWithItem {
@@ -398,7 +407,7 @@ pub fn except_handler(
     PyExceptHandler {
         type_: type_.map(Box::new),
         name: name.map(str::to_string),
-        body,
+        body: suite(body),
         span: NO_SPAN,
     }
 }
@@ -409,47 +418,47 @@ pub fn try_stmt(
     orelse: Vec<PyStatement>,
     finalbody: Vec<PyStatement>,
 ) -> PyStatement {
-    PyStatement::Try {
-        body,
+    PyStatement::Try(Box::new(PyTryStmt {
+        body: suite(body),
         handlers,
-        orelse,
-        finalbody,
+        orelse: optional_suite(orelse),
+        finalbody: optional_suite(finalbody),
         span: NO_SPAN,
-    }
+    }))
 }
 
 pub fn with_stmt(items: Vec<PyWithItem>, body: Vec<PyStatement>) -> PyStatement {
-    PyStatement::With {
+    PyStatement::With(Box::new(PyWithStmt {
         items,
-        body,
+        body: suite(body),
         type_comment: None,
         span: NO_SPAN,
-    }
+    }))
 }
 
 pub fn return_stmt(value: Option<PyExpr>) -> PyStatement {
-    PyStatement::Return {
+    PyStatement::Return(Box::new(PyReturnStmt {
         value: value.map(Box::new),
         span: NO_SPAN,
-    }
+    }))
 }
 
 pub fn import(names: Vec<PyAlias>) -> PyStatement {
-    PyStatement::Import {
+    PyStatement::Import(Box::new(PyImportStmt {
         names,
         span: NO_SPAN,
-    }
+    }))
 }
 
 /// `from <level dots><module> import <names>`. `level` is `None` for an
 /// absolute import.
 pub fn import_from(module: Option<&str>, names: Vec<PyAlias>, level: Option<i32>) -> PyStatement {
-    PyStatement::ImportFrom {
+    PyStatement::ImportFrom(Box::new(PyImportFromStmt {
         module: module.map(str::to_string),
         names,
         level,
         span: NO_SPAN,
-    }
+    }))
 }
 
 pub fn alias(name: &str, asname: Option<&str>) -> PyAlias {
@@ -462,17 +471,17 @@ pub fn alias(name: &str, asname: Option<&str>) -> PyAlias {
 
 /// A plain `def` with no decorators or return annotation.
 pub fn function_def(name: &str, args: PyArguments, body: Vec<PyStatement>) -> PyStatement {
-    PyStatement::FunctionDef {
+    PyStatement::FunctionDef(Box::new(PyFunctionDefStmt {
         name: name.to_string(),
         args: Box::new(args),
-        body,
+        body: suite(body),
         decorator_list: vec![],
         returns: None,
         type_comment: None,
         type_params: vec![],
         is_async: false,
         span: NO_SPAN,
-    }
+    }))
 }
 
 pub fn class_def(name: &str, body: Vec<PyStatement>) -> PyStatement {
@@ -485,15 +494,15 @@ pub fn class_def_with(
     body: Vec<PyStatement>,
     decorator_list: Vec<PyExpr>,
 ) -> PyStatement {
-    PyStatement::ClassDef {
+    PyStatement::ClassDef(Box::new(PyClassDefStmt {
         name: name.to_string(),
         bases,
         keywords: vec![],
-        body,
+        body: suite(body),
         decorator_list,
         type_params: vec![],
         span: NO_SPAN,
-    }
+    }))
 }
 
 /// A positional base. Keyword bases stay in `bases` as [`PyArgType::Keyword`];

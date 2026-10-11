@@ -19,7 +19,6 @@ impl LintRegistry {
         let all: Vec<Arc<dyn Lint>> = vec![
             // Pycodestyle
             Arc::new(pycodestyle::bare_except::BareExcept),
-            
             // Pylint
             Arc::new(pylint::useless_return::UselessReturn),
             Arc::new(pylint::unreachable::Unreachable),

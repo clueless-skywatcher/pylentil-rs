@@ -100,11 +100,11 @@ pub(crate) fn parse_arg(
         ) {
             return Ok(PyArgType::KeywordOnlyMarker);
         }
-        PyExpr::Starred {
+        PyExpr::Starred(crate::ast::PyStarredExpr {
             value: Box::new(parse_expr(parser, PyBindingPower::Comma)?),
             ctx: PyRefContext::Load,
             span: parser.span_from(start),
-        }
+        })
     } else {
         parse_expr(parser, PyBindingPower::Comma)?
     };
@@ -113,11 +113,11 @@ pub(crate) fn parse_arg(
         let generators = parse_generators(parser)?;
 
         return Ok(PyArgType::Arg(PyArg {
-            arg: Box::new(PyExpr::GeneratorExp {
+            arg: Box::new(PyExpr::GeneratorExp(crate::ast::PyGeneratorExpExpr {
                 elt: Box::new(arg),
                 generators,
                 span: parser.span_from(start),
-            }),
+            })),
             annotation: None,
             type_comment: None,
             span: parser.span_from(start),
@@ -125,8 +125,8 @@ pub(crate) fn parse_arg(
     }
 
     let is_parameter_name = match &arg {
-        PyExpr::Name { .. } => true,
-        PyExpr::Starred { value, .. } => matches!(value.as_ref(), PyExpr::Name { .. }),
+        PyExpr::Name(_) => true,
+        PyExpr::Starred(starred) => matches!(starred.value.as_ref(), PyExpr::Name(_)),
         _ => false,
     };
     let annotation =
@@ -137,7 +137,7 @@ pub(crate) fn parse_arg(
     if parser.peek()?.kind == PyTokenType::Assign {
         parser.consume()?;
         return match arg {
-            PyExpr::Name { id, span, .. } => {
+            PyExpr::Name(crate::ast::PyNameExpr { id, span, .. }) => {
                 let value = parse_expr(parser, PyBindingPower::Comma)?;
                 Ok(PyArgType::Keyword {
                     keyword: PyKeyword {

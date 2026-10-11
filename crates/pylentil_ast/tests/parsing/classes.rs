@@ -215,20 +215,20 @@ fn parse_classes_decorated_method() {
         stmt(F, "decorated_method"),
         class_def(
             "C",
-            vec![PyStatement::FunctionDef {
+            vec![PyStatement::FunctionDef(Box::new(PyFunctionDefStmt {
                 name: "f".into(),
                 args: Box::new(PyArguments {
                     args: vec![arg("self")],
                     ..Default::default()
                 }),
-                body: vec![pass()],
+                body: PyStatement::Block(Box::new(PyBlockStmt::from_statements(vec![pass()]))),
                 decorator_list: vec![name("dec")],
                 returns: None,
                 type_comment: None,
                 type_params: vec![],
                 is_async: false,
                 span: PySpan::default(),
-            }]
+            }))]
         )
     );
 }

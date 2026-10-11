@@ -32,46 +32,46 @@ impl Lint for SelfAssigningVariable {
         LintSource::Pylint
     }
 
-    fn check(&mut self, path: &Path, stmt: &PyStatement) -> Vec<LintViolation> {
-        let mut violations = vec![];
-
-        match stmt {
-            PyStatement::Assign {
-                targets,
-                value,
-                span,
-                ..
-            } => {
-                self.check_assign(&mut violations, path, targets, value, span);
-            }
-            PyStatement::AnnAssign {
-                target,
-                value: Some(value),
-                span,
-                ..
-            } => {
-                self.check_assign(
-                    &mut violations,
-                    path,
-                    std::slice::from_ref(target),
-                    value,
-                    span,
-                );
-            }
-            _ => {}
-        }
-
-        violations
-    }
-
     fn possible_fix(&self) -> Option<String> {
         Some("Remove the redundant assignment".to_string())
+    }
+
+    fn check(&self, path: &Path, stmt: &PyStatement) -> Vec<LintViolation> {
+        let mut violations = vec![];
+        self.collect(&mut violations, path, stmt);
+        violations
     }
 }
 
 impl SelfAssigningVariable {
+    fn collect(&self, violations: &mut Vec<LintViolation>, path: &Path, stmt: &PyStatement) {
+        match stmt {
+            PyStatement::Assign(assign) => {
+                self.check_assign(
+                    violations,
+                    path,
+                    &assign.targets,
+                    &assign.value,
+                    &assign.span,
+                );
+            }
+            PyStatement::AnnAssign(assign) => {
+                if let Some(value) = &assign.value {
+                    self.check_assign(
+                        violations,
+                        path,
+                        std::slice::from_ref(assign.target.as_ref()),
+                        value,
+                        &assign.span,
+                    );
+                }
+            }
+            _ => {}
+        }
+    }
+
     fn check_assign(
-        &mut self,
+        &self,
         violations: &mut Vec<LintViolation>,
         path: &Path,
         targets: &[PyExpr],
@@ -86,65 +86,26 @@ impl SelfAssigningVariable {
     }
 }
 
+fn same_elts(left: &[PyExpr], right: &[PyExpr]) -> bool {
+    left.len() == right.len()
+        && left
+            .iter()
+            .zip(right)
+            .all(|(left, right)| same_expr(left, right))
+}
+
 fn same_expr(left: &PyExpr, right: &PyExpr) -> bool {
     match (left, right) {
-        (PyExpr::Name { id: left_id, .. }, PyExpr::Name { id: right_id, .. }) => {
-            left_id == right_id
+        (PyExpr::Name(left), PyExpr::Name(right)) => left.id == right.id,
+        (PyExpr::Attribute(left), PyExpr::Attribute(right)) => {
+            left.attr == right.attr && same_expr(&left.value, &right.value)
         }
-        (
-            PyExpr::Attribute {
-                value: left_value,
-                attr: left_attr,
-                ..
-            },
-            PyExpr::Attribute {
-                value: right_value,
-                attr: right_attr,
-                ..
-            },
-        ) => left_attr == right_attr && same_expr(left_value, right_value),
-        (
-            PyExpr::Subscript {
-                value: left_value,
-                slice: left_slice,
-                ..
-            },
-            PyExpr::Subscript {
-                value: right_value,
-                slice: right_slice,
-                ..
-            },
-        ) => same_expr(left_value, right_value) && same_expr(left_slice, right_slice),
-        (
-            PyExpr::Tuple {
-                elts: left_elts, ..
-            },
-            PyExpr::Tuple {
-                elts: right_elts, ..
-            },
-        )
-        | (
-            PyExpr::List {
-                elts: left_elts, ..
-            },
-            PyExpr::List {
-                elts: right_elts, ..
-            },
-        ) => {
-            left_elts.len() == right_elts.len()
-                && left_elts
-                    .iter()
-                    .zip(right_elts)
-                    .all(|(left, right)| same_expr(left, right))
+        (PyExpr::Subscript(left), PyExpr::Subscript(right)) => {
+            same_expr(&left.value, &right.value) && same_expr(&left.slice, &right.slice)
         }
-        (
-            PyExpr::Starred {
-                value: left_value, ..
-            },
-            PyExpr::Starred {
-                value: right_value, ..
-            },
-        ) => same_expr(left_value, right_value),
+        (PyExpr::Tuple(left), PyExpr::Tuple(right)) => same_elts(&left.elts, &right.elts),
+        (PyExpr::List(left), PyExpr::List(right)) => same_elts(&left.elts, &right.elts),
+        (PyExpr::Starred(left), PyExpr::Starred(right)) => same_expr(&left.value, &right.value),
         _ => false,
     }
 }

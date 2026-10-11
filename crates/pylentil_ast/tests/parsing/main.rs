@@ -10,14 +10,18 @@ macro_rules! p_assert_eq {
 use common::build::*;
 use common::{Outcome, case, parse_module, parse_outcome};
 use pylentil_ast::ast::{
-    PyArg, PyArguments, PyBinaryOp, PyBoolOp, PyComparisonOp, PyExpr, PyStatement, PyUnaryOp,
+    PyArg, PyArguments, PyBinaryOp, PyBlockStmt, PyBoolOp, PyComparisonOp, PyExpr,
+    PyFunctionDefStmt, PyStatement, PyUnaryOp,
 };
 use pylentil_common::span::PySpan;
 
 /// The statements `code` parses to. Fails the test if it does not parse.
 fn parse_body(code: &str) -> Vec<PyStatement> {
     match parse_module(code) {
-        Ok(module) => module.body,
+        Ok(module) => match module.body {
+            PyStatement::Block(block) => block.body,
+            other => panic!("module body was {other:?}"),
+        },
         Err(e) => panic!("failed to parse `{}`: {e:?}", code.trim()),
     }
 }
@@ -37,7 +41,7 @@ fn parse_stmt(code: &str) -> PyStatement {
 /// The expression in `code`, which must be a single expression statement.
 fn parse_expr(code: &str) -> PyExpr {
     match parse_stmt(code) {
-        PyStatement::Expr { value, .. } => *value,
+        PyStatement::Expr(stmt) => *stmt.value,
         other => panic!(
             "expected an expression in `{}`, got {other:#?}",
             code.trim()

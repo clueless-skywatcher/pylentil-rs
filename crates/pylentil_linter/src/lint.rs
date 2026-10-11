@@ -1,6 +1,6 @@
 use std::{
     hash::{Hash, Hasher},
-    path::{Path},
+    path::Path,
 };
 
 use pylentil_ast::ast::PyStatement;
@@ -29,14 +29,14 @@ pub enum LintSeverity {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum LintSource {
     Pylint,
-    Pycodestyle
+    Pycodestyle,
 }
 
 impl LintSource {
     pub fn get_name(&self) -> &'static str {
         match self {
             LintSource::Pylint => "pylint",
-            LintSource::Pycodestyle => "pycodestyle"
+            LintSource::Pycodestyle => "pycodestyle",
         }
     }
 }
@@ -54,15 +54,7 @@ pub trait Lint: Send + Sync {
         None
     }
 
-    /// Check the entire statement structure to find issues
-    fn check(&mut self, path: &Path, stmt: &PyStatement) -> Vec<LintViolation> {
-        vec![]
-    }
-
-    /// Check the statement block to find issues
-    fn check_block(&mut self, path: &Path, block: &[PyStatement]) -> Vec<LintViolation> {
-        vec![]
-    }
+    fn check(&self, path: &Path, stmt: &PyStatement) -> Vec<LintViolation>;
 
     fn report(&self, violations: &mut Vec<LintViolation>, path: &Path, span: &PySpan)
     where
@@ -71,7 +63,7 @@ pub trait Lint: Send + Sync {
         violations.push(LintViolation {
             path: path.to_path_buf(),
             check_violated: Box::new(self.clone()),
-            span: *span
+            span: *span,
         });
     }
 }

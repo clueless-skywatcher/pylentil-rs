@@ -9,20 +9,24 @@ use std::sync::LazyLock;
 use pylentil_common::errors::PylentilError;
 
 use crate::{
-    PyTokenType, ast::{PyExpr, PyStatement}, lookups::{
+    ast::{PyExpr, PyStatement},
+    lookups::{
         expr::{
             parse_attribute_access, parse_dict_or_set_or_comprehension, parse_function_call,
             parse_if, parse_list_or_comprehension, parse_star, parse_subscript_access,
             parse_walrus_tuple_or_expr, parse_yield,
-        }, stmt::{
-            parse_stmt_assert, parse_stmt_async, parse_stmt_break, parse_stmt_classdef,
-            parse_stmt_continue, parse_stmt_decoration, parse_stmt_delete, parse_stmt_for,
-            parse_stmt_funcdef, parse_stmt_global, parse_stmt_import, parse_stmt_import_from,
-            parse_stmt_match, parse_stmt_nonlocal, parse_stmt_pass, parse_stmt_raise,
-            parse_stmt_return, parse_stmt_try, parse_stmt_type_alias, parse_stmt_while,
-            parse_stmt_with, is_match_statement, is_type_alias_statement,
         },
-    }, parser::PyParser,
+        stmt::{
+            is_match_statement, is_type_alias_statement, parse_stmt_assert, parse_stmt_async,
+            parse_stmt_break, parse_stmt_classdef, parse_stmt_continue, parse_stmt_decoration,
+            parse_stmt_delete, parse_stmt_for, parse_stmt_funcdef, parse_stmt_global,
+            parse_stmt_import, parse_stmt_import_from, parse_stmt_match, parse_stmt_nonlocal,
+            parse_stmt_pass, parse_stmt_raise, parse_stmt_return, parse_stmt_try,
+            parse_stmt_type_alias, parse_stmt_while, parse_stmt_with,
+        },
+    },
+    parser::PyParser,
+    PyTokenType,
 };
 
 use expr::{
@@ -373,17 +377,17 @@ pub fn parse_statement(parser: &mut PyParser) -> Result<PyStatement, PylentilErr
                     })?;
                     let value = parse_expr(parser, PyBindingPower::Default)?;
 
-                    PyStatement::AugAssign {
+                    PyStatement::AugAssign(Box::new(crate::ast::PyAugAssignStmt {
                         target: Box::new(as_target(expr)?),
                         op,
                         value: Box::new(value),
                         span: parser.span_from(start),
-                    }
+                    }))
                 }
                 PyTokenType::Colon => {
                     parser.consume()?;
 
-                    if !matches!(expr, PyExpr::Name { .. }) {
+                    if !matches!(expr, PyExpr::Name(_)) {
                         return Err(PylentilError::InvalidAnnotationTarget {
                             found: expr.describe(),
                         });
@@ -391,7 +395,7 @@ pub fn parse_statement(parser: &mut PyParser) -> Result<PyStatement, PylentilErr
 
                     let annotation = parse_expr(parser, PyBindingPower::Default)?;
 
-                    if !matches!(annotation, PyExpr::Name { .. }) {
+                    if !matches!(annotation, PyExpr::Name(_)) {
                         return Err(PylentilError::InvalidAnnotation {
                             found: annotation.describe(),
                         });
@@ -402,28 +406,28 @@ pub fn parse_statement(parser: &mut PyParser) -> Result<PyStatement, PylentilErr
 
                         let value = parse_expr(parser, PyBindingPower::Default)?;
 
-                        PyStatement::AnnAssign {
+                        PyStatement::AnnAssign(Box::new(crate::ast::PyAnnAssignStmt {
                             target: Box::new(expr),
                             annotation: Box::new(annotation),
                             value: Some(Box::new(value)),
                             simple: false,
                             span: parser.span_from(start),
-                        }
+                        }))
                     } else {
-                        PyStatement::AnnAssign {
+                        PyStatement::AnnAssign(Box::new(crate::ast::PyAnnAssignStmt {
                             target: Box::new(expr),
                             annotation: Box::new(annotation),
                             value: None,
                             simple: false,
                             span: parser.span_from(start),
-                        }
+                        }))
                     }
                 }
 
-                _ => PyStatement::Expr {
+                _ => PyStatement::Expr(Box::new(crate::ast::PyExprStmt {
                     value: Box::new(expr),
                     span: parser.span_from(start),
-                },
+                })),
             })
         }
     }
@@ -439,10 +443,7 @@ fn parse_assigns(parser: &mut PyParser, first: PyExpr) -> Result<PyStatement, Py
     loop {
         if !matches!(
             targets.last().unwrap(),
-            PyExpr::Name { .. }
-                | PyExpr::Tuple { .. }
-                | PyExpr::Attribute { .. }
-                | PyExpr::Subscript { .. }
+            PyExpr::Name(_) | PyExpr::Tuple(_) | PyExpr::Attribute(_) | PyExpr::Subscript(_)
         ) {
             return Err(PylentilError::InvalidAssignmentTarget {
                 found: targets.last().unwrap().describe(),
@@ -463,10 +464,10 @@ fn parse_assigns(parser: &mut PyParser, first: PyExpr) -> Result<PyStatement, Py
         .map(|expr| as_target(expr.clone()).unwrap())
         .collect();
 
-    Ok(PyStatement::Assign {
+    Ok(PyStatement::Assign(Box::new(crate::ast::PyAssignStmt {
         targets,
         value: Box::new(value),
         type_comment: None,
         span: parser.span_from(start),
-    })
+    })))
 }

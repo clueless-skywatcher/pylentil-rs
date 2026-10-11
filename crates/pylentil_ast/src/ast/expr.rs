@@ -8,147 +8,228 @@ use super::shared::{PyArguments, PyComprehension, PyKeyword};
 pub type PyExprBox = Box<PyExpr>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PyBoolOpExpr {
+    pub op: PyBoolOp,
+    pub values: Vec<PyExpr>,
+    pub span: PySpan,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PyNamedExprExpr {
+    pub target: PyExprBox,
+    pub value: PyExprBox,
+    pub span: PySpan,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PyBinOpExpr {
+    pub left: PyExprBox,
+    pub op: PyBinaryOp,
+    pub right: PyExprBox,
+    pub span: PySpan,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PyUnaryOpExpr {
+    pub op: PyUnaryOp,
+    pub operand: PyExprBox,
+    pub span: PySpan,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PyLambdaExpr {
+    pub args: Box<PyArguments>,
+    pub body: PyExprBox,
+    pub span: PySpan,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PyIfExpExpr {
+    pub test: PyExprBox,
+    pub body: PyExprBox,
+    pub orelse: PyExprBox,
+    pub span: PySpan,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PyDictExpr {
+    pub keys: Vec<Option<PyExpr>>,
+    pub values: Vec<PyExpr>,
+    pub span: PySpan,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PySetExpr {
+    pub elts: Vec<PyExpr>,
+    pub span: PySpan,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PyListCompExpr {
+    pub elt: PyExprBox,
+    pub generators: Vec<PyComprehension>,
+    pub span: PySpan,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PySetCompExpr {
+    pub elt: PyExprBox,
+    pub generators: Vec<PyComprehension>,
+    pub span: PySpan,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PyDictCompExpr {
+    pub key: PyExprBox,
+    pub value: PyExprBox,
+    pub generators: Vec<PyComprehension>,
+    pub span: PySpan,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PyGeneratorExpExpr {
+    pub elt: PyExprBox,
+    pub generators: Vec<PyComprehension>,
+    pub span: PySpan,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PyAwaitExpr {
+    pub value: PyExprBox,
+    pub span: PySpan,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PyYieldExpr {
+    pub value: Option<PyExprBox>,
+    pub span: PySpan,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PyYieldFromExpr {
+    pub value: PyExprBox,
+    pub span: PySpan,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PyCompareExpr {
+    pub left: PyExprBox,
+    pub ops: Vec<PyComparisonOp>,
+    pub comparators: Vec<PyExpr>,
+    pub span: PySpan,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PyCallExpr {
+    pub func: PyExprBox,
+    pub args: Vec<PyExprBox>,
+    pub keywords: Vec<PyKeyword>,
+    pub span: PySpan,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PyFormattedValueExpr {
+    pub value: PyExprBox,
+    pub conversion: i32,
+    pub format_spec: Option<PyExprBox>,
+    pub span: PySpan,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PyJoinedStrExpr {
+    pub values: Vec<PyExpr>,
+    pub span: PySpan,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PyConstantExpr {
+    pub value: PyConstant,
+    pub kind: Option<String>,
+    pub span: PySpan,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PyAttributeExpr {
+    pub value: PyExprBox,
+    pub attr: String,
+    pub ctx: PyRefContext,
+    pub span: PySpan,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PySubscriptExpr {
+    pub value: PyExprBox,
+    pub slice: PyExprBox,
+    pub ctx: PyRefContext,
+    pub span: PySpan,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PyStarredExpr {
+    pub value: PyExprBox,
+    pub ctx: PyRefContext,
+    pub span: PySpan,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PyNameExpr {
+    pub id: String,
+    pub ctx: PyRefContext,
+    pub span: PySpan,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PyListExpr {
+    pub elts: Vec<PyExpr>,
+    pub ctx: PyRefContext,
+    pub span: PySpan,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PyTupleExpr {
+    pub elts: Vec<PyExpr>,
+    pub ctx: PyRefContext,
+    pub parenthesized: bool,
+    pub span: PySpan,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PySliceExpr {
+    pub lower: Option<PyExprBox>,
+    pub upper: Option<PyExprBox>,
+    pub step: Option<PyExprBox>,
+    pub span: PySpan,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PyExpr {
-    BoolOp {
-        op: PyBoolOp,
-        values: Vec<PyExpr>,
-        span: PySpan,
-    },
-    NamedExpr {
-        target: PyExprBox,
-        value: PyExprBox,
-        span: PySpan,
-    },
-    BinOp {
-        left: PyExprBox,
-        op: PyBinaryOp,
-        right: PyExprBox,
-        span: PySpan,
-    },
-    UnaryOp {
-        op: PyUnaryOp,
-        operand: PyExprBox,
-        span: PySpan,
-    },
-    Lambda {
-        args: Box<PyArguments>,
-        body: PyExprBox,
-        span: PySpan,
-    },
-    IfExp {
-        test: PyExprBox,
-        body: PyExprBox,
-        orelse: PyExprBox,
-        span: PySpan,
-    },
-    Dict {
-        keys: Vec<Option<PyExpr>>,
-        values: Vec<PyExpr>,
-        span: PySpan,
-    },
-    Set {
-        elts: Vec<PyExpr>,
-        span: PySpan,
-    },
-    ListComp {
-        elt: PyExprBox,
-        generators: Vec<PyComprehension>,
-        span: PySpan,
-    },
-    SetComp {
-        elt: PyExprBox,
-        generators: Vec<PyComprehension>,
-        span: PySpan,
-    },
-    DictComp {
-        key: PyExprBox,
-        value: PyExprBox,
-        generators: Vec<PyComprehension>,
-        span: PySpan,
-    },
-    GeneratorExp {
-        elt: PyExprBox,
-        generators: Vec<PyComprehension>,
-        span: PySpan,
-    },
-    Await {
-        value: PyExprBox,
-        span: PySpan,
-    },
-    Yield {
-        value: Option<PyExprBox>,
-        span: PySpan,
-    },
-    YieldFrom {
-        value: PyExprBox,
-        span: PySpan,
-    },
-    Compare {
-        left: PyExprBox,
-        ops: Vec<PyComparisonOp>,
-        comparators: Vec<PyExpr>,
-        span: PySpan,
-    },
-    Call {
-        func: PyExprBox,
-        args: Vec<PyExprBox>,
-        keywords: Vec<PyKeyword>,
-        span: PySpan,
-    },
-    FormattedValue {
-        value: PyExprBox,
-        conversion: i32,
-        format_spec: Option<PyExprBox>,
-        span: PySpan,
-    },
-    JoinedStr {
-        values: Vec<PyExpr>,
-        span: PySpan,
-    },
-    Constant {
-        value: PyConstant,
-        kind: Option<String>,
-        span: PySpan,
-    },
-    Attribute {
-        value: PyExprBox,
-        attr: String,
-        ctx: PyRefContext,
-        span: PySpan,
-    },
-    Subscript {
-        value: PyExprBox,
-        slice: PyExprBox,
-        ctx: PyRefContext,
-        span: PySpan,
-    },
-    Starred {
-        value: PyExprBox,
-        ctx: PyRefContext,
-        span: PySpan,
-    },
-    Name {
-        id: String,
-        ctx: PyRefContext,
-        span: PySpan,
-    },
-    List {
-        elts: Vec<PyExpr>,
-        ctx: PyRefContext,
-        span: PySpan,
-    },
-    Tuple {
-        elts: Vec<PyExpr>,
-        ctx: PyRefContext,
-        parenthesized: bool,
-        span: PySpan,
-    },
-    Slice {
-        lower: Option<PyExprBox>,
-        upper: Option<PyExprBox>,
-        step: Option<PyExprBox>,
-        span: PySpan,
-    },
+    BoolOp(PyBoolOpExpr),
+    NamedExpr(PyNamedExprExpr),
+    BinOp(PyBinOpExpr),
+    UnaryOp(PyUnaryOpExpr),
+    Lambda(PyLambdaExpr),
+    IfExp(PyIfExpExpr),
+    Dict(PyDictExpr),
+    Set(PySetExpr),
+    ListComp(PyListCompExpr),
+    SetComp(PySetCompExpr),
+    DictComp(PyDictCompExpr),
+    GeneratorExp(PyGeneratorExpExpr),
+    Await(PyAwaitExpr),
+    Yield(PyYieldExpr),
+    YieldFrom(PyYieldFromExpr),
+    Compare(PyCompareExpr),
+    Call(PyCallExpr),
+    FormattedValue(PyFormattedValueExpr),
+    JoinedStr(PyJoinedStrExpr),
+    Constant(PyConstantExpr),
+    Attribute(PyAttributeExpr),
+    Subscript(PySubscriptExpr),
+    Starred(PyStarredExpr),
+    Name(PyNameExpr),
+    List(PyListExpr),
+    Tuple(PyTupleExpr),
+    Slice(PySliceExpr),
 }
 
 impl PyExpr {
@@ -157,66 +238,66 @@ impl PyExpr {
     /// parenthesized expression does not.
     pub fn span(&self) -> PySpan {
         match self {
-            PyExpr::BoolOp { span, .. }
-            | PyExpr::NamedExpr { span, .. }
-            | PyExpr::BinOp { span, .. }
-            | PyExpr::UnaryOp { span, .. }
-            | PyExpr::Lambda { span, .. }
-            | PyExpr::IfExp { span, .. }
-            | PyExpr::Dict { span, .. }
-            | PyExpr::Set { span, .. }
-            | PyExpr::ListComp { span, .. }
-            | PyExpr::SetComp { span, .. }
-            | PyExpr::DictComp { span, .. }
-            | PyExpr::GeneratorExp { span, .. }
-            | PyExpr::Await { span, .. }
-            | PyExpr::Yield { span, .. }
-            | PyExpr::YieldFrom { span, .. }
-            | PyExpr::Compare { span, .. }
-            | PyExpr::Call { span, .. }
-            | PyExpr::FormattedValue { span, .. }
-            | PyExpr::JoinedStr { span, .. }
-            | PyExpr::Constant { span, .. }
-            | PyExpr::Attribute { span, .. }
-            | PyExpr::Subscript { span, .. }
-            | PyExpr::Starred { span, .. }
-            | PyExpr::Name { span, .. }
-            | PyExpr::List { span, .. }
-            | PyExpr::Tuple { span, .. }
-            | PyExpr::Slice { span, .. } => *span,
+            PyExpr::BoolOp(expr) => expr.span,
+            PyExpr::NamedExpr(expr) => expr.span,
+            PyExpr::BinOp(expr) => expr.span,
+            PyExpr::UnaryOp(expr) => expr.span,
+            PyExpr::Lambda(expr) => expr.span,
+            PyExpr::IfExp(expr) => expr.span,
+            PyExpr::Dict(expr) => expr.span,
+            PyExpr::Set(expr) => expr.span,
+            PyExpr::ListComp(expr) => expr.span,
+            PyExpr::SetComp(expr) => expr.span,
+            PyExpr::DictComp(expr) => expr.span,
+            PyExpr::GeneratorExp(expr) => expr.span,
+            PyExpr::Await(expr) => expr.span,
+            PyExpr::Yield(expr) => expr.span,
+            PyExpr::YieldFrom(expr) => expr.span,
+            PyExpr::Compare(expr) => expr.span,
+            PyExpr::Call(expr) => expr.span,
+            PyExpr::FormattedValue(expr) => expr.span,
+            PyExpr::JoinedStr(expr) => expr.span,
+            PyExpr::Constant(expr) => expr.span,
+            PyExpr::Attribute(expr) => expr.span,
+            PyExpr::Subscript(expr) => expr.span,
+            PyExpr::Starred(expr) => expr.span,
+            PyExpr::Name(expr) => expr.span,
+            PyExpr::List(expr) => expr.span,
+            PyExpr::Tuple(expr) => expr.span,
+            PyExpr::Slice(expr) => expr.span,
         }
     }
 
     /// A noun phrase naming this kind of expression, for error messages.
     pub fn describe(&self) -> &'static str {
         match self {
-            PyExpr::BoolOp { .. } => "a boolean operation",
-            PyExpr::NamedExpr { .. } => "a walrus expression",
-            PyExpr::BinOp { .. } => "a binary operation",
-            PyExpr::UnaryOp { .. } => "a unary operation",
-            PyExpr::Lambda { .. } => "a lambda",
-            PyExpr::IfExp { .. } => "a conditional expression",
-            PyExpr::Dict { .. } => "a dict literal",
-            PyExpr::Set { .. } => "a set literal",
-            PyExpr::ListComp { .. } => "a list comprehension",
-            PyExpr::SetComp { .. } => "a set comprehension",
-            PyExpr::DictComp { .. } => "a dict comprehension",
-            PyExpr::GeneratorExp { .. } => "a generator expression",
-            PyExpr::Await { .. } => "an await expression",
-            PyExpr::Yield { .. } => "a yield expression",
-            PyExpr::YieldFrom { .. } => "a yield-from expression",
-            PyExpr::Compare { .. } => "a comparison",
-            PyExpr::Call { .. } => "a function call",
-            PyExpr::FormattedValue { .. } => "a formatted value",
-            PyExpr::JoinedStr { .. } => "an f-string",
-            PyExpr::Constant { .. } => "a literal",
-            PyExpr::Attribute { .. } => "an attribute access",
-            PyExpr::Subscript { .. } => "a subscript",
-            PyExpr::Starred { .. } => "a starred expression",
-            PyExpr::Name { .. } => "a name",
-            PyExpr::List { .. } => "a list",
-            PyExpr::Tuple { .. } => "a tuple",
-            PyExpr::Slice { .. } => "a slice",
+            PyExpr::BoolOp(_) => "a boolean operation",
+            PyExpr::NamedExpr(_) => "a walrus expression",
+            PyExpr::BinOp(_) => "a binary operation",
+            PyExpr::UnaryOp(_) => "a unary operation",
+            PyExpr::Lambda(_) => "a lambda",
+            PyExpr::IfExp(_) => "a conditional expression",
+            PyExpr::Dict(_) => "a dict literal",
+            PyExpr::Set(_) => "a set literal",
+            PyExpr::ListComp(_) => "a list comprehension",
+            PyExpr::SetComp(_) => "a set comprehension",
+            PyExpr::DictComp(_) => "a dict comprehension",
+            PyExpr::GeneratorExp(_) => "a generator expression",
+            PyExpr::Await(_) => "an await expression",
+            PyExpr::Yield(_) => "a yield expression",
+            PyExpr::YieldFrom(_) => "a yield-from expression",
+            PyExpr::Compare(_) => "a comparison",
+            PyExpr::Call(_) => "a function call",
+            PyExpr::FormattedValue(_) => "a formatted value",
+            PyExpr::JoinedStr(_) => "an f-string",
+            PyExpr::Constant(_) => "a literal",
+            PyExpr::Attribute(_) => "an attribute access",
+            PyExpr::Subscript(_) => "a subscript",
+            PyExpr::Starred(_) => "a starred expression",
+            PyExpr::Name(_) => "a name",
+            PyExpr::List(_) => "a list",
+            PyExpr::Tuple(_) => "a tuple",
+            PyExpr::Slice(_) => "a slice",
         }
     }
 }

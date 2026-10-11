@@ -17,25 +17,31 @@ pub fn fixture_path(rel: &str) -> PathBuf {
 
 pub fn test_rule(rule: &(dyn Lint + 'static)) {
     let parser_code = create_fixture_parse_tree(rule);
-    let expected_locations: Vec<PySpan> = parser_code.metadata.comments
+    let expected_locations: Vec<PySpan> = parser_code
+        .metadata
+        .comments
         .iter()
-        .filter(|comment_span| matches!(comment_span, PyCommentSpan {
-            comment: CHECK_COMMENT,
-            ..
-        }))
+        .filter(|comment_span| {
+            matches!(
+                comment_span,
+                PyCommentSpan {
+                    comment: CHECK_COMMENT,
+                    ..
+                }
+            )
+        })
         .map(|comment_span| comment_span.span)
         .collect();
 
     let lint = PylentilBuilder::new()
         .with_lint(rule.code().to_string())
         .with_path(fixture_path(&fixture_file_name(rule)))
-        .build().unwrap();
+        .build()
+        .unwrap();
 
     let violations = lint.check(&parser_code);
-    
-    let actual_locations: Vec<PySpan> = violations.iter()
-        .map(|violation| violation.span)
-        .collect();
+
+    let actual_locations: Vec<PySpan> = violations.iter().map(|violation| violation.span).collect();
 
     assert_eq!(expected_locations, actual_locations);
 }

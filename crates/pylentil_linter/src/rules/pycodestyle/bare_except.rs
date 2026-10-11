@@ -1,9 +1,10 @@
-use std::path::{Path};
+use std::path::Path;
 
 use pylentil_ast::ast::{PyExceptHandler, PyStatement};
 
 use crate::{
-    lint::{Lint, LintCategory, LintSeverity, LintSource}, violation::LintViolation,
+    lint::{Lint, LintCategory, LintSeverity, LintSource},
+    violation::LintViolation,
 };
 
 #[derive(Clone)]
@@ -26,35 +27,40 @@ impl Lint for BareExcept {
         Some("Specify the type of exception to catch".to_string())
     }
 
-    fn check(&mut self, path: &Path, stmt: &PyStatement) -> Vec<LintViolation> {
-        let mut violations = vec![];
-        match stmt {
-            PyStatement::Try { handlers, .. } => {
-                for handler in handlers {
-                    match handler {
-                        PyExceptHandler {
-                            type_: None,
-                            name: None,
-                            span,
-                            ..
-                        } => {
-                            self.report(&mut violations, path, span)
-                        },
-                        _ => {}
-                    }
-                }
-
-                violations
-            }
-            _ => violations,
-        }
-    }
-
     fn severity(&self) -> LintSeverity {
         LintSeverity::Warning
     }
-    
+
     fn source(&self) -> LintSource {
         LintSource::Pycodestyle
+    }
+
+    fn check(&self, path: &Path, stmt: &PyStatement) -> Vec<LintViolation> {
+        let mut violations = vec![];
+        self.collect(&mut violations, path, stmt);
+        violations
+    }
+}
+
+impl BareExcept {
+    fn collect(&self, violations: &mut Vec<LintViolation>, path: &Path, stmt: &PyStatement) {
+        match stmt {
+            PyStatement::Try(stmt) => self.check_handlers(violations, path, &stmt.handlers),
+            PyStatement::TryStar(stmt) => self.check_handlers(violations, path, &stmt.handlers),
+            _ => {}
+        }
+    }
+
+    fn check_handlers(
+        &self,
+        violations: &mut Vec<LintViolation>,
+        path: &Path,
+        handlers: &[PyExceptHandler],
+    ) {
+        for handler in handlers {
+            if handler.type_.is_none() && handler.name.is_none() {
+                self.report(violations, path, &handler.span);
+            }
+        }
     }
 }

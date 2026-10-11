@@ -152,17 +152,17 @@ fn parse_functions_annotation_expression() {
 fn parse_functions_return_annotation() {
     p_assert_eq!(
         stmt(F, "return_annotation"),
-        PyStatement::FunctionDef {
+        PyStatement::FunctionDef(Box::new(PyFunctionDefStmt {
             name: "f".into(),
             args: Box::new(PyArguments::default()),
-            body: vec![pass()],
+            body: PyStatement::Block(Box::new(PyBlockStmt::from_statements(vec![pass()]))),
             decorator_list: vec![],
             returns: Some(Box::new(name("int"))),
             type_comment: None,
             type_params: vec![],
             is_async: false,
             span: PySpan::default(),
-        }
+        }))
     );
 }
 
@@ -170,17 +170,17 @@ fn parse_functions_return_annotation() {
 fn parse_functions_return_annotation_expression() {
     p_assert_eq!(
         stmt(F, "return_annotation_expression"),
-        PyStatement::FunctionDef {
+        PyStatement::FunctionDef(Box::new(PyFunctionDefStmt {
             name: "f".into(),
             args: Box::new(PyArguments::default()),
-            body: vec![pass()],
+            body: PyStatement::Block(Box::new(PyBlockStmt::from_statements(vec![pass()]))),
             decorator_list: vec![],
             returns: Some(Box::new(subscript(name("list"), name("int")))),
             type_comment: None,
             type_params: vec![],
             is_async: false,
             span: PySpan::default(),
-        }
+        }))
     );
 }
 
@@ -368,7 +368,7 @@ fn parse_functions_posonly_with_defaults() {
 fn parse_functions_everything() {
     p_assert_eq!(
         stmt(F, "everything"),
-        PyStatement::FunctionDef {
+        PyStatement::FunctionDef(Box::new(PyFunctionDefStmt {
             name: "f".into(),
             args: Box::new(PyArguments {
                 posonlyargs: vec![arg("a")],
@@ -380,14 +380,16 @@ fn parse_functions_everything() {
                 defaults: vec![Some(int(1))],
                 ..Default::default()
             }),
-            body: vec![return_stmt(Some(name("a")))],
+            body: PyStatement::Block(Box::new(PyBlockStmt::from_statements(vec![return_stmt(
+                Some(name("a"))
+            )]))),
             decorator_list: vec![],
             returns: Some(Box::new(name("int"))),
             type_comment: None,
             type_params: vec![],
             is_async: false,
             span: PySpan::default(),
-        }
+        }))
     );
 }
 
@@ -408,7 +410,7 @@ fn parse_functions_multi_statement_body() {
 
 #[test]
 fn parse_functions_body_with_return() {
-    // p_assert_eq!(stmt(F, "inline_body"), function_def("f", PyArguments::default(), vec![pass()]));
+    // p_assert_eq!(stmt(F, "inline_body"), function_def("f", PyArguments::default(), vec![pass()])));
     // p_assert_eq!(stmt(F, "inline_body_two_statements"), function_def("f", PyArguments::default(), vec![expr_stmt(name("a")), expr_stmt(name("b"))]));
     // p_assert_eq!(stmt(F, "multi_statement_body"), function_def("f", PyArguments::default(), vec![expr_stmt(name("a")), expr_stmt(name("b"))]));
     p_assert_eq!(
@@ -468,17 +470,17 @@ fn parse_functions_def_in_if() {
 fn parse_functions_decorated() {
     p_assert_eq!(
         stmt(F, "decorated"),
-        PyStatement::FunctionDef {
+        PyStatement::FunctionDef(Box::new(PyFunctionDefStmt {
             name: "f".into(),
             args: Box::new(PyArguments::default()),
-            body: vec![pass()],
+            body: PyStatement::Block(Box::new(PyBlockStmt::from_statements(vec![pass()]))),
             decorator_list: vec![name("dec")],
             returns: None,
             type_comment: None,
             type_params: vec![],
             is_async: false,
             span: PySpan::default(),
-        }
+        }))
     );
 }
 
@@ -486,17 +488,17 @@ fn parse_functions_decorated() {
 fn parse_functions_two_decorators() {
     p_assert_eq!(
         stmt(F, "two_decorators"),
-        PyStatement::FunctionDef {
+        PyStatement::FunctionDef(Box::new(PyFunctionDefStmt {
             name: "f".into(),
             args: Box::new(PyArguments::default()),
-            body: vec![pass()],
+            body: PyStatement::Block(Box::new(PyBlockStmt::from_statements(vec![pass()]))),
             decorator_list: vec![name("a"), name("b")],
             returns: None,
             type_comment: None,
             type_params: vec![],
             is_async: false,
             span: PySpan::default(),
-        }
+        }))
     );
 }
 
@@ -504,10 +506,10 @@ fn parse_functions_two_decorators() {
 fn parse_functions_decorator_call() {
     p_assert_eq!(
         stmt(F, "decorator_call"),
-        PyStatement::FunctionDef {
+        PyStatement::FunctionDef(Box::new(PyFunctionDefStmt {
             name: "f".into(),
             args: Box::new(PyArguments::default()),
-            body: vec![pass()],
+            body: PyStatement::Block(Box::new(PyBlockStmt::from_statements(vec![pass()]))),
             decorator_list: vec![call(
                 attribute(name("app"), "route"),
                 vec![string("/")],
@@ -518,7 +520,7 @@ fn parse_functions_decorator_call() {
             type_params: vec![],
             is_async: false,
             span: PySpan::default(),
-        }
+        }))
     );
 }
 
@@ -587,17 +589,17 @@ fn parse_functions_decorator_dotted_call() {
 fn parse_functions_decorator_call_then_attribute() {
     p_assert_eq!(
         stmt(F, "decorator_call_then_attribute"),
-        PyStatement::FunctionDef {
+        PyStatement::FunctionDef(Box::new(PyFunctionDefStmt {
             name: "h".into(),
             args: Box::new(PyArguments::default()),
-            body: vec![pass()],
+            body: PyStatement::Block(Box::new(PyBlockStmt::from_statements(vec![pass()]))),
             decorator_list: vec![attribute(call(name("f"), vec![], vec![]), "g")],
             returns: None,
             type_comment: None,
             type_params: vec![],
             is_async: false,
             span: PySpan::default(),
-        }
+        }))
     );
 }
 
@@ -659,21 +661,21 @@ fn parse_functions_decorated_async_stacked() {
 fn parse_functions_decorated_with_args() {
     p_assert_eq!(
         stmt(F, "decorated_with_args"),
-        PyStatement::FunctionDef {
+        PyStatement::FunctionDef(Box::new(PyFunctionDefStmt {
             name: "f".into(),
             args: Box::new(PyArguments {
                 args: vec![arg("a"), arg("b")],
                 defaults: vec![Some(int(1))],
                 ..Default::default()
             }),
-            body: vec![pass()],
+            body: PyStatement::Block(Box::new(PyBlockStmt::from_statements(vec![pass()]))),
             decorator_list: vec![name("dec")],
             returns: None,
             type_comment: None,
             type_params: vec![],
             is_async: false,
             span: PySpan::default(),
-        }
+        }))
     );
 }
 
@@ -693,17 +695,17 @@ fn parse_functions_decorated_nested() {
 fn parse_functions_async_def() {
     p_assert_eq!(
         stmt(F, "async_def"),
-        PyStatement::FunctionDef {
+        PyStatement::FunctionDef(Box::new(PyFunctionDefStmt {
             name: "f".into(),
             args: Box::new(PyArguments::default()),
-            body: vec![pass()],
+            body: PyStatement::Block(Box::new(PyBlockStmt::from_statements(vec![pass()]))),
             decorator_list: vec![],
             returns: None,
             type_comment: None,
             type_params: vec![],
             is_async: true,
             span: PySpan::default(),
-        }
+        }))
     );
 }
 
@@ -823,15 +825,15 @@ fn decorated(decorator_list: Vec<PyExpr>, is_async: bool) -> PyStatement {
 }
 
 fn decorated_named(name: &str, decorator_list: Vec<PyExpr>, is_async: bool) -> PyStatement {
-    PyStatement::FunctionDef {
+    PyStatement::FunctionDef(Box::new(PyFunctionDefStmt {
         name: name.into(),
         args: Box::new(PyArguments::default()),
-        body: vec![pass()],
+        body: PyStatement::Block(Box::new(PyBlockStmt::from_statements(vec![pass()]))),
         decorator_list,
         returns: None,
         type_comment: None,
         type_params: vec![],
         is_async,
         span: PySpan::default(),
-    }
+    }))
 }

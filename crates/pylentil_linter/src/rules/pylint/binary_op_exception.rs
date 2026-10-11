@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use pylentil_ast::ast::{PyExpr, PyStatement};
+use pylentil_ast::ast::{PyExceptHandler, PyExpr, PyStatement};
 
 use crate::{
     lint::{Lint, LintCategory, LintSeverity, LintSource},
@@ -41,29 +41,36 @@ impl Lint for BinaryOpException {
         )
     }
 
-    fn check(&mut self, path: &Path, stmt: &PyStatement) -> Vec<LintViolation> {
+    fn check(&self, path: &Path, stmt: &PyStatement) -> Vec<LintViolation> {
         let mut violations = vec![];
+        self.collect(&mut violations, path, stmt);
+        violations
+    }
+}
 
+impl BinaryOpException {
+    fn collect(&self, violations: &mut Vec<LintViolation>, path: &Path, stmt: &PyStatement) {
         match stmt {
-            PyStatement::Try { handlers, .. } => {
-                for handler in handlers.iter() {
-                    let Some(expr) = &handler.type_ else {
-                        continue;
-                    };
-
-                    match **expr {
-                        PyExpr::BoolOp {
-                            span: comp_span, ..
-                        } => {
-                            self.report(&mut violations, path, &comp_span);
-                        }
-                        _ => {}
-                    }
-                }
-            }
+            PyStatement::Try(stmt) => self.check_handlers(violations, path, &stmt.handlers),
+            PyStatement::TryStar(stmt) => self.check_handlers(violations, path, &stmt.handlers),
             _ => {}
         }
+    }
 
-        violations
+    fn check_handlers(
+        &self,
+        violations: &mut Vec<LintViolation>,
+        path: &Path,
+        handlers: &[PyExceptHandler],
+    ) {
+        for handler in handlers {
+            let Some(expr) = &handler.type_ else {
+                continue;
+            };
+
+            if let PyExpr::BoolOp(expr) = expr.as_ref() {
+                self.report(violations, path, &expr.span);
+            }
+        }
     }
 }

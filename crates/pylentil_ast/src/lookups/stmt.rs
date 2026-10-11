@@ -1,19 +1,19 @@
 use std::collections::HashSet;
 
-use pylentil_common::{errors::PylentilError, span::PySpan};
+use pylentil_common::errors::PylentilError;
 
 use crate::{
-    PyTokenType,
     ast::{
-        PyAlias, PyArg, PyArguments, PyConstant, PyExceptHandler, PyExpr, PyKeyword, PyMatchCase,
-        PyPattern, PyRefContext, PyStatement, PyWithItem,
+        expr::*, stmt::*, PyAlias, PyArg, PyArguments, PyConstant, PyExceptHandler, PyExpr,
+        PyKeyword, PyMatchCase, PyPattern, PyRefContext, PyStatement, PyWithItem,
     },
     lookups::as_target,
     parser::PyParser,
+    PyTokenType,
 };
 
-use super::{PyBindingPower, parse_expr, parse_statement};
-use crate::common::{PyArgType, expect_ident, parse_parenthesized_args};
+use super::{parse_expr, parse_statement, PyBindingPower};
+use crate::common::{expect_ident, parse_parenthesized_args, PyArgType};
 
 pub(super) fn parse_stmt_if(parser: &mut PyParser) -> Result<PyStatement, PylentilError> {
     let start = parser.start()?;
@@ -36,43 +36,49 @@ fn parse_if_after_keyword(
         PyTokenType::Elif => {
             let elif_start = parser.start()?;
             parser.consume()?;
-            vec![parse_if_after_keyword(parser, elif_start)?]
+            let inner = parse_if_after_keyword(parser, elif_start)?;
+            Some(PyStatement::Block(Box::new(PyBlockStmt::from_statements(
+                vec![inner],
+            ))))
         }
         PyTokenType::Else => {
             parser.consume()?;
             parser.expect_type(vec![PyTokenType::Colon])?;
-            parse_block(parser)?
+            Some(parse_block(parser)?)
         }
-        _ => Vec::new(),
+        _ => None,
     };
 
-    Ok(PyStatement::If {
+    Ok(PyStatement::If(Box::new(PyIfStmt {
         test: Box::new(test),
         body,
         orelse,
         span: parser.span_from(start),
-    })
+    })))
 }
 
 /// Parses the body that follows a compound statement's `:`
-pub(super) fn parse_block(parser: &mut PyParser) -> Result<Vec<PyStatement>, PylentilError> {
-    if parser.peek()?.kind != PyTokenType::Newline {
-        return parse_inline_body(parser);
-    }
+pub(super) fn parse_block(parser: &mut PyParser) -> Result<PyStatement, PylentilError> {
+    let body = if parser.peek()?.kind != PyTokenType::Newline {
+        parse_inline_body(parser)?
+    } else {
+        parser.skip_newlines()?;
+        parser.expect_type(vec![PyTokenType::Indent])?;
 
-    parser.skip_newlines()?;
-    parser.expect_type(vec![PyTokenType::Indent])?;
+        let mut body: Vec<PyStatement> = Vec::new();
+        while parser.has_tokens() && parser.peek()?.kind != PyTokenType::Dedent {
+            body.push(parse_statement(parser)?);
+            parser.skip_statement_separators()?;
+        }
 
-    let mut body: Vec<PyStatement> = Vec::new();
-    while parser.has_tokens() && parser.peek()?.kind != PyTokenType::Dedent {
-        body.push(parse_statement(parser)?);
-        parser.skip_statement_separators()?;
-    }
+        parser.expect_type(vec![PyTokenType::Dedent])?;
+        parser.skip_newlines()?;
+        body
+    };
 
-    parser.expect_type(vec![PyTokenType::Dedent])?;
-    parser.skip_newlines()?;
-
-    Ok(body)
+    Ok(PyStatement::Block(Box::new(PyBlockStmt::from_statements(
+        body,
+    ))))
 }
 
 /// Parses one or more `;`-separated simple statements up to the end of the
@@ -99,27 +105,27 @@ pub(super) fn parse_stmt_pass(parser: &mut PyParser) -> Result<PyStatement, Pyle
     let start = parser.start()?;
     parser.expect_type(vec![PyTokenType::Pass])?;
 
-    Ok(PyStatement::Pass {
+    Ok(PyStatement::Pass(Box::new(PyPassStmt {
         span: parser.span_from(start),
-    })
+    })))
 }
 
 pub(super) fn parse_stmt_break(parser: &mut PyParser) -> Result<PyStatement, PylentilError> {
     let start = parser.start()?;
     parser.expect_type(vec![PyTokenType::Break])?;
 
-    Ok(PyStatement::Break {
+    Ok(PyStatement::Break(Box::new(PyBreakStmt {
         span: parser.span_from(start),
-    })
+    })))
 }
 
 pub(super) fn parse_stmt_continue(parser: &mut PyParser) -> Result<PyStatement, PylentilError> {
     let start = parser.start()?;
     parser.expect_type(vec![PyTokenType::Continue])?;
 
-    Ok(PyStatement::Continue {
+    Ok(PyStatement::Continue(Box::new(PyContinueStmt {
         span: parser.span_from(start),
-    })
+    })))
 }
 
 pub(super) fn parse_stmt_import(parser: &mut PyParser) -> Result<PyStatement, PylentilError> {
@@ -141,10 +147,10 @@ pub(super) fn parse_stmt_import(parser: &mut PyParser) -> Result<PyStatement, Py
         }
     }
 
-    Ok(PyStatement::Import {
+    Ok(PyStatement::Import(Box::new(PyImportStmt {
         names: aliases,
         span: parser.span_from(start),
-    })
+    })))
 }
 
 /// Parses `from [.]*[module] import (* | names | (names[,]))`.
@@ -194,12 +200,12 @@ pub(super) fn parse_stmt_import_from(parser: &mut PyParser) -> Result<PyStatemen
         _ => parse_import_names(parser, false)?,
     };
 
-    Ok(PyStatement::ImportFrom {
+    Ok(PyStatement::ImportFrom(Box::new(PyImportFromStmt {
         module,
         names,
         level: (level > 0).then_some(level),
         span: parser.span_from(start),
-    })
+    })))
 }
 
 /// Parses `name [as alias] (, name [as alias])*`. A trailing comma is only
@@ -302,7 +308,7 @@ pub(super) fn parse_stmt_funcdef(
             PyArgType::Arg(arg) => {
                 declare_parameter(&mut names, &arg)?;
 
-                if matches!(arg.arg.as_ref(), PyExpr::Starred { .. }) {
+                if matches!(arg.arg.as_ref(), PyExpr::Starred(_)) {
                     if star_seen {
                         return Err(PylentilError::InvalidArgumentType);
                     }
@@ -332,11 +338,11 @@ pub(super) fn parse_stmt_funcdef(
                 arg_span,
             } => {
                 let arg = PyArg {
-                    arg: Box::new(PyExpr::Name {
+                    arg: Box::new(PyExpr::Name(PyNameExpr {
                         id: kw_arg,
                         ctx: PyRefContext::Load,
                         span: name_span,
-                    }),
+                    })),
                     annotation,
                     type_comment: None,
                     span: arg_span,
@@ -392,7 +398,7 @@ pub(super) fn parse_stmt_funcdef(
         return Err(PylentilError::InvalidArgumentType);
     }
 
-    Ok(PyStatement::FunctionDef {
+    Ok(PyStatement::FunctionDef(Box::new(PyFunctionDefStmt {
         name,
         args: Box::new(PyArguments {
             posonlyargs,
@@ -410,16 +416,16 @@ pub(super) fn parse_stmt_funcdef(
         type_params: vec![],
         is_async: false,
         span: parser.span_from(start),
-    })
+    })))
 }
 
 /// Records a parameter's name, rejecting anything that is not a name, `*name`
 /// or `**name`, and any name already used in the same parameter list.
 fn declare_parameter(names: &mut HashSet<String>, arg: &PyArg) -> Result<(), PylentilError> {
     let name = match arg.arg.as_ref() {
-        PyExpr::Name { id, .. } => id,
-        PyExpr::Starred { value, .. } => match value.as_ref() {
-            PyExpr::Name { id, .. } => id,
+        PyExpr::Name(PyNameExpr { id, .. }) => id,
+        PyExpr::Starred(PyStarredExpr { value, .. }) => match value.as_ref() {
+            PyExpr::Name(PyNameExpr { id, .. }) => id,
             _ => return Err(PylentilError::InvalidArgumentType),
         },
         _ => return Err(PylentilError::InvalidArgumentType),
@@ -442,26 +448,29 @@ pub(super) fn parse_stmt_async(
     if parser.peek()?.kind == PyTokenType::Def {
         let func_def = parse_stmt_funcdef(parser, decorator_list)?;
         return match func_def {
-            PyStatement::FunctionDef {
-                name,
-                args,
-                body,
-                decorator_list,
-                returns,
-                type_comment,
-                type_params,
-                ..
-            } => Ok(PyStatement::FunctionDef {
-                name,
-                args,
-                body,
-                decorator_list,
-                returns,
-                type_comment,
-                type_params,
-                is_async: true,
-                span: parser.span_from(start),
-            }),
+            PyStatement::FunctionDef(stmt) => {
+                let PyFunctionDefStmt {
+                    name,
+                    args,
+                    body,
+                    decorator_list,
+                    returns,
+                    type_comment,
+                    type_params,
+                    ..
+                } = *stmt;
+                Ok(PyStatement::FunctionDef(Box::new(PyFunctionDefStmt {
+                    name,
+                    args,
+                    body,
+                    decorator_list,
+                    returns,
+                    type_comment,
+                    type_params,
+                    is_async: true,
+                    span: parser.span_from(start),
+                })))
+            }
             _ => Err(PylentilError::CodePathNotImplemented),
         };
     }
@@ -473,17 +482,17 @@ pub fn parse_stmt_return(parser: &mut PyParser) -> Result<PyStatement, PylentilE
     parser.expect_type(vec![PyTokenType::Return])?;
 
     if parser.peek()?.kind.is_eof() || parser.peek()?.kind == PyTokenType::Newline {
-        return Ok(PyStatement::Return {
+        return Ok(PyStatement::Return(Box::new(PyReturnStmt {
             value: None,
             span: parser.span_from(start),
-        });
+        })));
     }
 
     let value = parse_expr(parser, PyBindingPower::Default)?;
-    Ok(PyStatement::Return {
+    Ok(PyStatement::Return(Box::new(PyReturnStmt {
         value: Some(Box::new(value)),
         span: parser.span_from(start),
-    })
+    })))
 }
 
 pub fn parse_stmt_try(parser: &mut PyParser) -> Result<PyStatement, PylentilError> {
@@ -495,8 +504,8 @@ pub fn parse_stmt_try(parser: &mut PyParser) -> Result<PyStatement, PylentilErro
     let body = parse_block(parser)?;
 
     let mut handlers = vec![];
-    let mut orelse = vec![];
-    let mut finalbody = vec![];
+    let mut orelse = None;
+    let mut finalbody = None;
 
     if parser.peek()?.kind == PyTokenType::Except {
         handlers.append(&mut parse_except_handlers(parser)?);
@@ -509,22 +518,22 @@ pub fn parse_stmt_try(parser: &mut PyParser) -> Result<PyStatement, PylentilErro
     if parser.peek()?.kind == PyTokenType::Else {
         parser.consume()?; // Consume the else
         parser.consume()?; // Consume the colon
-        orelse.append(&mut parse_block(parser)?);
+        orelse = Some(parse_block(parser)?);
     }
 
     if parser.peek()?.kind == PyTokenType::Finally {
         parser.consume()?; // Consume the else
         parser.consume()?; // Consume the colon
-        finalbody.append(&mut parse_block(parser)?);
+        finalbody = Some(parse_block(parser)?);
     }
 
-    Ok(PyStatement::Try {
+    Ok(PyStatement::Try(Box::new(PyTryStmt {
         body,
         handlers,
         orelse,
         finalbody,
         span: parser.span_from(start),
-    })
+    })))
 }
 
 fn parse_except_handlers(parser: &mut PyParser) -> Result<Vec<PyExceptHandler>, PylentilError> {
@@ -569,11 +578,11 @@ pub(super) fn parse_stmt_raise(parser: &mut PyParser) -> Result<PyStatement, Pyl
     parser.expect_type(vec![PyTokenType::Raise])?;
 
     if parser.peek()?.kind.is_eof() || parser.peek()?.kind == PyTokenType::Newline {
-        return Ok(PyStatement::Raise {
+        return Ok(PyStatement::Raise(Box::new(PyRaiseStmt {
             exc: None,
             cause: None,
             span: parser.span_from(start),
-        });
+        })));
     }
 
     let error = parse_expr(parser, PyBindingPower::Default)?;
@@ -585,11 +594,11 @@ pub(super) fn parse_stmt_raise(parser: &mut PyParser) -> Result<PyStatement, Pyl
         cause = Some(Box::new(parse_expr(parser, PyBindingPower::Default)?));
     }
 
-    Ok(PyStatement::Raise {
+    Ok(PyStatement::Raise(Box::new(PyRaiseStmt {
         exc: Some(Box::new(error)),
         cause,
         span: parser.span_from(start),
-    })
+    })))
 }
 
 pub(super) fn parse_stmt_decoration(parser: &mut PyParser) -> Result<PyStatement, PylentilError> {
@@ -603,7 +612,7 @@ pub(super) fn parse_stmt_decoration(parser: &mut PyParser) -> Result<PyStatement
         let expr = parse_expr(parser, PyBindingPower::Default)?;
         if !matches!(
             expr,
-            PyExpr::Call { .. } | PyExpr::Attribute { .. } | PyExpr::Name { .. }
+            PyExpr::Call(_) | PyExpr::Attribute(_) | PyExpr::Name(_)
         ) {
             return Err(PylentilError::ExpressionExpected {
                 found: expr.describe().to_string(),
@@ -649,7 +658,7 @@ pub(super) fn parse_stmt_classdef(
 
     let body = parse_block(parser)?;
 
-    Ok(PyStatement::ClassDef {
+    Ok(PyStatement::ClassDef(Box::new(PyClassDefStmt {
         name,
         bases,
         keywords: vec![],
@@ -657,7 +666,7 @@ pub(super) fn parse_stmt_classdef(
         decorator_list,
         type_params: vec![],
         span: parser.span_from(start),
-    })
+    })))
 }
 
 /// Class bases follow call-argument order: a positional base cannot follow a
@@ -704,21 +713,22 @@ pub(super) fn parse_stmt_for(parser: &mut PyParser) -> Result<PyStatement, Pylen
 
     let body = parse_block(parser)?;
 
-    let mut orelse = vec![];
-    if parser.peek()?.kind == PyTokenType::Else {
+    let orelse = if parser.peek()?.kind == PyTokenType::Else {
         parser.consume()?;
         parser.expect_type(vec![PyTokenType::Colon])?;
-        orelse.append(&mut parse_block(parser)?);
-    }
+        Some(parse_block(parser)?)
+    } else {
+        None
+    };
 
-    Ok(PyStatement::For {
+    Ok(PyStatement::For(Box::new(PyForStmt {
         target: Box::new(target),
         iter: Box::new(iter),
         body,
         orelse,
         type_comment: None,
         span: parser.span_from(start),
-    })
+    })))
 }
 
 /// `for a, b in ...`: commas bind the target, and `in` ends it. A single name
@@ -741,12 +751,12 @@ fn parse_for_target(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
         elts.push(parse_expr(parser, PyBindingPower::Comparison)?);
     }
 
-    Ok(PyExpr::Tuple {
+    Ok(PyExpr::Tuple(PyTupleExpr {
         elts,
         ctx: PyRefContext::Load,
         parenthesized: false,
         span: parser.span_from(start),
-    })
+    }))
 }
 
 pub(super) fn parse_stmt_while(parser: &mut PyParser) -> Result<PyStatement, PylentilError> {
@@ -760,17 +770,17 @@ pub(super) fn parse_stmt_while(parser: &mut PyParser) -> Result<PyStatement, Pyl
     let orelse = if parser.peek()?.kind == PyTokenType::Else {
         parser.consume()?;
         parser.expect_type(vec![PyTokenType::Colon])?;
-        parse_block(parser)?
+        Some(parse_block(parser)?)
     } else {
-        Vec::new()
+        None
     };
 
-    Ok(PyStatement::While {
+    Ok(PyStatement::While(Box::new(PyWhileStmt {
         test: Box::new(test),
         body,
         orelse,
         span: parser.span_from(start),
-    })
+    })))
 }
 
 pub(super) fn parse_stmt_with(parser: &mut PyParser) -> Result<PyStatement, PylentilError> {
@@ -798,12 +808,12 @@ pub(super) fn parse_stmt_with(parser: &mut PyParser) -> Result<PyStatement, Pyle
     parser.expect_type(vec![PyTokenType::Colon])?;
     let body = parse_block(parser)?;
 
-    Ok(PyStatement::With {
+    Ok(PyStatement::With(Box::new(PyWithStmt {
         items,
         body,
         type_comment: None,
         span: parser.span_from(start),
-    })
+    })))
 }
 
 fn parse_with_item(parser: &mut PyParser) -> Result<PyWithItem, PylentilError> {
@@ -843,10 +853,10 @@ pub(super) fn parse_stmt_delete(parser: &mut PyParser) -> Result<PyStatement, Py
         targets.push(as_target(parse_expr(parser, PyBindingPower::Comparison)?)?);
     }
 
-    Ok(PyStatement::Delete {
+    Ok(PyStatement::Delete(Box::new(PyDeleteStmt {
         targets,
         span: parser.span_from(start),
-    })
+    })))
 }
 
 pub(super) fn parse_stmt_assert(parser: &mut PyParser) -> Result<PyStatement, PylentilError> {
@@ -861,31 +871,31 @@ pub(super) fn parse_stmt_assert(parser: &mut PyParser) -> Result<PyStatement, Py
         None
     };
 
-    Ok(PyStatement::Assert {
+    Ok(PyStatement::Assert(Box::new(PyAssertStmt {
         test: Box::new(test),
         msg,
         span: parser.span_from(start),
-    })
+    })))
 }
 
 pub(super) fn parse_stmt_global(parser: &mut PyParser) -> Result<PyStatement, PylentilError> {
     let start = parser.start()?;
     parser.expect_type(vec![PyTokenType::Global])?;
 
-    Ok(PyStatement::Global {
+    Ok(PyStatement::Global(Box::new(PyGlobalStmt {
         names: parse_name_list(parser)?,
         span: parser.span_from(start),
-    })
+    })))
 }
 
 pub(super) fn parse_stmt_nonlocal(parser: &mut PyParser) -> Result<PyStatement, PylentilError> {
     let start = parser.start()?;
     parser.expect_type(vec![PyTokenType::Nonlocal])?;
 
-    Ok(PyStatement::Nonlocal {
+    Ok(PyStatement::Nonlocal(Box::new(PyNonlocalStmt {
         names: parse_name_list(parser)?,
         span: parser.span_from(start),
-    })
+    })))
 }
 
 fn parse_name_list(parser: &mut PyParser) -> Result<Vec<String>, PylentilError> {
@@ -958,11 +968,11 @@ pub(super) fn parse_stmt_match(parser: &mut PyParser) -> Result<PyStatement, Pyl
         });
     }
 
-    Ok(PyStatement::Match {
+    Ok(PyStatement::Match(Box::new(PyMatchStmt {
         subject: Box::new(subject),
         cases,
         span: parser.span_from(start),
-    })
+    })))
 }
 
 fn parse_match_case(parser: &mut PyParser) -> Result<PyMatchCase, PylentilError> {
@@ -997,30 +1007,30 @@ fn parse_match_case(parser: &mut PyParser) -> Result<PyMatchCase, PylentilError>
 
 fn pattern_of(expr: PyExpr) -> PyPattern {
     match expr {
-        PyExpr::Constant {
+        PyExpr::Constant(PyConstantExpr {
             value: PyConstant::None,
             ..
-        } => PyPattern::MatchSingleton {
+        }) => PyPattern::MatchSingleton {
             value: PyConstant::None,
         },
-        PyExpr::Constant {
+        PyExpr::Constant(PyConstantExpr {
             value: PyConstant::Boolean(value),
             ..
-        } => PyPattern::MatchSingleton {
+        }) => PyPattern::MatchSingleton {
             value: PyConstant::Boolean(value),
         },
-        PyExpr::Constant { value, kind, span } => PyPattern::MatchValue {
-            value: Box::new(PyExpr::Constant { value, kind, span }),
+        PyExpr::Constant(PyConstantExpr { value, kind, span }) => PyPattern::MatchValue {
+            value: Box::new(PyExpr::Constant(PyConstantExpr { value, kind, span })),
         },
-        PyExpr::Name { id, .. } if id == "_" => PyPattern::MatchAs {
+        PyExpr::Name(PyNameExpr { id, .. }) if id == "_" => PyPattern::MatchAs {
             pattern: None,
             name: None,
         },
-        PyExpr::Name { id, .. } => PyPattern::MatchAs {
+        PyExpr::Name(PyNameExpr { id, .. }) => PyPattern::MatchAs {
             pattern: None,
             name: Some(id),
         },
-        PyExpr::Tuple { elts, .. } => PyPattern::MatchSequence {
+        PyExpr::Tuple(PyTupleExpr { elts, .. }) => PyPattern::MatchSequence {
             patterns: elts.into_iter().map(pattern_of).collect(),
         },
         other => PyPattern::MatchValue {
@@ -1034,19 +1044,19 @@ pub(super) fn parse_stmt_type_alias(parser: &mut PyParser) -> Result<PyStatement
     parser.consume()?;
 
     let name_start = parser.start()?;
-    let name = PyExpr::Name {
+    let name = PyExpr::Name(PyNameExpr {
         id: expect_ident(parser)?,
         ctx: PyRefContext::Load,
         span: parser.span_from(name_start),
-    };
+    });
 
     parser.expect_type(vec![PyTokenType::Assign])?;
     let value = parse_expr(parser, PyBindingPower::Default)?;
 
-    Ok(PyStatement::TypeAlias {
+    Ok(PyStatement::TypeAlias(Box::new(PyTypeAliasStmt {
         name: Box::new(name),
         type_params: vec![],
         value: Box::new(value),
         span: parser.span_from(start),
-    })
+    })))
 }

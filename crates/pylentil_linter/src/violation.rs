@@ -7,5 +7,5 @@ use crate::lint::Lint;
 pub struct LintViolation {
     pub path: PathBuf,
     pub check_violated: Box<dyn Lint>,
-    pub span: PySpan
+    pub span: PySpan,
 }

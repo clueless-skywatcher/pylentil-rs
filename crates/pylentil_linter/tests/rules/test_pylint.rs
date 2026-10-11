@@ -1,4 +1,7 @@
-use pylentil_linter::rules::pylint::{binary_op_exception::BinaryOpException, self_assigning_variable::SelfAssigningVariable, unreachable::Unreachable, useless_return::UselessReturn, wildcard_import::WildcardImport};
+use pylentil_linter::rules::pylint::{
+    binary_op_exception::BinaryOpException, self_assigning_variable::SelfAssigningVariable,
+    unreachable::Unreachable, useless_return::UselessReturn, wildcard_import::WildcardImport,
+};
 
 use crate::rules::test_rule;
 

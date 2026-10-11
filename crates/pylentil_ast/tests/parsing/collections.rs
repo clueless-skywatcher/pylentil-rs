@@ -81,10 +81,7 @@ fn parse_collections_set_literal() {
 
 #[test]
 fn parse_collections_list_comprehension() {
-    assert!(matches!(
-        expr(F, "list_comprehension"),
-        PyExpr::ListComp { .. }
-    ));
+    assert!(matches!(expr(F, "list_comprehension"), PyExpr::ListComp(_)));
 }
 
 #[test]

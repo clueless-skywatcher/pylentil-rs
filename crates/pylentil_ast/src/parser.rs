@@ -3,7 +3,11 @@ use std::path::PathBuf;
 use pylentil_common::{errors::PylentilError, span::PySpan};
 
 use crate::{
-    PyLexer, PyToken, PyTokenType, ast::{PyModule, PyStatement}, code::{PyCode, PyCodeBuilder, PyCodeMetadata, PyCodeMetadataBuilder}, lookups::parse_statement, token::describe_any_of,
+    ast::{PyBlockStmt, PyModule, PyStatement},
+    code::{PyCode, PyCodeBuilder, PyCodeMetadata, PyCodeMetadataBuilder},
+    lookups::parse_statement,
+    token::describe_any_of,
+    PyLexer, PyToken, PyTokenType,
 };
 
 #[derive(Debug)]
@@ -40,7 +44,7 @@ impl<'a> PyParser<'a> {
     pub fn parse(&mut self) -> Result<PyCode<'a>, PylentilError> {
         let metadata = self.extract_metadata()?;
 
-        let mut body: Vec<PyStatement> = Vec::new();
+        let mut statements: Vec<PyStatement> = Vec::new();
 
         while self.has_tokens() {
             self.skip_newlines()?;
@@ -49,7 +53,7 @@ impl<'a> PyParser<'a> {
             }
 
             match parse_statement(self) {
-                Ok(stmt) => body.push(stmt),
+                Ok(stmt) => statements.push(stmt),
                 Err(e) => return Err(e),
             };
 
@@ -60,7 +64,7 @@ impl<'a> PyParser<'a> {
 
         let code = PyCodeBuilder::new()
             .with_ast(PyModule {
-                body,
+                body: PyStatement::Block(Box::new(PyBlockStmt::from_statements(statements))),
                 type_ignores: vec![],
             })
             .with_metadata(metadata)

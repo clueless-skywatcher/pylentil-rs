@@ -1,9 +1,10 @@
-use std::path::{Path};
+use std::path::Path;
 
 use pylentil_ast::ast::{PyConstant, PyExpr, PyStatement};
 
 use crate::{
-    lint::{Lint, LintCategory, LintSeverity, LintSource}, violation::LintViolation,
+    lint::{Lint, LintCategory, LintSeverity, LintSource},
+    violation::LintViolation,
 };
 
 #[derive(Clone)]
@@ -30,37 +31,39 @@ impl Lint for UselessReturn {
         Some("Remove the return statement".to_string())
     }
 
-    fn check(&mut self, path: &Path, stmt: &PyStatement) -> Vec<LintViolation> {
-        let mut violations: Vec<LintViolation> = vec![];
+    fn source(&self) -> LintSource {
+        LintSource::Pylint
+    }
 
-        match stmt {
-            PyStatement::FunctionDef { body, .. } => {
-                if body.len() > 1 {
-                    match body.last().unwrap() {
-                        PyStatement::Return { value, span: return_span, .. } => match value {
-                            Some(value) => {
-                                if matches!(
-                                    **value,
-                                    PyExpr::Constant {
-                                        value: PyConstant::None,
-                                        ..
-                                    }
-                                ) {
-                                    self.report(&mut violations, path, return_span);
-                                }
-                            }
-                            None => self.report(&mut violations, path, return_span),
-                        },
-                        _ => {}
+    fn check(&self, path: &Path, stmt: &PyStatement) -> Vec<LintViolation> {
+        let mut violations = vec![];
+        self.collect(&mut violations, path, stmt);
+        violations
+    }
+}
+
+impl UselessReturn {
+    fn collect(&self, violations: &mut Vec<LintViolation>, path: &Path, stmt: &PyStatement) {
+        if let PyStatement::FunctionDef(func) = stmt {
+            if let PyStatement::Block(body) = &func.body {
+                if body.body.len() > 1 {
+                    if let Some(PyStatement::Return(ret)) = body.body.last() {
+                        if is_useless(&ret.value) {
+                            self.report(violations, path, &ret.span);
+                        }
                     }
                 }
             }
-            _ => {}
         }
-        violations
     }
-    
-    fn source(&self) -> LintSource {
-        LintSource::Pylint
+}
+
+fn is_useless(value: &Option<Box<PyExpr>>) -> bool {
+    match value {
+        None => true,
+        Some(value) => matches!(
+            value.as_ref(),
+            PyExpr::Constant(constant) if constant.value == PyConstant::None
+        ),
     }
 }

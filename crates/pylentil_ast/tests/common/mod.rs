@@ -187,5 +187,10 @@ pub fn lex_outcome(code: &str) -> Outcome<Vec<PyTokenType>> {
 }
 
 pub fn parse_outcome(code: &str) -> Outcome<Vec<PyStatement>> {
-    catching(|| parse_module(code).map(|module| module.body))
+    catching(|| {
+        parse_module(code).map(|module| match module.body {
+            PyStatement::Block(block) => block.body,
+            other => panic!("module body was {other:?}"),
+        })
+    })
 }

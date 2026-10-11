@@ -64,7 +64,7 @@ pub struct PyWithItem {
 pub struct PyExceptHandler {
     pub type_: Option<PyExprBox>,
     pub name: Option<String>,
-    pub body: Vec<PyStatement>,
+    pub body: PyStatement,
     pub span: PySpan,
 }
 
@@ -72,7 +72,7 @@ pub struct PyExceptHandler {
 pub struct PyMatchCase {
     pub pattern: PyPatternBox,
     pub guard: Option<PyExprBox>,
-    pub body: Vec<PyStatement>,
+    pub body: PyStatement,
     pub span: PySpan,
 }
 
