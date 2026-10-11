@@ -3,11 +3,11 @@ use std::path::PathBuf;
 use pylentil_common::{errors::PylentilError, span::PySpan};
 
 use crate::{
+    PyLexer, PyToken, PyTokenType,
     ast::{PyBlockStmt, PyModule, PyStatement},
     code::{PyCode, PyCodeBuilder, PyCodeMetadata, PyCodeMetadataBuilder},
     lookups::parse_statement,
     token::describe_any_of,
-    PyLexer, PyToken, PyTokenType,
 };
 
 #[derive(Debug)]

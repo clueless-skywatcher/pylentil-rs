@@ -3,17 +3,17 @@ use std::collections::HashSet;
 use pylentil_common::errors::PylentilError;
 
 use crate::{
+    PyTokenType,
     ast::{
-        expr::*, stmt::*, PyAlias, PyArg, PyArguments, PyConstant, PyExceptHandler, PyExpr,
-        PyKeyword, PyMatchCase, PyPattern, PyRefContext, PyStatement, PyWithItem,
+        PyAlias, PyArg, PyArguments, PyConstant, PyExceptHandler, PyExpr, PyKeyword, PyMatchCase,
+        PyPattern, PyRefContext, PyStatement, PyWithItem, expr::*, stmt::*,
     },
     lookups::as_target,
     parser::PyParser,
-    PyTokenType,
 };
 
-use super::{parse_expr, parse_statement, PyBindingPower};
-use crate::common::{expect_ident, parse_parenthesized_args, PyArgType};
+use super::{PyBindingPower, parse_expr, parse_statement};
+use crate::common::{PyArgType, expect_ident, parse_parenthesized_args};
 
 pub(super) fn parse_stmt_if(parser: &mut PyParser) -> Result<PyStatement, PylentilError> {
     let start = parser.start()?;
@@ -271,7 +271,10 @@ pub(super) fn parse_stmt_funcdef(
     }
     parser.expect_type(vec![PyTokenType::Def])?;
 
+    let name_span_start = parser.start()?;
     let name = expect_ident(parser)?;
+    let name_span = parser.span_from(name_span_start);
+
     let parsed_args: Vec<PyArgType> = parse_parenthesized_args(parser, true)?;
 
     let returns = if parser.peek()?.kind == PyTokenType::Arrow {
@@ -399,7 +402,11 @@ pub(super) fn parse_stmt_funcdef(
     }
 
     Ok(PyStatement::FunctionDef(Box::new(PyFunctionDefStmt {
-        name,
+        name: PyExpr::Name(PyNameExpr {
+            id: name,
+            ctx: PyRefContext::Unspecified,
+            span: name_span,
+        }),
         args: Box::new(PyArguments {
             posonlyargs,
             args,
@@ -644,7 +651,9 @@ pub(super) fn parse_stmt_classdef(
     }
     parser.expect_type(vec![PyTokenType::Class])?;
 
+    let name_span_start = parser.start()?;
     let name = expect_ident(parser)?;
+    let name_span = parser.span_from(name_span_start);
 
     let bases = if parser.peek()?.kind == PyTokenType::LParen {
         let bases = parse_parenthesized_args(parser, false)?;
@@ -659,7 +668,11 @@ pub(super) fn parse_stmt_classdef(
     let body = parse_block(parser)?;
 
     Ok(PyStatement::ClassDef(Box::new(PyClassDefStmt {
-        name,
+        name: PyExpr::Name(PyNameExpr {
+            id: name,
+            ctx: PyRefContext::Unspecified,
+            span: name_span,
+        }),
         bases,
         keywords: vec![],
         body,

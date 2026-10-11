@@ -1,4 +1,4 @@
-use std::path::{PathBuf};
+use std::path::PathBuf;
 
 use pylentil_common::errors::PylentilError;
 
@@ -8,16 +8,16 @@ pub struct PyCodeMetadataBuilder<'a> {
     raw_lines: Vec<String>,
     path: Option<PathBuf>,
     line_starts: Vec<usize>,
-    comments: Vec<PyCommentSpan<'a>>
+    comments: Vec<PyCommentSpan<'a>>,
 }
 
-impl <'a> PyCodeMetadataBuilder<'a> {
+impl<'a> PyCodeMetadataBuilder<'a> {
     pub fn new() -> Self {
         PyCodeMetadataBuilder {
             raw_lines: vec![],
             path: None,
             line_starts: vec![],
-            comments: vec![]
+            comments: vec![],
         }
     }
 
@@ -58,7 +58,7 @@ impl <'a> PyCodeMetadataBuilder<'a> {
             raw_lines: self.raw_lines,
             path: self.path.unwrap(),
             line_starts: self.line_starts,
-            comments: self.comments
+            comments: self.comments,
         })
     }
 }
@@ -76,7 +76,7 @@ pub struct PyCodeBuilder<'a> {
     metadata: Option<PyCodeMetadata<'a>>,
 }
 
-impl <'a> PyCodeBuilder<'a> {
+impl<'a> PyCodeBuilder<'a> {
     pub fn new() -> Self {
         PyCodeBuilder {
             ast: None,
@@ -108,7 +108,7 @@ pub struct PyCode<'a> {
     pub metadata: PyCodeMetadata<'a>,
 }
 
-impl <'a> PyCode<'a> {
+impl<'a> PyCode<'a> {
     pub fn get_line_and_byte_offset(&self, pos: usize) -> (usize, usize) {
         let line_starts = self.metadata.line_starts.clone();
         let mut i = line_starts.len() - 1;

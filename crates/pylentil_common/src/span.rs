@@ -46,7 +46,7 @@ impl fmt::Display for PySpan {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.end {
             Some(end) => write!(f, "{}:{}", self.start, end),
-            None => write!(f, "{}", self.start)
+            None => write!(f, "{}", self.start),
         }
     }
 }

@@ -153,7 +153,7 @@ fn parse_functions_return_annotation() {
     p_assert_eq!(
         stmt(F, "return_annotation"),
         PyStatement::FunctionDef(Box::new(PyFunctionDefStmt {
-            name: "f".into(),
+            name: def_name("f"),
             args: Box::new(PyArguments::default()),
             body: PyStatement::Block(Box::new(PyBlockStmt::from_statements(vec![pass()]))),
             decorator_list: vec![],
@@ -171,7 +171,7 @@ fn parse_functions_return_annotation_expression() {
     p_assert_eq!(
         stmt(F, "return_annotation_expression"),
         PyStatement::FunctionDef(Box::new(PyFunctionDefStmt {
-            name: "f".into(),
+            name: def_name("f"),
             args: Box::new(PyArguments::default()),
             body: PyStatement::Block(Box::new(PyBlockStmt::from_statements(vec![pass()]))),
             decorator_list: vec![],
@@ -369,7 +369,7 @@ fn parse_functions_everything() {
     p_assert_eq!(
         stmt(F, "everything"),
         PyStatement::FunctionDef(Box::new(PyFunctionDefStmt {
-            name: "f".into(),
+            name: def_name("f"),
             args: Box::new(PyArguments {
                 posonlyargs: vec![arg("a")],
                 args: vec![arg("b"), arg("c")],
@@ -471,7 +471,7 @@ fn parse_functions_decorated() {
     p_assert_eq!(
         stmt(F, "decorated"),
         PyStatement::FunctionDef(Box::new(PyFunctionDefStmt {
-            name: "f".into(),
+            name: def_name("f"),
             args: Box::new(PyArguments::default()),
             body: PyStatement::Block(Box::new(PyBlockStmt::from_statements(vec![pass()]))),
             decorator_list: vec![name("dec")],
@@ -489,7 +489,7 @@ fn parse_functions_two_decorators() {
     p_assert_eq!(
         stmt(F, "two_decorators"),
         PyStatement::FunctionDef(Box::new(PyFunctionDefStmt {
-            name: "f".into(),
+            name: def_name("f"),
             args: Box::new(PyArguments::default()),
             body: PyStatement::Block(Box::new(PyBlockStmt::from_statements(vec![pass()]))),
             decorator_list: vec![name("a"), name("b")],
@@ -507,7 +507,7 @@ fn parse_functions_decorator_call() {
     p_assert_eq!(
         stmt(F, "decorator_call"),
         PyStatement::FunctionDef(Box::new(PyFunctionDefStmt {
-            name: "f".into(),
+            name: def_name("f"),
             args: Box::new(PyArguments::default()),
             body: PyStatement::Block(Box::new(PyBlockStmt::from_statements(vec![pass()]))),
             decorator_list: vec![call(
@@ -590,7 +590,7 @@ fn parse_functions_decorator_call_then_attribute() {
     p_assert_eq!(
         stmt(F, "decorator_call_then_attribute"),
         PyStatement::FunctionDef(Box::new(PyFunctionDefStmt {
-            name: "h".into(),
+            name: def_name("h"),
             args: Box::new(PyArguments::default()),
             body: PyStatement::Block(Box::new(PyBlockStmt::from_statements(vec![pass()]))),
             decorator_list: vec![attribute(call(name("f"), vec![], vec![]), "g")],
@@ -662,7 +662,7 @@ fn parse_functions_decorated_with_args() {
     p_assert_eq!(
         stmt(F, "decorated_with_args"),
         PyStatement::FunctionDef(Box::new(PyFunctionDefStmt {
-            name: "f".into(),
+            name: def_name("f"),
             args: Box::new(PyArguments {
                 args: vec![arg("a"), arg("b")],
                 defaults: vec![Some(int(1))],
@@ -696,7 +696,7 @@ fn parse_functions_async_def() {
     p_assert_eq!(
         stmt(F, "async_def"),
         PyStatement::FunctionDef(Box::new(PyFunctionDefStmt {
-            name: "f".into(),
+            name: def_name("f"),
             args: Box::new(PyArguments::default()),
             body: PyStatement::Block(Box::new(PyBlockStmt::from_statements(vec![pass()]))),
             decorator_list: vec![],
@@ -826,7 +826,7 @@ fn decorated(decorator_list: Vec<PyExpr>, is_async: bool) -> PyStatement {
 
 fn decorated_named(name: &str, decorator_list: Vec<PyExpr>, is_async: bool) -> PyStatement {
     PyStatement::FunctionDef(Box::new(PyFunctionDefStmt {
-        name: name.into(),
+        name: def_name(name),
         args: Box::new(PyArguments::default()),
         body: PyStatement::Block(Box::new(PyBlockStmt::from_statements(vec![pass()]))),
         decorator_list,

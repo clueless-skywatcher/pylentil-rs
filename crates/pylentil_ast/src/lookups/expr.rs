@@ -1,20 +1,20 @@
 use pylentil_common::{errors::PylentilError, span::PySpan};
 
 use crate::{
+    PyToken, PyTokenType,
     ast::{
         PyAttributeExpr, PyBinOpExpr, PyBinaryOp, PyBoolOp, PyBoolOpExpr, PyCallExpr,
         PyCompareExpr, PyComparisonOp, PyComprehension, PyConstant, PyConstantExpr, PyDictCompExpr,
         PyDictExpr, PyExpr, PyExprBox, PyGeneratorExpExpr, PyIfExpExpr, PyKeyword, PyListCompExpr,
         PyListExpr, PyNameExpr, PyNamedExprExpr, PyRefContext, PySetCompExpr, PySetExpr,
         PySliceExpr, PyStarredExpr, PySubscriptExpr, PyTupleExpr, PyUnaryOp, PyUnaryOpExpr,
-        PyYieldExpr,
+        PyYieldExpr, PyYieldFromExpr,
     },
     parser::PyParser,
-    PyToken, PyTokenType,
 };
 
-use super::{parse_expr, PyBindingPower};
-use crate::common::{parse_parenthesized_args, PyArgType};
+use super::{PyBindingPower, parse_expr};
+use crate::common::{PyArgType, parse_parenthesized_args};
 
 fn parse_int(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
     match parser.consume()? {
@@ -578,9 +578,19 @@ pub(super) fn parse_star(parser: &mut PyParser) -> Result<PyExpr, PylentilError>
     }))
 }
 
-pub(super) fn parse_yield(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
+pub(super) fn parse_yield_or_yield_from(parser: &mut PyParser) -> Result<PyExpr, PylentilError> {
     let start = parser.start()?;
     parser.expect_type(vec![PyTokenType::Yield])?;
+
+    if parser.peek()?.kind == PyTokenType::From {
+        parser.consume()?;
+        let expr = parse_expr(parser, PyBindingPower::Default)?;
+
+        return Ok(PyExpr::YieldFrom(PyYieldFromExpr {
+            value: Box::new(expr),
+            span: parser.span_from(start),
+        }));
+    }
 
     let expr = parse_expr(parser, PyBindingPower::Default)?;
 

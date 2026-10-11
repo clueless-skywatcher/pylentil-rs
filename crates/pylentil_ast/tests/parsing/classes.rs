@@ -216,7 +216,7 @@ fn parse_classes_decorated_method() {
         class_def(
             "C",
             vec![PyStatement::FunctionDef(Box::new(PyFunctionDefStmt {
-                name: "f".into(),
+                name: def_name("f"),
                 args: Box::new(PyArguments {
                     args: vec![arg("self")],
                     ..Default::default()

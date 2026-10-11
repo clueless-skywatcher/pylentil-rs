@@ -60,6 +60,15 @@ pub fn name(id: &str) -> PyExpr {
     })
 }
 
+/// A function or class name. The parser records these with an unspecified context.
+pub fn def_name(id: &str) -> PyExpr {
+    PyExpr::Name(PyNameExpr {
+        id: id.to_string(),
+        ctx: PyRefContext::Unspecified,
+        span: NO_SPAN,
+    })
+}
+
 // -------------------------------------------------------------- operators --
 
 pub fn bin_op(left: PyExpr, op: PyBinaryOp, right: PyExpr) -> PyExpr {
@@ -472,7 +481,7 @@ pub fn alias(name: &str, asname: Option<&str>) -> PyAlias {
 /// A plain `def` with no decorators or return annotation.
 pub fn function_def(name: &str, args: PyArguments, body: Vec<PyStatement>) -> PyStatement {
     PyStatement::FunctionDef(Box::new(PyFunctionDefStmt {
-        name: name.to_string(),
+        name: def_name(name),
         args: Box::new(args),
         body: suite(body),
         decorator_list: vec![],
@@ -495,7 +504,7 @@ pub fn class_def_with(
     decorator_list: Vec<PyExpr>,
 ) -> PyStatement {
     PyStatement::ClassDef(Box::new(PyClassDefStmt {
-        name: name.to_string(),
+        name: def_name(name),
         bases,
         keywords: vec![],
         body: suite(body),

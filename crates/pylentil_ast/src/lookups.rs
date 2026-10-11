@@ -9,12 +9,13 @@ use std::sync::LazyLock;
 use pylentil_common::errors::PylentilError;
 
 use crate::{
+    PyTokenType,
     ast::{PyExpr, PyStatement},
     lookups::{
         expr::{
             parse_attribute_access, parse_dict_or_set_or_comprehension, parse_function_call,
             parse_if, parse_list_or_comprehension, parse_star, parse_subscript_access,
-            parse_walrus_tuple_or_expr, parse_yield,
+            parse_walrus_tuple_or_expr, parse_yield_or_yield_from,
         },
         stmt::{
             is_match_statement, is_type_alias_statement, parse_stmt_assert, parse_stmt_async,
@@ -26,7 +27,6 @@ use crate::{
         },
     },
     parser::PyParser,
-    PyTokenType,
 };
 
 use expr::{
@@ -212,7 +212,7 @@ static NUD_LU: LazyLock<PyNUDLookup> = LazyLock::new(|| {
     nud(&mut m, PyTokenType::Star, parse_star);
 
     // Yield
-    nud(&mut m, PyTokenType::Yield, parse_yield);
+    nud(&mut m, PyTokenType::Yield, parse_yield_or_yield_from);
 
     m
 });

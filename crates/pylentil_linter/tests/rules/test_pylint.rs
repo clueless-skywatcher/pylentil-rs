@@ -1,6 +1,7 @@
 use pylentil_linter::rules::pylint::{
-    binary_op_exception::BinaryOpException, self_assigning_variable::SelfAssigningVariable,
-    unreachable::Unreachable, useless_return::UselessReturn, wildcard_import::WildcardImport,
+    bad_dunder_name::BadDunderName, binary_op_exception::BinaryOpException,
+    self_assigning_variable::SelfAssigningVariable, unreachable::Unreachable,
+    useless_return::UselessReturn, wildcard_import::WildcardImport,
 };
 
 use crate::rules::test_rule;
@@ -28,4 +29,9 @@ fn test_wildcard_import() {
 #[test]
 fn test_binary_op_exception() {
     test_rule(&BinaryOpException);
+}
+
+#[test]
+fn test_bad_dunder_name() {
+    test_rule(&BadDunderName);
 }

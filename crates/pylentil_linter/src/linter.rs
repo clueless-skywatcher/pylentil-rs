@@ -10,9 +10,9 @@ use crate::{
     rules::{
         pycodestyle::bare_except::BareExcept,
         pylint::{
-            binary_op_exception::BinaryOpException, self_assigning_variable::SelfAssigningVariable,
-            unreachable::Unreachable, useless_return::UselessReturn,
-            wildcard_import::WildcardImport,
+            bad_dunder_name::BadDunderName, binary_op_exception::BinaryOpException,
+            self_assigning_variable::SelfAssigningVariable, unreachable::Unreachable,
+            useless_return::UselessReturn, wildcard_import::WildcardImport,
         },
     },
     violation::LintViolation,
@@ -103,10 +103,17 @@ impl Pylentil {
     }
 
     fn check_classdef(&self, path: &PathBuf, classdef: &PyStatement) -> Vec<LintViolation> {
-        let PyStatement::ClassDef(classdef) = classdef else {
-            return vec![];
-        };
-        self.check_statement(path, &classdef.body)
+        let mut violations = vec![];
+
+        if self.rule_enabled(&BadDunderName) {
+            violations.append(&mut BadDunderName.check(path, classdef));
+        }
+
+        if let PyStatement::ClassDef(classdef_stmt) = classdef {
+            violations.append(&mut self.check_statement(path, &classdef_stmt.body));
+        }
+
+        violations
     }
 
     fn check_return(&self, _path: &PathBuf, _return_stmt: &PyStatement) -> Vec<LintViolation> {
@@ -344,10 +351,10 @@ impl Pylentil {
                 check_violated.code(),
                 check_violated.message()
             );
-            println!(
-                "    Possible fix: {}",
-                check_violated.possible_fix().unwrap_or("None".to_string())
-            );
+
+            if let Some(possible_fix) = check_violated.possible_fix() {
+                println!("    Possible fix: {}", possible_fix);
+            }
         }
     }
 }

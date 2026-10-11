@@ -25,6 +25,7 @@ impl LintRegistry {
             Arc::new(pylint::self_assigning_variable::SelfAssigningVariable),
             Arc::new(pylint::wildcard_import::WildcardImport),
             Arc::new(pylint::binary_op_exception::BinaryOpException),
+            Arc::new(pylint::bad_dunder_name::BadDunderName),
         ];
 
         let mut registry = HashMap::with_capacity(all.len());

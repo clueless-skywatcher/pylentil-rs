@@ -10,7 +10,7 @@ use super::shared::{
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PyFunctionDefStmt {
-    pub name: String,
+    pub name: PyExpr,
     pub args: Box<PyArguments>,
     pub body: PyStatement,
     pub decorator_list: Vec<PyExpr>,
@@ -23,7 +23,7 @@ pub struct PyFunctionDefStmt {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PyClassDefStmt {
-    pub name: String,
+    pub name: PyExpr,
     pub bases: Vec<PyArgType>,
     pub keywords: Vec<PyKeyword>,
     pub body: PyStatement,
