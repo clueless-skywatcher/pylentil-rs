@@ -1,40 +1,17 @@
-use std::path::Path;
-
 use pylentil_ast::ast::{PyConstant, PyExpr, PyStatement};
+use pylentil_lint_macros::create_pylentil_lint;
 
-use crate::{
-    lint::{Lint, LintCategory, LintSeverity, LintSource},
-    violation::LintViolation,
-};
-
-#[derive(Clone)]
-pub struct UselessReturn;
+create_pylentil_lint! {
+    UselessReturn,
+    "PYL-R1711",
+    pylint,
+    style,
+    nitpick,
+    "Return statement at end of function not returning anything or returning None",
+    "Remove the return statement"
+}
 
 impl Lint for UselessReturn {
-    fn code(&self) -> &'static str {
-        "PYL-R1711"
-    }
-
-    fn category(&self) -> crate::lint::LintCategory {
-        LintCategory::Style
-    }
-
-    fn message(&self) -> String {
-        "Return statement at end of function not returning anything or returning None".to_string()
-    }
-
-    fn severity(&self) -> crate::lint::LintSeverity {
-        LintSeverity::Nitpick
-    }
-
-    fn possible_fix(&self) -> Option<String> {
-        Some("Remove the return statement".to_string())
-    }
-
-    fn source(&self) -> LintSource {
-        LintSource::Pylint
-    }
-
     fn check(&self, path: &Path, stmt: &PyStatement) -> Vec<LintViolation> {
         let mut violations = vec![];
         self.collect(&mut violations, path, stmt);

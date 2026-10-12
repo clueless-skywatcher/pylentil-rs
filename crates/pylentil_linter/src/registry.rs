@@ -19,13 +19,14 @@ impl LintRegistry {
         let all: Vec<Arc<dyn Lint>> = vec![
             // Pycodestyle
             Arc::new(pycodestyle::bare_except::BareExcept),
+            
             // Pylint
-            Arc::new(pylint::useless_return::UselessReturn),
-            Arc::new(pylint::unreachable::Unreachable),
-            Arc::new(pylint::self_assigning_variable::SelfAssigningVariable),
-            Arc::new(pylint::wildcard_import::WildcardImport),
-            Arc::new(pylint::binary_op_exception::BinaryOpException),
             Arc::new(pylint::bad_dunder_name::BadDunderName),
+            Arc::new(pylint::binary_op_exception::BinaryOpException),
+            Arc::new(pylint::self_assigning_variable::SelfAssigningVariable),
+            Arc::new(pylint::unreachable::Unreachable),
+            Arc::new(pylint::useless_return::UselessReturn),
+            Arc::new(pylint::wildcard_import::WildcardImport),
         ];
 
         let mut registry = HashMap::with_capacity(all.len());

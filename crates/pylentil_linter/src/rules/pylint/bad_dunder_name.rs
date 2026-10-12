@@ -1,11 +1,14 @@
-use std::path::Path;
-
 use pylentil_ast::ast::{PyBlockStmt, PyExpr, PyStatement};
+use pylentil_lint_macros::create_pylentil_lint;
 
-use crate::{
-    lint::{Lint, LintCategory, LintSeverity, LintSource},
-    violation::LintViolation,
-};
+create_pylentil_lint! {
+    BadDunderName,
+    "PYL-W3201",
+    pylint,
+    correctness,
+    warning,
+    "Dunder name has been misspelled or is unknown"
+}
 
 const VALID_DUNDER_NAMES: &[&str] = &[
     "__abs__",
@@ -133,30 +136,7 @@ const VALID_DUNDER_NAMES: &[&str] = &[
     "_numeric_repr_",
 ];
 
-#[derive(Debug, Clone)]
-pub struct BadDunderName;
-
 impl Lint for BadDunderName {
-    fn code(&self) -> &'static str {
-        "PYL-W3201"
-    }
-
-    fn category(&self) -> LintCategory {
-        LintCategory::Correctness
-    }
-
-    fn message(&self) -> String {
-        "Dunder name has been misspelled or is unknown".to_string()
-    }
-
-    fn severity(&self) -> LintSeverity {
-        LintSeverity::Warning
-    }
-
-    fn source(&self) -> LintSource {
-        LintSource::Pylint
-    }
-
     fn check(&self, path: &Path, stmt: &PyStatement) -> Vec<LintViolation> {
         let mut violations = vec![];
 

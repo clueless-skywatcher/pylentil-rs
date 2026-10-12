@@ -1,41 +1,18 @@
-use std::path::Path;
-
 use pylentil_ast::ast::{PyExpr, PyStatement};
 use pylentil_common::span::PySpan;
+use pylentil_lint_macros::create_pylentil_lint;
 
-use crate::{
-    lint::{Lint, LintCategory, LintSeverity, LintSource},
-    violation::LintViolation,
-};
-
-#[derive(Debug, Clone)]
-pub struct SelfAssigningVariable;
+create_pylentil_lint! {
+    SelfAssigningVariable,
+    "PYL-W0127",
+    pylint,
+    correctness,
+    warning,
+    "Variable redundantly assigned to itself",
+    "Remove the redundant assignment"
+}
 
 impl Lint for SelfAssigningVariable {
-    fn code(&self) -> &'static str {
-        "PYL-W0127"
-    }
-
-    fn category(&self) -> LintCategory {
-        LintCategory::Correctness
-    }
-
-    fn message(&self) -> String {
-        "Variable redundantly assigned to itself".to_string()
-    }
-
-    fn severity(&self) -> LintSeverity {
-        LintSeverity::Warning
-    }
-
-    fn source(&self) -> LintSource {
-        LintSource::Pylint
-    }
-
-    fn possible_fix(&self) -> Option<String> {
-        Some("Remove the redundant assignment".to_string())
-    }
-
     fn check(&self, path: &Path, stmt: &PyStatement) -> Vec<LintViolation> {
         let mut violations = vec![];
         self.collect(&mut violations, path, stmt);

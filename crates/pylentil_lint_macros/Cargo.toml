@@ -1,0 +1,15 @@
+[package]
+name = "pylentil_lint_macros"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+proc-macro = true
+name = "pylentil_lint_macros"
+path = "src/lib.rs"
+
+[dependencies]
+darling = "0.24.1"
+proc-macro2 = "1.0.107"
+quote = "1.0.47"
+syn = "3.0.8"
