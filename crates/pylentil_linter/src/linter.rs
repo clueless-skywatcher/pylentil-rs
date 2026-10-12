@@ -1,14 +1,20 @@
 use std::{collections::HashSet, fs::File, path::PathBuf, sync::Arc};
 
 use pylentil_ast::{
-    ast::{PyExceptHandler, PyModule, PyStatement},
+    ast::{
+        PyArgType, PyArguments, PyCompareExpr, PyComprehension, PyExceptHandler, PyExpr, PyModule,
+        PyStatement, PyTypeParam, PyWithItem,
+    },
     code::PyCode,
 };
 
 use crate::{
     lint::Lint,
     rules::{
-        pycodestyle::bare_except::BareExcept,
+        pycodestyle::{
+            bare_except::BareExcept, none_comparison::NoneComparison,
+            true_false_comparison::TrueFalseComparison,
+        },
         pylint::{
             bad_dunder_name::BadDunderName, binary_op_exception::BinaryOpException,
             self_assigning_variable::SelfAssigningVariable, unreachable::Unreachable,
@@ -39,7 +45,8 @@ impl Pylentil {
     }
 
     fn check_statement(&self, path: &PathBuf, statement: &PyStatement) -> Vec<LintViolation> {
-        match statement {
+        let mut violations = self.walk_statement_exprs(path, statement);
+        violations.append(&mut match statement {
             PyStatement::FunctionDef(_) => self.check_funcdef(path, statement),
             PyStatement::ClassDef(_) => self.check_classdef(path, statement),
             PyStatement::Return(_) => self.check_return(path, statement),
@@ -68,7 +75,8 @@ impl Pylentil {
             PyStatement::Break(_) => self.check_break(path, statement),
             PyStatement::Continue(_) => self.check_continue(path, statement),
             PyStatement::Block(_) => self.check_block(path, statement),
-        }
+        });
+        violations
     }
 
     fn check_block(&self, path: &PathBuf, statement: &PyStatement) -> Vec<LintViolation> {
@@ -331,6 +339,216 @@ impl Pylentil {
         violations
     }
 
+    fn check_compare(&self, path: &PathBuf, expr: &PyExpr) -> Vec<LintViolation> {
+        let mut violations = vec![];
+
+        if !matches!(expr, PyExpr::Compare(_)) {
+            return violations;
+        }
+
+        if self.rule_enabled(&NoneComparison) {
+            violations.extend(NoneComparison.check_expr(path, expr));
+        }
+
+        if self.rule_enabled(&TrueFalseComparison) {
+            violations.extend(TrueFalseComparison.check_expr(path, expr));
+        }
+
+        violations
+    }
+
+    fn walk_statement_exprs(&self, path: &PathBuf, statement: &PyStatement) -> Vec<LintViolation> {
+        match statement {
+            PyStatement::FunctionDef(stmt) => {
+                let mut violations = self.walk_expr(path, &stmt.name);
+                violations.extend(self.walk_exprs(path, &stmt.decorator_list));
+                violations.extend(self.walk_optional(path, &stmt.returns));
+                violations.extend(self.walk_arguments(path, &stmt.args));
+                violations.extend(self.walk_type_params(path, &stmt.type_params));
+                violations
+            }
+            PyStatement::ClassDef(stmt) => {
+                let mut violations = self.walk_expr(path, &stmt.name);
+                violations.extend(self.walk_exprs(path, &stmt.decorator_list));
+                violations.extend(self.walk_arg_types(path, &stmt.bases));
+                for keyword in &stmt.keywords {
+                    violations.extend(self.walk_expr(path, &keyword.value));
+                }
+                violations.extend(self.walk_type_params(path, &stmt.type_params));
+                violations
+            }
+            PyStatement::Return(stmt) => self.walk_optional(path, &stmt.value),
+            PyStatement::Delete(stmt) => self.walk_exprs(path, &stmt.targets),
+            PyStatement::Assign(stmt) => {
+                let mut violations = self.walk_exprs(path, &stmt.targets);
+                violations.extend(self.walk_expr(path, &stmt.value));
+                violations
+            }
+            PyStatement::TypeAlias(stmt) => {
+                let mut violations = self.walk_expr(path, &stmt.name);
+                violations.extend(self.walk_expr(path, &stmt.value));
+                violations.extend(self.walk_type_params(path, &stmt.type_params));
+                violations
+            }
+            PyStatement::AugAssign(stmt) => {
+                let mut violations = self.walk_expr(path, &stmt.target);
+                violations.extend(self.walk_expr(path, &stmt.value));
+                violations
+            }
+            PyStatement::AnnAssign(stmt) => {
+                let mut violations = self.walk_expr(path, &stmt.target);
+                violations.extend(self.walk_expr(path, &stmt.annotation));
+                violations.extend(self.walk_optional(path, &stmt.value));
+                violations
+            }
+            PyStatement::For(stmt) => {
+                let mut violations = self.walk_expr(path, &stmt.target);
+                violations.extend(self.walk_expr(path, &stmt.iter));
+                violations
+            }
+            PyStatement::AsyncFor(stmt) => {
+                let mut violations = self.walk_expr(path, &stmt.target);
+                violations.extend(self.walk_expr(path, &stmt.iter));
+                violations
+            }
+            PyStatement::While(stmt) => self.walk_expr(path, &stmt.test),
+            PyStatement::If(stmt) => self.walk_expr(path, &stmt.test),
+            PyStatement::With(stmt) => self.walk_with_items(path, &stmt.items),
+            PyStatement::AsyncWith(stmt) => self.walk_with_items(path, &stmt.items),
+            PyStatement::Match(stmt) => {
+                let mut violations = self.walk_expr(path, &stmt.subject);
+                for case in &stmt.cases {
+                    violations.extend(self.walk_optional(path, &case.guard));
+                }
+                violations
+            }
+            PyStatement::Raise(stmt) => {
+                let mut violations = self.walk_optional(path, &stmt.exc);
+                violations.extend(self.walk_optional(path, &stmt.cause));
+                violations
+            }
+            PyStatement::Try(stmt) => self.walk_handlers(path, &stmt.handlers),
+            PyStatement::TryStar(stmt) => self.walk_handlers(path, &stmt.handlers),
+            PyStatement::Assert(stmt) => {
+                let mut violations = self.walk_expr(path, &stmt.test);
+                violations.extend(self.walk_optional(path, &stmt.msg));
+                violations
+            }
+            PyStatement::Expr(stmt) => self.walk_expr(path, &stmt.value),
+            PyStatement::Import(_)
+            | PyStatement::ImportFrom(_)
+            | PyStatement::Global(_)
+            | PyStatement::Nonlocal(_)
+            | PyStatement::Pass(_)
+            | PyStatement::Break(_)
+            | PyStatement::Continue(_)
+            | PyStatement::Block(_) => vec![],
+        }
+    }
+
+    fn walk_expr(&self, path: &PathBuf, expr: &PyExpr) -> Vec<LintViolation> {
+        let mut violations = match expr {
+            PyExpr::Compare(_) => self.check_compare(path, expr),
+            PyExpr::Lambda(expr) => self.walk_arguments(path, &expr.args),
+            _ => vec![],
+        };
+
+        for child in child_exprs(expr) {
+            violations.extend(self.walk_expr(path, child));
+        }
+
+        violations
+    }
+
+    fn walk_exprs(&self, path: &PathBuf, exprs: &[PyExpr]) -> Vec<LintViolation> {
+        exprs
+            .iter()
+            .flat_map(|expr| self.walk_expr(path, expr))
+            .collect()
+    }
+
+    fn walk_optional(&self, path: &PathBuf, expr: &Option<Box<PyExpr>>) -> Vec<LintViolation> {
+        expr.as_ref()
+            .map(|expr| self.walk_expr(path, expr))
+            .unwrap_or_default()
+    }
+
+    fn walk_arguments(&self, path: &PathBuf, args: &PyArguments) -> Vec<LintViolation> {
+        let mut violations = vec![];
+        let params = args
+            .posonlyargs
+            .iter()
+            .chain(&args.args)
+            .chain(&args.kwonlyargs)
+            .chain(args.vararg.as_ref())
+            .chain(args.kwarg.as_ref());
+
+        for param in params {
+            violations.extend(self.walk_expr(path, &param.arg));
+            violations.extend(self.walk_optional(path, &param.annotation));
+        }
+
+        for default in args.defaults.iter().chain(&args.kw_defaults) {
+            if let Some(default) = default {
+                violations.extend(self.walk_expr(path, default));
+            }
+        }
+
+        violations
+    }
+
+    fn walk_arg_types(&self, path: &PathBuf, args: &[PyArgType]) -> Vec<LintViolation> {
+        let mut violations = vec![];
+        for arg in args {
+            match arg {
+                PyArgType::Arg(arg) => {
+                    violations.extend(self.walk_expr(path, &arg.arg));
+                    violations.extend(self.walk_optional(path, &arg.annotation));
+                }
+                PyArgType::Keyword {
+                    keyword,
+                    annotation,
+                    ..
+                } => {
+                    violations.extend(self.walk_expr(path, &keyword.value));
+                    violations.extend(self.walk_optional(path, annotation));
+                }
+                PyArgType::PosOnlyMarker | PyArgType::KeywordOnlyMarker => {}
+            }
+        }
+        violations
+    }
+
+    fn walk_type_params(&self, path: &PathBuf, params: &[PyTypeParam]) -> Vec<LintViolation> {
+        let mut violations = vec![];
+        for param in params {
+            if let PyTypeParam::TypeVar {
+                bound: Some(bound), ..
+            } = param
+            {
+                violations.extend(self.walk_expr(path, bound));
+            }
+        }
+        violations
+    }
+
+    fn walk_with_items(&self, path: &PathBuf, items: &[PyWithItem]) -> Vec<LintViolation> {
+        let mut violations = vec![];
+        for item in items {
+            violations.extend(self.walk_expr(path, &item.context_expr));
+            violations.extend(self.walk_optional(path, &item.optional_vars));
+        }
+        violations
+    }
+
+    fn walk_handlers(&self, path: &PathBuf, handlers: &[PyExceptHandler]) -> Vec<LintViolation> {
+        let mut violations = vec![];
+        for handler in handlers {
+            violations.extend(self.walk_optional(path, &handler.type_));
+        }
+        violations
+    }
+
     pub fn get_violation_report(&self, code: &PyCode) {
         println!("--------------------------------------------------------------------");
         println!("{:^68}", code.metadata.path.display());
@@ -357,4 +575,62 @@ impl Pylentil {
             }
         }
     }
+}
+
+fn child_exprs(expr: &PyExpr) -> Vec<&PyExpr> {
+    match expr {
+        PyExpr::BoolOp(expr) => expr.values.iter().collect(),
+        PyExpr::NamedExpr(expr) => vec![&expr.target, &expr.value],
+        PyExpr::BinOp(expr) => vec![&expr.left, &expr.right],
+        PyExpr::UnaryOp(expr) => vec![&expr.operand],
+        PyExpr::Lambda(expr) => vec![&expr.body],
+        PyExpr::IfExp(expr) => vec![&expr.test, &expr.body, &expr.orelse],
+        PyExpr::Dict(expr) => expr.keys.iter().flatten().chain(&expr.values).collect(),
+        PyExpr::Set(expr) => expr.elts.iter().collect(),
+        PyExpr::ListComp(expr) => comprehension_exprs(&expr.elt, &expr.generators),
+        PyExpr::SetComp(expr) => comprehension_exprs(&expr.elt, &expr.generators),
+        PyExpr::DictComp(expr) => {
+            let mut exprs = comprehension_exprs(&expr.key, &expr.generators);
+            exprs.push(&expr.value);
+            exprs
+        }
+        PyExpr::GeneratorExp(expr) => comprehension_exprs(&expr.elt, &expr.generators),
+        PyExpr::Await(expr) => vec![&expr.value],
+        PyExpr::Yield(expr) => expr.value.as_deref().into_iter().collect(),
+        PyExpr::YieldFrom(expr) => vec![&expr.value],
+        PyExpr::Compare(expr) => std::iter::once(expr.left.as_ref())
+            .chain(&expr.comparators)
+            .collect(),
+        PyExpr::Call(expr) => std::iter::once(expr.func.as_ref())
+            .chain(expr.args.iter().map(|arg| arg.as_ref()))
+            .chain(expr.keywords.iter().map(|keyword| keyword.value.as_ref()))
+            .collect(),
+        PyExpr::FormattedValue(expr) => std::iter::once(expr.value.as_ref())
+            .chain(expr.format_spec.as_deref())
+            .collect(),
+        PyExpr::JoinedStr(expr) => expr.values.iter().collect(),
+        PyExpr::Attribute(expr) => vec![&expr.value],
+        PyExpr::Subscript(expr) => vec![&expr.value, &expr.slice],
+        PyExpr::Starred(expr) => vec![&expr.value],
+        PyExpr::List(expr) => expr.elts.iter().collect(),
+        PyExpr::Tuple(expr) => expr.elts.iter().collect(),
+        PyExpr::Slice(expr) => expr
+            .lower
+            .as_deref()
+            .into_iter()
+            .chain(expr.upper.as_deref())
+            .chain(expr.step.as_deref())
+            .collect(),
+        PyExpr::Constant(_) | PyExpr::Name(_) => vec![],
+    }
+}
+
+fn comprehension_exprs<'a>(elt: &'a PyExpr, generators: &'a [PyComprehension]) -> Vec<&'a PyExpr> {
+    let mut exprs = vec![elt];
+    for generator in generators {
+        exprs.push(&generator.target);
+        exprs.push(&generator.iter);
+        exprs.extend(&generator.ifs);
+    }
+    exprs
 }

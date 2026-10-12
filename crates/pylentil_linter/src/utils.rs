@@ -1,4 +1,6 @@
-use pylentil_ast::ast::{PyArgType, PyClassDefStmt, PyExpr, PyNameExpr, PyStatement};
+use pylentil_ast::ast::{
+    PyArgType, PyClassDefStmt, PyConstant, PyConstantExpr, PyExpr, PyNameExpr, PyStatement,
+};
 
 pub fn classdef_bases(classdef: PyClassDefStmt) -> Vec<String> {
     let PyClassDefStmt { bases, .. } = classdef;
@@ -16,8 +18,6 @@ pub fn classdef_bases(classdef: PyClassDefStmt) -> Vec<String> {
         .collect()
 }
 
-
-
 pub fn is_terminator(stmt: &PyStatement) -> bool {
     matches!(
         stmt,
@@ -25,5 +25,35 @@ pub fn is_terminator(stmt: &PyStatement) -> bool {
             | PyStatement::Return(_)
             | PyStatement::Continue(_)
             | PyStatement::Break(_)
+    )
+}
+
+pub fn is_none(expr: &PyExpr) -> bool {
+    matches!(
+        expr,
+        PyExpr::Constant(PyConstantExpr {
+            value: PyConstant::None,
+            ..
+        })
+    )
+}
+
+pub fn is_true(expr: &PyExpr) -> bool {
+    matches!(
+        expr,
+        PyExpr::Constant(PyConstantExpr {
+            value: PyConstant::Boolean(true),
+            ..
+        })
+    )
+}
+
+pub fn is_false(expr: &PyExpr) -> bool {
+    matches!(
+        expr,
+        PyExpr::Constant(PyConstantExpr {
+            value: PyConstant::Boolean(false),
+            ..
+        })
     )
 }

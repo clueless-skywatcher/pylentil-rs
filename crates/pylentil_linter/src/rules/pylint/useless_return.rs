@@ -1,4 +1,4 @@
-use pylentil_ast::ast::{PyConstant, PyExpr, PyStatement};
+use pylentil_ast::ast::PyConstant;
 use pylentil_lint_macros::create_pylentil_lint;
 
 create_pylentil_lint! {

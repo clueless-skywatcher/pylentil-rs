@@ -1,4 +1,3 @@
-use pylentil_ast::ast::PyStatement;
 use pylentil_lint_macros::create_pylentil_lint;
 
 create_pylentil_lint! {

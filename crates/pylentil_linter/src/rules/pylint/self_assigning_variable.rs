@@ -1,4 +1,3 @@
-use pylentil_ast::ast::{PyExpr, PyStatement};
 use pylentil_common::span::PySpan;
 use pylentil_lint_macros::create_pylentil_lint;
 

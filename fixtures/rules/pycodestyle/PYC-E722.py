@@ -1,21 +1,21 @@
 # case: bare_except
 try:
     x
-except: # !
+except: # ! (1, 5:6)
     y
 
 # case: bare_except_in_function
 def a():
     try:
         x
-    except: # !
+    except: # ! (5, 12:10)
         y
 
 # case: bare_except_in_if_statement
 if a == 2:
     try:
         x
-    except: # !
+    except: # ! (5, 19:10)
         y
 
 # case: bare_except_in_elif
@@ -24,7 +24,7 @@ if a == 1:
 elif a == 2:
     try:
         x
-    except: # !
+    except: # ! (5, 28:10)
         y
 
 # case: bare_except_in_else
@@ -33,7 +33,7 @@ if a == 1:
 else:
     try:
         x
-    except: # !
+    except: # ! (5, 37:10)
         y
 
 # case: bare_except_after_typed_handler
@@ -41,7 +41,7 @@ try:
     x
 except ValueError:
     y
-except: # !
+except: # ! (1, 45:6)
     z
 
 # case: bare_except_after_multiple_typed_handlers
@@ -51,13 +51,13 @@ except ValueError:
     y
 except KeyError as e:
     y
-except: # !
+except: # ! (1, 55:6)
     z
 
 # case: bare_except_with_else
 try:
     x
-except: # !
+except: # ! (1, 61:6)
     y
 else:
     z
@@ -65,7 +65,7 @@ else:
 # case: bare_except_with_finally
 try:
     x
-except: # !
+except: # ! (1, 69:6)
     y
 finally:
     z
@@ -73,7 +73,7 @@ finally:
 # case: bare_except_with_else_and_finally
 try:
     x
-except: # !
+except: # ! (1, 77:6)
     y
 else:
     z
@@ -84,7 +84,7 @@ finally:
 try:
     try:
         x
-    except: # !
+    except: # ! (5, 88:10)
         y
 except ValueError:
     z
@@ -92,10 +92,10 @@ except ValueError:
 # case: nested_bare_except_in_handler
 try:
     x
-except: # !
+except: # ! (1, 99:10)
     try:
         y
-    except: # !
+    except: # ! (5, 99:10)
         z
 
 # case: nested_bare_except_in_else
@@ -106,7 +106,7 @@ except ValueError:
 else:
     try:
         z
-    except: # !
+    except: # ! (5, 110:10)
         w
 
 # case: nested_bare_except_in_finally
@@ -115,7 +115,7 @@ try:
 finally:
     try:
         y
-    except: # !
+    except: # ! (5, 119:10)
         z
 
 # case: bare_except_in_nested_function
@@ -123,18 +123,18 @@ def outer():
     def inner():
         try:
             x
-        except: # !
+        except: # ! (9, 127:14)
             y
     return inner
 
 # case: consecutive_try_statements
 try:
     x
-except: # !
+except: # ! (1, 134:6)
     y
 try:
     z
-except: # !
+except: # ! (1, 138:6)
     w
 
 # case: typed_except_not_flagged

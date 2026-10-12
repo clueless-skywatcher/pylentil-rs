@@ -1,39 +1,39 @@
 # case: two_statements
 def a():
     a = 2
-    return  # !
+    return  # ! (5, 11)
 
 # case: three_statements
 def x():
     a = 2
     b = a + 1
-    return  # !
+    return  # ! (5, 11)
 
 # case: returning_none
 def a():
     a = 1
-    return None  # !
+    return None  # ! (5, 16)
 
 # case: with_arguments
 def f(a, b):
     c = a + b
-    return  # !
+    return  # ! (5, 11)
 
 # case: with_default_argument
 def f(a=1):
     b = a
-    return None  # !
+    return None  # ! (5, 16)
 
 # case: with_annotations
 def f(a: int):
     b = a
-    return None  # !
+    return None  # ! (5, 16)
 
 # case: after_if_statement
 def f(a):
     if a:
         b = 1
-    return  # !
+    return  # ! (5, 11)
 
 # case: after_if_else_statement
 def f(a):
@@ -41,7 +41,7 @@ def f(a):
         b = 1
     else:
         b = 2
-    return None  # !
+    return None  # ! (5, 16)
 
 # case: after_try_statement
 def f():
@@ -49,33 +49,33 @@ def f():
         x
     except ValueError:
         y
-    return  # !
+    return  # ! (5, 11)
 
 # case: after_call
 def f():
     print(1)
-    return  # !
+    return  # ! (5, 11)
 
 # case: nested_function
 def outer():
     def inner():
         a = 1
-        return  # !
+        return  # ! (9, 15)
     return inner
 
 # case: outer_and_nested_function
 def outer():
     def inner():
         a = 1
-        return None  # !
+        return None  # ! (9, 20)
     b = inner
-    return  # !
+    return  # ! (5, 11)
 
 # case: function_in_if_statement
 if a:
     def f():
         b = 1
-        return  # !
+        return  # ! (9, 15)
 
 # case: function_in_else
 if a:
@@ -83,13 +83,13 @@ if a:
 else:
     def f():
         b = 1
-        return None  # !
+        return None  # ! (9, 20)
 
 # case: function_in_try
 try:
     def f():
         b = 1
-        return  # !
+        return  # ! (9, 15)
 except ValueError:
     pass
 
@@ -99,7 +99,7 @@ try:
 except ValueError:
     def f():
         b = 1
-        return  # !
+        return  # ! (9, 15)
 
 # case: only_return_not_flagged
 def f():

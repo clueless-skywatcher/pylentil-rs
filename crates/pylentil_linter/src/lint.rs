@@ -3,7 +3,7 @@ use std::{
     path::Path,
 };
 
-use pylentil_ast::ast::PyStatement;
+use pylentil_ast::ast::{PyExpr, PyStatement};
 use pylentil_common::span::PySpan;
 
 use crate::violation::LintViolation;
@@ -86,7 +86,13 @@ impl<T: LintMeta> LintRuleDetails for T {
 }
 
 pub trait Lint: LintRuleDetails + Send + Sync {
-    fn check(&self, path: &Path, stmt: &PyStatement) -> Vec<LintViolation>;
+    fn check(&self, _path: &Path, _stmt: &PyStatement) -> Vec<LintViolation> {
+        vec![]
+    }
+
+    fn check_expr(&self, _path: &Path, _expr: &PyExpr) -> Vec<LintViolation> {
+        vec![]
+    }
 
     fn report(&self, violations: &mut Vec<LintViolation>, path: &Path, span: &PySpan)
     where

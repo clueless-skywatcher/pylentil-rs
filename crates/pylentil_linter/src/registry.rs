@@ -19,7 +19,8 @@ impl LintRegistry {
         let all: Vec<Arc<dyn Lint>> = vec![
             // Pycodestyle
             Arc::new(pycodestyle::bare_except::BareExcept),
-            
+            Arc::new(pycodestyle::none_comparison::NoneComparison),
+            Arc::new(pycodestyle::true_false_comparison::TrueFalseComparison),
             // Pylint
             Arc::new(pylint::bad_dunder_name::BadDunderName),
             Arc::new(pylint::binary_op_exception::BinaryOpException),

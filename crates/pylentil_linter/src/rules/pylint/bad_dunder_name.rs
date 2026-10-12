@@ -1,4 +1,4 @@
-use pylentil_ast::ast::{PyBlockStmt, PyExpr, PyStatement};
+use pylentil_ast::ast::PyBlockStmt;
 use pylentil_lint_macros::create_pylentil_lint;
 
 create_pylentil_lint! {

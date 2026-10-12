@@ -93,6 +93,7 @@ pub fn create_pylentil_lint_impl(input: PyLintDetails) -> TokenStream2 {
             lint::{Lint, LintCategory, LintMeta, LintSeverity, LintSource},
             violation::LintViolation,
         };
+        use pylentil_ast::ast::{PyStatement, PyExpr};
 
         #[derive(Debug, Clone)]
         pub struct #name; 
